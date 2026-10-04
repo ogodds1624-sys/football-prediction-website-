@@ -10,7 +10,7 @@
   <main class="admin-page">
     <section class="admin-card" aria-labelledby="account-title">
       <h1 id="account-title">Sign in</h1>
-      <p id="account-subtitle">Sign in to buy VIP and VVIP plans.</p>
+      <p id="account-subtitle">Sign in to get full access to our predictions.</p>
 
       <div class="match-days account-tabs" role="group" aria-label="Account">
         <button type="button" class="day-button" id="tab-login" aria-pressed="true">Sign in</button>
@@ -24,13 +24,15 @@
             <input type="text" id="name" placeholder="Full name" autocomplete="name" maxlength="60">
           </div>
         </div>
-        <label for="email" class="visually-hidden">Email</label>
-        <div class="passcode-field">
-          <input type="email" id="email" placeholder="Email" autocomplete="email" required>
-        </div>
-        <label for="password" class="visually-hidden">Password</label>
-        <div class="passcode-field">
-          <input type="password" id="password" placeholder="Password" autocomplete="current-password" minlength="8" required>
+        <div class="admin-form-fields" id="login-fields">
+          <label for="email" class="visually-hidden">Email</label>
+          <div class="passcode-field">
+            <input type="email" id="email" placeholder="Email" autocomplete="email" required>
+          </div>
+          <label for="password" class="visually-hidden">Password</label>
+          <div class="passcode-field">
+            <input type="password" id="password" placeholder="Password" autocomplete="current-password" minlength="8" required>
+          </div>
         </div>
         <p class="admin-error" id="account-error" role="alert"></p>
         <button type="submit" class="admin-submit" id="account-submit">SIGN IN</button>

@@ -72,6 +72,15 @@ async function bookingCodeFor(date) {
 
 const findUserByEmail = (email) => one("SELECT * FROM users WHERE email = ?", [email]);
 
+// The name shown in the header: 2-60 characters, spaces tidied.
+function readName(body) {
+  const name = String(body?.name || "").trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 60) {
+    throw new HttpError(400, "Enter your name.");
+  }
+  return name;
+}
+
 function webhookHandler(providerName) {
   return async (req, res) => {
     const provider = getProvider(providerName);
@@ -157,10 +166,7 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    const name = String(req.body?.name || "").trim().replace(/\s+/g, " ");
-    if (name.length < 2 || name.length > 60) {
-      throw new HttpError(400, "Enter your name.");
-    }
+    const name = readName(req.body);
     if (!EMAIL_PATTERN.test(email) || email.length > 200) {
       throw new HttpError(400, "Enter a valid email address.");
     }
@@ -196,6 +202,15 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.get("/api/me", (req, res) => {
     res.json({ user: req.user ? publicUser(req.user) : null });
+  });
+
+  // Accounts made before sign-up asked for a name add one here.
+  app.post("/api/me/name", requireUser, async (req, res) => {
+    const user = await one(
+      "UPDATE users SET name = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at",
+      [readName(req.body), req.user.id],
+    );
+    res.json({ user: publicUser(user) });
   });
 
   /* ---------- Booking codes ---------- */

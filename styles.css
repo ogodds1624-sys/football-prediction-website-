@@ -813,6 +813,17 @@ button {
   margin-top: 1.75rem;
 }
 
+/* Email + password, grouped so they can be hidden while an older account adds a name */
+.admin-form-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-form-fields[hidden],
+.account-tabs[hidden] {
+  display: none;
+}
+
 .passcode-field {
   position: relative;
 }

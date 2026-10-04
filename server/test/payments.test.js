@@ -137,6 +137,19 @@ describe("accounts", () => {
     assert.equal(result.status, 400);
   });
 
+  test("a signed-in member can set their name", async () => {
+    const { cookie } = await newUser();
+    const anonymous = await api("/api/me/name", { method: "POST", body: { name: "Ama Owusu" } });
+    assert.equal(anonymous.status, 401);
+    const blank = await api("/api/me/name", { method: "POST", cookie, body: { name: "" } });
+    assert.equal(blank.status, 400);
+    const saved = await api("/api/me/name", { method: "POST", cookie, body: { name: "  Ama   Owusu " } });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.user.name, "Ama Owusu");
+    const me = await api("/api/me", { cookie });
+    assert.equal(me.data.user.name, "Ama Owusu");
+  });
+
   test("wrong password and tampered cookie are rejected", async () => {
     const { cookie, user } = await newUser();
     const login = await api("/api/auth/login", { method: "POST", body: { email: user.email, password: "nope-nope-nope" } });
