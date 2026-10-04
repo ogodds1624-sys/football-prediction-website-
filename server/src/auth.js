@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { config } from "./config.js";
-import { one } from "./db.js";
+import { execute, one } from "./db.js";
 
 const scrypt = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
@@ -30,7 +30,7 @@ export async function verifyPassword(password, stored) {
 }
 
 export function findUserById(userId) {
-  return one("SELECT id, email, name, plan, plan_expires_at FROM users WHERE id = ?", [userId]);
+  return one("SELECT id, email, name, plan, plan_expires_at, last_seen_at FROM users WHERE id = ?", [userId]);
 }
 
 export function publicUser(user) {
@@ -88,10 +88,25 @@ function sessionUserId(req) {
   return Number(userId);
 }
 
-// Attaches req.user (or null) to every request.
+// Last visits are written at most this often per member, so browsing stays cheap.
+const SEEN_EVERY_MS = 10 * 60 * 1000;
+
+export async function markSeen(user) {
+  const now = new Date();
+  if (user.last_seen_at && now - new Date(user.last_seen_at) < SEEN_EVERY_MS) {
+    return;
+  }
+  user.last_seen_at = now.toISOString();
+  await execute("UPDATE users SET last_seen_at = ? WHERE id = ?", [user.last_seen_at, user.id]);
+}
+
+// Attaches req.user (or null) to every request, and notes the member's visit.
 export async function loadUser(req, res, next) {
   const userId = sessionUserId(req);
   req.user = userId ? await findUserById(userId) : null;
+  if (req.user) {
+    await markSeen(req.user);
+  }
   next();
 }
 

@@ -29,15 +29,21 @@
     <p class="app-nav-brand">OG <span>Control</span></p>
     <a class="app-nav-link" href="#today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg><span>Today</span></a>
     <a class="app-nav-link" href="#matches"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7l3.5 2.5-1.3 4h-4.4l-1.3-4z"/></svg><span>Matches</span></a>
-    <a class="app-nav-link" href="#members"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg><span>Members</span></a>
     <a class="app-nav-link" href="#reviews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>Reviews</span></a>
+    <a class="app-nav-link" href="#members"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg><span>Members</span></a>
     <a class="app-nav-link" href="#gateway"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span>Gateway</span></a>
   </nav>
   <main class="control-main">
     <div class="control-bar">
-      <h1 class="control-title">Control <span>Room</span></h1>
+      <div class="control-brand">
+        <span class="control-logo" aria-hidden="true">OG</span>
+        <div class="control-brand-text">
+          <h1 class="control-title">Control <span>Room</span></h1>
+          <p class="control-tagline"><span class="live-dot" aria-hidden="true"></span>Admin dashboard</p>
+        </div>
+      </div>
       <div class="control-actions">
-        <a class="back-button control-back control-small" href="index.html" target="_blank" rel="noopener"><span class="back-arrow" aria-hidden="true">←</span> View site</a>
+        <a class="back-button control-back control-small" href="index.html" target="_blank" rel="noopener"><span class="back-arrow" aria-hidden="true">←</span> <span class="control-back-text">View site</span></a>
         <button type="button" class="control-sign-out control-small" id="control-sign-out">Sign out</button>
       </div>
     </div>
@@ -65,7 +71,16 @@
     </div>
 
     <section class="control-section" aria-labelledby="booking-title">
-      <h2 id="booking-title">SportyBet booking code (free predictions)</h2>
+      <h2 id="booking-title" class="booking-heading">
+        <span class="booking-heading-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/>
+            <path d="M14 6v12" stroke-dasharray="2 2.2"/>
+          </svg>
+        </span>
+        <span class="booking-heading-text">SportyBet <span>booking code</span></span>
+        <span class="booking-heading-tag">Free predictions</span>
+      </h2>
       <form class="match-form" id="booking-form" novalidate>
         <label>Booking code for the selected day
           <input id="b-code" maxlength="20" autocomplete="off" placeholder="e.g. BC7K9Q" class="booking-input">
@@ -92,26 +107,35 @@
         <p class="stat-label">VVIP matches</p>
         <p class="stat-value" id="stat-vvip">0</p>
       </div>
-      <div class="stat">
-        <p class="stat-label">Win rate (all time)</p>
-        <p class="stat-value" id="stat-rate">–</p>
-      </div>
     </section>
 
     <section class="control-section app-anchor" id="matches" aria-labelledby="form-title">
       <h2 id="form-title">Add match</h2>
       <form class="add-form" id="match-form" novalidate>
-        <div class="tier-pick">
-          <label>Step 1 · Table
-            <select id="f-tier">
-              <option value="" selected disabled>Choose a table…</option>
-              <option value="free">Free</option>
-              <option value="vip">VIP</option>
-              <option value="vvip">VVIP</option>
-              <option value="recovery">Recovery (bonus tips)</option>
-            </select>
-          </label>
-          <p class="form-hint" id="tier-hint">Choose a table first to unlock the rest of the form.</p>
+        <!-- Table choice with the SportyBet screenshot upload right beside it -->
+        <div class="add-top">
+          <div class="tier-pick">
+            <label>Upload screenshot from SportyBet here
+              <select id="f-tier">
+                <option value="" selected disabled>Choose a table…</option>
+                <option value="free">Free</option>
+                <option value="vip">VIP</option>
+                <option value="vvip">VVIP</option>
+                <option value="recovery">Recovery (bonus tips)</option>
+              </select>
+            </label>
+            <p class="form-hint" id="tier-hint">Choose a table first to unlock the rest of the form.</p>
+          </div>
+          <div class="image-field">
+            <label><span id="image-label">SportyBet slip screenshot (reads the matches for you)</span>
+              <input id="f-image" type="file" accept="image/*">
+            </label>
+            <p class="form-hint" id="slip-status" role="status"></p>
+            <div class="image-preview" id="image-preview" hidden>
+              <img id="image-preview-img" alt="Selected picture">
+              <button type="button" class="row-action danger" id="image-remove">Remove picture</button>
+            </div>
+          </div>
         </div>
 
         <fieldset class="match-fields" id="match-fields" disabled>
@@ -130,17 +154,6 @@
             <label>Odds
               <input id="f-odds" type="number" step="0.01" min="1" placeholder="e.g. 1.85">
             </label>
-          </div>
-
-          <div class="image-field">
-            <label><span id="image-label">SportyBet slip screenshot (reads the matches for you)</span>
-              <input id="f-image" type="file" accept="image/*">
-            </label>
-            <p class="form-hint" id="slip-status" role="status"></p>
-            <div class="image-preview" id="image-preview" hidden>
-              <img id="image-preview-img" alt="Selected picture">
-              <button type="button" class="row-action danger" id="image-remove">Remove picture</button>
-            </div>
           </div>
 
           <div class="slip-results" id="slip-results" hidden>
@@ -175,31 +188,6 @@
     </section>
 
     <div id="tier-sections"></div>
-
-    <section class="control-section app-anchor" id="members" aria-labelledby="members-title">
-      <h2 id="members-title">Members</h2>
-      <p class="form-hint">When a member pays you (e.g. by MoMo), activate their plan with the email they registered with. It unlocks their tips for that day and makes their ticket eligible for a recovery ticket if it loses. Plans renew daily.</p>
-      <form class="match-form" id="member-form" novalidate>
-        <label>Member's account email
-          <input id="m-email" type="email" maxlength="200" autocomplete="off" placeholder="member@example.com">
-        </label>
-        <label>Plan bought
-          <select id="m-plan">
-            <option value="vip">VIP</option>
-            <option value="vvip">VVIP</option>
-          </select>
-        </label>
-        <label>Paid for (day)
-          <input id="m-date" type="date">
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Activate plan</button>
-        </div>
-      </form>
-      <p class="form-message" id="member-message" role="status"></p>
-      <h3 class="subsection-title">Recent purchases</h3>
-      <div id="member-list"></div>
-    </section>
 
     <section class="control-section app-anchor" id="reviews" aria-labelledby="testimonials-admin-title">
       <div class="tier-heading">
@@ -248,6 +236,13 @@
       <p class="form-message" id="testimonial-message-status" role="status"></p>
       <h3 class="subsection-title">Shown on the website</h3>
       <div id="testimonial-list"></div>
+    </section>
+
+    <section class="control-section app-anchor" id="members" aria-labelledby="members-title">
+      <h2 id="members-title">Members</h2>
+      <p class="form-hint">Everyone who has created an account, most recent visit first.</p>
+      <p class="form-message" id="member-message" role="status"></p>
+      <div id="member-list"></div>
     </section>
 
     <section class="control-section app-anchor" id="gateway" aria-labelledby="payments-title">

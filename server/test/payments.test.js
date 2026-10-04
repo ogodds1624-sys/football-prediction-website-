@@ -336,6 +336,27 @@ describe("static files", () => {
   });
 });
 
+describe("members list", () => {
+  test("lists accounts with name, plan and last visit, for the admin only", async () => {
+    const { cookie, user } = await newUser();
+    await api("/api/me", { cookie });
+
+    const refused = await api("/api/admin/members", { cookie });
+    assert.equal(refused.status, 401);
+
+    const login = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    const admin = login.headers.get("set-cookie").split(";")[0];
+    const { data } = await api("/api/admin/members", { cookie: admin });
+    assert.ok(data.totals.users >= 1);
+    const member = data.members.find((entry) => entry.email === user.email);
+    assert.equal(member.name, "Kwame Mensah");
+    assert.equal(member.plan, "free");
+    assert.ok(member.joinedAt);
+    assert.ok(member.lastSeenAt, "visiting the site records a last visit");
+    assert.equal(data.members[0].email, user.email, "most recent visitor comes first");
+  });
+});
+
 describe("booking codes", () => {
   async function adminCookie() {
     const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
@@ -603,9 +624,6 @@ describe("predictions", () => {
     const updated = after.data.matches.find((match) => match.tier === "free");
     assert.equal(updated.tip, "Over 2.5");
     assert.equal(updated.result, "won");
-
-    const stats = await api(`/api/admin/matches?date=${DATE}`, { cookie: admin });
-    assert.ok(stats.data.stats.won >= 1);
 
     await api("/api/admin/matches/delete", { method: "POST", cookie: admin, body: { id: free.id } });
     const gone = await api(`/api/matches?date=${DATE}`);

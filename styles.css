@@ -494,6 +494,88 @@ thead th {
   letter-spacing: 0.08em;
 }
 
+/* Free predictions heading: brand font, football icon, green gradient with a slow shine */
+thead th.free-heading {
+  position: relative;
+  overflow: hidden;
+  padding: 1rem;
+  color: var(--accent-ink);
+  background: linear-gradient(120deg, #2fc879 0%, var(--accent) 45%, #6fe9a8 100%);
+  letter-spacing: 0;
+}
+
+thead th.free-heading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: free-shine 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.free-heading-inner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.free-heading-ball {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+  animation: free-ball-spin 6s linear infinite;
+}
+
+.free-heading-text {
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.12em;
+}
+
+/* "FREE" sits in a dark pill so it pops against the green */
+.free-heading-tag {
+  display: inline-block;
+  margin-right: 0.15em;
+  padding: 0.12em 0.4em 0.04em;
+  color: var(--accent);
+  background: var(--accent-ink);
+  border-radius: 6px;
+}
+
+@keyframes free-shine {
+  0%,
+  55% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes free-ball-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 420px) {
+  .free-heading-text {
+    font-size: 1.45rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  thead th.free-heading::after,
+  .free-heading-ball {
+    animation: none;
+  }
+}
+
 .vip-table {
   border-color: #e6c15a;
 }
@@ -1179,9 +1261,10 @@ button {
   color: var(--muted);
 }
 
+/* Free, VIP and VVIP counts: always one row of three */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 1.25rem;
 }
@@ -1203,6 +1286,16 @@ button {
   margin: 0.35rem 0 0;
   font-size: 1.75rem;
   font-weight: 800;
+}
+
+@media (max-width: 480px) {
+  .stat {
+    padding: 0.8rem 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.78rem;
+  }
 }
 
 .control-section {
@@ -1412,6 +1505,20 @@ button {
 .add-form {
   display: grid;
   gap: 1.25rem;
+}
+
+/* Table choice on the left, SportyBet screenshot upload beside it; stacked on phones */
+.add-top {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 1rem 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .add-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .tier-pick {
@@ -3664,9 +3771,288 @@ label {
   font-weight: 700;
 }
 
-/* Members form: the email gets its own full-width row on phones */
+
+/* ---------- Control Room: SportyBet booking code heading ---------- */
+.control-section h2.booking-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.booking-heading-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--accent);
+  background: rgba(61, 220, 132, 0.12);
+  border: 1px solid rgba(61, 220, 132, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 0 18px rgba(61, 220, 132, 0.15);
+}
+
+.booking-heading-icon svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  transform: rotate(-12deg);
+}
+
+.booking-heading-text {
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.8rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.booking-heading-text span {
+  color: var(--accent);
+}
+
+.booking-heading-tag {
+  padding: 0.25rem 0.65rem;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------- Control Room: brand block at the top left ---------- */
+.control-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+/* "OG" tile in the site's green-gold-purple blend */
+.control-logo {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent), #e6c15a 60%, #b48cf2);
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(61, 220, 132, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.control-brand-text {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.control-bar .control-brand .control-title {
+  margin: 0;
+}
+
+/* "ROOM" shimmers slowly through the blend */
+.control-title span {
+  background-size: 200% 100%;
+  animation: control-shimmer 6s ease-in-out infinite;
+}
+
+@keyframes control-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.control-tagline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.6);
+  animation: live-pulse 2s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.6);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px rgba(61, 220, 132, 0);
+  }
+}
+
+/* Phones: smaller tile, title only, so the buttons still fit */
 @media (max-width: 600px) {
-  #member-form label:first-child {
-    grid-column: 1 / -1;
+  .control-brand {
+    gap: 0.55rem;
+  }
+
+  .control-logo {
+    width: 2.3rem;
+    height: 2.3rem;
+    border-radius: 11px;
+    font-size: 1.2rem;
+  }
+
+  .control-tagline {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control-title span,
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* Phones: "View site" shrinks to its arrow so the brand block has room */
+@media (max-width: 600px) {
+  .control-room .control-back {
+    gap: 0;
+    padding: 0.3rem;
+  }
+
+  .control-back-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- Control Room: Members table (stays a table on phones; scrolls sideways) ---------- */
+.members-table {
+  min-width: 640px;
+  /* Visible, so the pinned name column can stick inside the scrolling wrapper */
+  overflow: visible;
+}
+
+.members-table th,
+.members-table td {
+  padding: 0.75rem 0.9rem;
+  white-space: nowrap;
+}
+
+.members-table th {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Solid colours, so text scrolling under the pinned name doesn't show through */
+.members-table tbody tr:hover td {
+  background: #182b38;
+}
+
+/* The name stays in view while the rest scrolls */
+.members-table th:first-child,
+.members-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  font-weight: 700;
+}
+
+.members-table td:first-child {
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.members-table tbody tr:hover td:first-child {
+  background: #182b38;
+}
+
+.members-table td:nth-child(2) {
+  color: var(--muted);
+}
+
+.plan-pill {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.plan-pill.plan-free {
+  color: var(--accent);
+}
+
+.plan-pill.plan-vip {
+  color: #e6c15a;
+  background: rgba(230, 193, 90, 0.12);
+}
+
+.plan-pill.plan-vvip {
+  color: #b48cf2;
+  background: rgba(180, 140, 242, 0.14);
+}
+
+/* Rounded frame sits on the scrolling wrapper instead of the table */
+.control-room .table-wrap:has(> .members-table) {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.members-table {
+  border: 0;
+  border-radius: 0;
+}
+
+/* ---------- Responsive touch-ups (iPhone, Android, desktop) ---------- */
+/* Wide screens: room for the member's full name in the header */
+@media (min-width: 900px) {
+  .user-name {
+    max-width: 18rem;
+  }
+}
+
+/* Small Android phones: table buttons stay on one line */
+@media (max-width: 380px) {
+  .table-cta {
+    padding-right: 2.25rem;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Members table on phones: a long name can't crowd out the other columns */
+@media (max-width: 640px) {
+  .members-table td:first-child {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

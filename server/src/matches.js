@@ -122,13 +122,6 @@ export async function deleteMatch(id) {
   await execute("DELETE FROM matches WHERE id = ?", [id]);
 }
 
-export async function resultStats() {
-  const row = await one(
-    "SELECT SUM(result = 'won') AS won, SUM(result = 'lost') AS lost FROM matches WHERE tier != 'recovery'",
-  );
-  return { won: Number(row?.won || 0), lost: Number(row?.lost || 0) };
-}
-
 // Per-day totals for a month ("YYYY-MM"), used by the front page calendar.
 export async function monthSummary(month) {
   if (!/^\d{4}-\d{2}$/.test(String(month || ""))) {

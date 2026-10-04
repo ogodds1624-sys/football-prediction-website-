@@ -7,6 +7,7 @@ import {
   findUserById,
   hashPassword,
   loadUser,
+  markSeen,
   publicUser,
   requireAdmin,
   requireUser,
@@ -26,13 +27,12 @@ import {
   matchFrom,
   monthSummary,
   publicMatch,
-  resultStats,
   setResult,
   unlockedTiers,
   updateMatch,
 } from "./matches.js";
 import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
-import { activatePlan, checkRecovery, memberTotals, recentPurchases, shiftDate, todayKey } from "./recovery.js";
+import { activatePlan, checkRecovery, listMembers, memberTotals, shiftDate, todayKey } from "./recovery.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
@@ -191,6 +191,7 @@ export function createApp({ limitRequests = true } = {}) {
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new HttpError(401, "Wrong email or password.");
     }
+    await markSeen(user);
     startSession(res, user.id);
     res.json({ user: publicUser(user) });
   });
@@ -326,7 +327,7 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/matches", requireAdmin, async (req, res) => {
-    res.json({ matches: await matchesForDate(dateFrom(req.query.date)), stats: await resultStats() });
+    res.json({ matches: await matchesForDate(dateFrom(req.query.date)) });
   });
 
   // One match, or several at once (e.g. read from a SportyBet slip).
@@ -355,7 +356,7 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/members", requireAdmin, async (req, res) => {
-    res.json({ totals: await memberTotals(), purchases: await recentPurchases() });
+    res.json({ totals: await memberTotals(), members: await listMembers() });
   });
 
   // Record a paid plan (e.g. MoMo) for a member's account.

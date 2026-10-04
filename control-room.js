@@ -43,7 +43,6 @@ let tesseractReady = null;
 let data = loadData() || { matches: [], members: [], payments: [], settings: { whatsapp: "", currency: "GH₵" } };
 // Predictions for the selected day, loaded from the server (shared with the front page).
 let serverMatches = [];
-let resultTotals = { won: 0, lost: 0 };
 let selectedOffset = 0;
 let editingId = null;
 
@@ -467,8 +466,6 @@ function renderStats() {
   for (const tier of TIERS) {
     document.querySelector(`#stat-${tier.id}`).textContent = serverMatches.filter((match) => match.tier === tier.id).length;
   }
-  const { won, lost } = resultTotals;
-  document.querySelector("#stat-rate").textContent = won + lost ? `${Math.round((won / (won + lost)) * 100)}%` : "–";
 }
 
 let matchesRequest = 0;
@@ -485,7 +482,6 @@ async function render() {
       return;
     }
     serverMatches = body.matches;
-    resultTotals = body.stats;
   } catch (error) {
     showMessage(formMessage, error.message, true);
     return;
@@ -625,11 +621,10 @@ async function saveSingleMatch(tier) {
 
 /* ---------- Members ---------- */
 
-const memberForm = document.querySelector("#member-form");
 const memberMessage = document.querySelector("#member-message");
 const memberList = document.querySelector("#member-list");
 
-function simpleTable(headers, rows, emptyText) {
+function simpleTable(headers, rows, emptyText, className = "admin-table") {
   if (!rows.length) {
     const empty = document.createElement("p");
     empty.className = "empty-note";
@@ -637,7 +632,7 @@ function simpleTable(headers, rows, emptyText) {
     return empty;
   }
   const table = document.createElement("table");
-  table.className = "admin-table";
+  table.className = className;
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
   for (const label of headers) {
@@ -657,52 +652,59 @@ function simpleTable(headers, rows, emptyText) {
   return wrap;
 }
 
-function purchaseRow(purchase) {
+// "Oct 4, 2026"; today and yesterday read as words.
+function visitLabel(iso) {
+  if (!iso) {
+    return "–";
+  }
+  const when = new Date(iso);
+  const day = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`;
+  if (day === dateKey(0)) {
+    return "Today";
+  }
+  if (day === dateKey(-1)) {
+    return "Yesterday";
+  }
+  return when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function planCell(plan) {
+  const cell = document.createElement("td");
+  const pill = document.createElement("span");
+  pill.className = `plan-pill plan-${plan}`;
+  pill.textContent = tierLabel(plan);
+  cell.append(pill);
+  return cell;
+}
+
+function memberRow(member) {
   const row = document.createElement("tr");
-  const source = purchase.source === "manual" ? "Activated here" : purchase.source.charAt(0).toUpperCase() + purchase.source.slice(1);
-  row.append(textCell(purchase.date), textCell(purchase.email), textCell(tierLabel(purchase.plan)), textCell(source));
+  row.append(
+    textCell(member.name || "–"),
+    textCell(member.email),
+    planCell(member.plan),
+    textCell(visitLabel(member.joinedAt)),
+    // Accounts that haven't been back since signing up count their sign-up as the visit.
+    textCell(visitLabel(member.lastSeenAt || member.joinedAt)),
+  );
   return row;
 }
 
-// Registered accounts, members on a plan today, and recent purchases (server).
+// Registered accounts, members on a plan today, and the list of accounts (server).
 async function loadMembers() {
   try {
-    const { totals, purchases } = await adminFetch("/api/admin/members");
+    const { totals, members } = await adminFetch("/api/admin/members");
     document.querySelector("#ov-members").textContent = totals.users;
     document.querySelector("#ov-members-detail").textContent = totals.users
       ? `Active today: VIP ${totals.vip} · VVIP ${totals.vvip}`
       : "No accounts yet";
     memberList.replaceChildren(
-      simpleTable(["Day", "Email", "Plan", "How"], purchases.map(purchaseRow), "No purchases yet."),
+      simpleTable(["Name", "Email", "Plan", "Joined", "Last visit"], members.map(memberRow), "No accounts yet.", "members-table"),
     );
   } catch (error) {
     showMessage(memberMessage, error.message, true);
   }
 }
-
-memberForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const email = document.querySelector("#m-email").value.trim();
-  if (!email) {
-    showMessage(memberMessage, "Enter the email the member registered with.", true);
-    return;
-  }
-  try {
-    const result = await postJson("/api/admin/members/activate", {
-      email,
-      plan: document.querySelector("#m-plan").value,
-      date: document.querySelector("#m-date").value || dateKey(0),
-    });
-    showMessage(memberMessage, `Activated ${tierLabel(result.plan)} for ${result.email} (${result.date}).`);
-    memberForm.reset();
-    document.querySelector("#m-date").value = dateKey(0);
-    loadMembers();
-  } catch (error) {
-    showMessage(memberMessage, error.message, true);
-  }
-});
-
-document.querySelector("#m-date").value = dateKey(0);
 
 /* ---------- Payment gateway (stored on the server) ---------- */
 

@@ -138,13 +138,21 @@ export async function activatePlan(email, planId, date) {
   return { email: user.email, plan: plan.id, date };
 }
 
-export async function recentPurchases() {
+// Everyone with an account, most recent visitor first. Plan is "free" once a paid plan has run out.
+export async function listMembers() {
+  const now = new Date().toISOString();
   const { rows } = await execute(
-    `SELECT purchases.id, purchases.plan, purchases.date, purchases.source, users.email
-     FROM purchases JOIN users ON users.id = purchases.user_id
-     ORDER BY purchases.date DESC, purchases.id DESC LIMIT 50`,
+    `SELECT id, name, email, plan, plan_expires_at, created_at, last_seen_at
+     FROM users ORDER BY COALESCE(last_seen_at, created_at) DESC, id DESC LIMIT 500`,
   );
-  return rows;
+  return rows.map((user) => ({
+    id: user.id,
+    name: user.name || "",
+    email: user.email,
+    plan: user.plan !== "free" && user.plan_expires_at > now ? user.plan : "free",
+    joinedAt: user.created_at,
+    lastSeenAt: user.last_seen_at || null,
+  }));
 }
 
 export async function memberTotals() {

@@ -15,6 +15,7 @@ const SCHEMA = [
     password_hash   TEXT NOT NULL,
     plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip')),
     plan_expires_at TEXT,
+    last_seen_at    TEXT,
     created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
   // amount is stored in the smallest currency unit (pesewas / kobo / cents).
@@ -187,6 +188,8 @@ const MIGRATIONS = [
   "ALTER TABLE testimonials ADD COLUMN user_id INTEGER",
   // Accounts made before sign-up asked for a name keep an empty one.
   "ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+  // When a member last used the site; shown in the Control Room's Members list.
+  "ALTER TABLE users ADD COLUMN last_seen_at TEXT",
 ];
 
 // SQLite can't change a CHECK rule in place, so tables made before the
