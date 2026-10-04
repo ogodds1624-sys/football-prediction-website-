@@ -74,16 +74,12 @@
           </tr>
         </tbody>
       </table>
-      <button type="button" class="plan-button booking-button" id="booking-button" aria-expanded="false" aria-controls="booking-panel">GET SPORTYBET BOOKING CODE</button>
+      <button type="button" class="plan-button booking-button table-cta" id="booking-button" aria-expanded="false" aria-controls="booking-panel">GET SPORTYBET BOOKING CODE</button>
       <div class="booking-panel" id="booking-panel" aria-live="polite" hidden>
         <p class="booking-text" id="booking-text"></p>
         <div class="booking-code-row" id="booking-code-row" hidden>
           <span class="booking-code" id="booking-code"></span>
           <button type="button" class="control-sign-out booking-copy" id="booking-copy">Copy</button>
-        </div>
-        <div class="booking-actions" id="booking-actions" hidden>
-          <a class="plan-button booking-join" href="account.html?mode=register">CREATE FREE ACCOUNT</a>
-          <a class="booking-signin" href="account.html">Already registered? Sign in</a>
         </div>
       </div>
     </section>
@@ -116,7 +112,7 @@
           </tr>
         </tbody>
       </table>
-      <button type="button" class="plan-button vip-plan" data-tier="vip">BUY PLAN (total odds)</button>
+      <button type="button" class="plan-button vip-plan table-cta" data-tier="vip">BUY PLAN (total odds)</button>
     </section>
     <hr>
     <section id="vvip" aria-labelledby="vvip-title">
@@ -147,7 +143,22 @@
           </tr>
         </tbody>
       </table>
-      <button type="button" class="plan-button vvip-plan" data-tier="vvip">BUY PLAN (total odds)</button>
+      <button type="button" class="plan-button vvip-plan table-cta" data-tier="vvip">BUY PLAN (total odds)</button>
+
+      <div class="testimonials" id="testimonials" role="region" aria-roledescription="carousel" aria-labelledby="testimonials-title" hidden>
+        <h2 class="testimonials-title" id="testimonials-title">What our members say</h2>
+        <div class="testimonial-viewport" aria-live="polite">
+          <figure class="testimonial" id="testimonial">
+            <p class="testimonial-stars" id="testimonial-stars"></p>
+            <blockquote class="testimonial-message" id="testimonial-message"></blockquote>
+            <figcaption class="testimonial-author">
+              <span class="testimonial-name" id="testimonial-name"></span>
+              <span class="testimonial-location" id="testimonial-location"></span>
+            </figcaption>
+          </figure>
+        </div>
+        <div class="testimonial-dots" id="testimonial-dots" role="group" aria-label="Choose a review"></div>
+      </div>
     </section>
   </main>
   <footer class="site-footer">

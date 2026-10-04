@@ -423,3 +423,44 @@ describe("payment gateway settings", () => {
     assert.equal(badEmail.status, 400);
   });
 });
+
+describe("testimonials", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("only the admin can add; visitors can read", async () => {
+    const { cookie } = await newUser();
+    const asUser = await api("/api/admin/testimonials", { method: "POST", cookie, body: { name: "X", rating: 5, message: "Nice one" } });
+    assert.equal(asUser.status, 401);
+
+    const admin = await adminCookie();
+    const added = await api("/api/admin/testimonials", {
+      method: "POST",
+      cookie: admin,
+      body: { name: "Member One", location: "Kumasi, Ghana", rating: 4, message: "Clear tips every day." },
+    });
+    assert.equal(added.status, 201);
+
+    const { data } = await api("/api/testimonials");
+    assert.equal(data.testimonials[0].name, "Member One");
+    assert.equal(data.testimonials[0].rating, 4);
+    assert.equal(data.testimonials[0].id, undefined);
+  });
+
+  test("ratings must be 1 to 5 and deleting removes it", async () => {
+    const admin = await adminCookie();
+    const bad = await api("/api/admin/testimonials", { method: "POST", cookie: admin, body: { name: "A", rating: 9, message: "Hello there" } });
+    assert.equal(bad.status, 400);
+
+    const { data } = await api("/api/admin/testimonials", {
+      method: "POST",
+      cookie: admin,
+      body: { name: "To Delete", rating: 5, message: "Temporary review" },
+    });
+    await api("/api/admin/testimonials/delete", { method: "POST", cookie: admin, body: { id: data.testimonial.id } });
+    const list = await api("/api/testimonials");
+    assert.ok(!list.data.testimonials.some((item) => item.name === "To Delete"));
+  });
+});

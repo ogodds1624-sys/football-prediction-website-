@@ -136,18 +136,16 @@ const bookingText = document.querySelector("#booking-text");
 const bookingCodeRow = document.querySelector("#booking-code-row");
 const bookingCode = document.querySelector("#booking-code");
 const bookingCopy = document.querySelector("#booking-copy");
-const bookingActions = document.querySelector("#booking-actions");
 
 const DAY_NAMES = { "-1": "yesterday", 0: "today", 1: "tomorrow" };
 
-function showBooking({ text, code = null, askToJoin = false }) {
+function showBooking({ text, code = null }) {
   bookingPanel.hidden = false;
   bookingButton.setAttribute("aria-expanded", "true");
   bookingText.textContent = text;
   bookingCodeRow.hidden = !code;
   bookingCode.textContent = code || "";
   bookingCopy.textContent = "Copy";
-  bookingActions.hidden = !askToJoin;
 }
 
 function hideBooking() {
@@ -155,11 +153,16 @@ function hideBooking() {
   bookingButton.setAttribute("aria-expanded", "false");
 }
 
+// Visitors go straight to registration, then come back here with the code opened.
+function sendToRegister() {
+  location.href = `account.html?mode=register&next=${encodeURIComponent("index.html?booking=1")}`;
+}
+
 // The code is only sent by the server to signed-in users.
 async function revealBookingCode() {
   const dayName = DAY_NAMES[selectedOffset];
   if (!currentUser) {
-    showBooking({ text: `Create a free account or sign in to get ${dayName}'s SportyBet booking code.`, askToJoin: true });
+    sendToRegister();
     return;
   }
 
@@ -168,7 +171,7 @@ async function revealBookingCode() {
     const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}`);
     if (response.status === 401) {
       showUser(null);
-      showBooking({ text: "Your session has ended. Sign in again to get the booking code.", askToJoin: true });
+      sendToRegister();
       return;
     }
     const body = await response.json();
@@ -203,6 +206,87 @@ bookingCopy.addEventListener("click", async () => {
     bookingCopy.textContent = "Select and copy";
   }
 });
+
+/* ---------- Testimonials carousel (real reviews added in the Control Room) ---------- */
+
+const testimonialsBox = document.querySelector("#testimonials");
+const testimonialCard = document.querySelector("#testimonial");
+const testimonialDots = document.querySelector("#testimonial-dots");
+const TESTIMONIAL_MS = 5000;
+let testimonials = [];
+let testimonialIndex = 0;
+let testimonialTimer = null;
+
+function showTestimonial(index) {
+  testimonialIndex = (index + testimonials.length) % testimonials.length;
+  const item = testimonials[testimonialIndex];
+  testimonialCard.classList.remove("is-entering");
+  // Restart the slide-in animation for the new review.
+  void testimonialCard.offsetWidth;
+  testimonialCard.classList.add("is-entering");
+
+  const stars = document.querySelector("#testimonial-stars");
+  stars.textContent = "★".repeat(item.rating) + "☆".repeat(5 - item.rating);
+  stars.setAttribute("aria-label", `${item.rating} out of 5 stars`);
+  document.querySelector("#testimonial-message").textContent = `“${item.message}”`;
+  document.querySelector("#testimonial-name").textContent = item.name;
+  document.querySelector("#testimonial-location").textContent = item.location;
+
+  [...testimonialDots.children].forEach((dot, dotIndex) => {
+    dot.setAttribute("aria-pressed", String(dotIndex === testimonialIndex));
+  });
+}
+
+function startTestimonialTimer() {
+  stopTestimonialTimer();
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (testimonials.length > 1 && !reduceMotion) {
+    testimonialTimer = setInterval(() => showTestimonial(testimonialIndex + 1), TESTIMONIAL_MS);
+  }
+}
+
+function stopTestimonialTimer() {
+  clearInterval(testimonialTimer);
+  testimonialTimer = null;
+}
+
+async function loadTestimonials() {
+  try {
+    const response = await fetch("/api/testimonials");
+    testimonials = (await response.json()).testimonials || [];
+  } catch {
+    testimonials = [];
+  }
+  // Stays hidden until the admin has added a real review.
+  if (!testimonials.length) {
+    return;
+  }
+  testimonialDots.replaceChildren(
+    ...testimonials.map((item, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "testimonial-dot";
+      dot.setAttribute("aria-label", `Review ${index + 1} of ${testimonials.length}`);
+      dot.addEventListener("click", () => {
+        showTestimonial(index);
+        startTestimonialTimer();
+      });
+      return dot;
+    }),
+  );
+  testimonialDots.hidden = testimonials.length < 2;
+  testimonialsBox.hidden = false;
+  showTestimonial(0);
+  startTestimonialTimer();
+}
+
+// Pause while someone is reading or using the controls.
+testimonialsBox.addEventListener("mouseenter", stopTestimonialTimer);
+testimonialsBox.addEventListener("mouseleave", startTestimonialTimer);
+testimonialsBox.addEventListener("focusin", stopTestimonialTimer);
+testimonialsBox.addEventListener("focusout", startTestimonialTimer);
+
+loadTestimonials();
 
 /* ---------- Buying a plan ---------- */
 
@@ -436,7 +520,17 @@ async function loadCurrentUser() {
   }
 }
 
-loadCurrentUser();
+loadCurrentUser().then(() => {
+  // Back from registering via the booking code button: open the code for them.
+  const params = new URLSearchParams(location.search);
+  if (params.get("booking") === "1") {
+    history.replaceState(null, "", location.pathname);
+    if (currentUser) {
+      bookingButton.scrollIntoView({ behavior: "smooth", block: "center" });
+      revealBookingCode();
+    }
+  }
+});
 
 // Footer WhatsApp card uses the support number saved in the Control Room.
 loadOptions()

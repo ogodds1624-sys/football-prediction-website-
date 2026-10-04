@@ -164,6 +164,15 @@ export function createApp({ limitRequests = true } = {}) {
     res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
   });
 
+  /* ---------- Testimonials ---------- */
+
+  app.get("/api/testimonials", async (req, res) => {
+    const { rows } = await execute(
+      "SELECT name, location, rating, message FROM testimonials ORDER BY id DESC LIMIT 30",
+    );
+    res.json({ testimonials: rows });
+  });
+
   /* ---------- Admin ---------- */
 
   app.post("/api/admin/login", authLimiter, (req, res) => {
@@ -179,6 +188,34 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.post("/api/admin/logout", (req, res) => {
     endAdminSession(res);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/admin/testimonials", requireAdmin, async (req, res) => {
+    const { rows } = await execute("SELECT id, name, location, rating, message, created_at FROM testimonials ORDER BY id DESC");
+    res.json({ testimonials: rows });
+  });
+
+  app.post("/api/admin/testimonials", requireAdmin, async (req, res) => {
+    const name = String(req.body?.name || "").trim().slice(0, 40);
+    const location = String(req.body?.location || "").trim().slice(0, 40);
+    const message = String(req.body?.message || "").trim().slice(0, 280);
+    const rating = Number(req.body?.rating);
+    if (!name || message.length < 5) {
+      throw new HttpError(400, "Enter the member's name and their message.");
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      throw new HttpError(400, "Choose a rating from 1 to 5 stars.");
+    }
+    const testimonial = await one(
+      "INSERT INTO testimonials (name, location, rating, message) VALUES (?, ?, ?, ?) RETURNING id, name, location, rating, message, created_at",
+      [name, location, rating, message],
+    );
+    res.status(201).json({ testimonial });
+  });
+
+  app.post("/api/admin/testimonials/delete", requireAdmin, async (req, res) => {
+    await execute("DELETE FROM testimonials WHERE id = ?", [Number(req.body?.id)]);
     res.json({ ok: true });
   });
 

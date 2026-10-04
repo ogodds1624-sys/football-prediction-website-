@@ -1527,8 +1527,7 @@ button {
 }
 
 .booking-panel[hidden],
-.booking-code-row[hidden],
-.booking-actions[hidden] {
+.booking-code-row[hidden] {
   display: none;
 }
 
@@ -1560,24 +1559,8 @@ button {
   user-select: all;
 }
 
-.booking-actions {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.85rem;
-}
 
-.booking-join {
-  margin: 0;
-  color: var(--accent-ink);
-  background: var(--accent);
-  text-align: center;
-  text-decoration: none;
-}
 
-.booking-signin {
-  color: var(--accent);
-  font-size: 0.9rem;
-}
 
 .booking-input {
   text-transform: uppercase;
@@ -1981,4 +1964,246 @@ button:not(:disabled):not(.toggle-passcode):active,
   .pay-whatsapp:hover {
     transform: none;
   }
+}
+
+/* ---------- Attention-grabbing buttons under the tables ---------- */
+.table-cta {
+  --glow: 61, 220, 132; /* green: free booking code */
+  position: relative;
+  overflow: hidden;
+  padding-right: 2.75rem;
+  padding-left: 2.75rem;
+}
+
+.table-cta.vip-plan {
+  --glow: 230, 193, 90; /* gold */
+}
+
+.table-cta.vvip-plan {
+  --glow: 180, 140, 242; /* purple */
+}
+
+/* Light streak sweeping across */
+.table-cta::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+/* Arrow nudging toward the tap */
+.table-cta::before {
+  content: "→";
+  position: absolute;
+  top: 50%;
+  right: 1.1rem;
+  margin-top: -0.6em;
+  line-height: 1.2;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+/* Start after the page-load pop-in has finished */
+.table-cta:not(.pop-in) {
+  animation: cta-glow 2.4s ease-in-out infinite;
+}
+
+.table-cta:not(.pop-in)::after {
+  animation: cta-shine 3.6s ease-in-out infinite;
+}
+
+.table-cta:not(.pop-in)::before {
+  animation: cta-nudge 1.2s ease-in-out infinite;
+}
+
+.table-cta:hover,
+.table-cta:hover::after,
+.table-cta:hover::before,
+.table-cta:focus-visible,
+.table-cta:focus-visible::after,
+.table-cta:focus-visible::before {
+  animation-play-state: paused;
+}
+
+@keyframes cta-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--glow), 0.55), 0 4px 14px rgba(var(--glow), 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(var(--glow), 0), 0 6px 24px rgba(var(--glow), 0.45);
+  }
+}
+
+@keyframes cta-shine {
+  0%,
+  55% {
+    left: -60%;
+  }
+  85%,
+  100% {
+    left: 130%;
+  }
+}
+
+@keyframes cta-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-cta:not(.pop-in),
+  .table-cta:not(.pop-in)::after,
+  .table-cta:not(.pop-in)::before {
+    animation: none;
+  }
+
+  .table-cta::after {
+    display: none;
+  }
+}
+
+/* ---------- Testimonials carousel (under the VVIP table) ---------- */
+.testimonials {
+  margin-top: 1.75rem;
+  padding: 1.5rem 1.25rem 1.1rem;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(180, 140, 242, 0.12), rgba(230, 193, 90, 0.06));
+  border: 1px solid rgba(180, 140, 242, 0.35);
+  border-radius: 18px;
+}
+
+.testimonials[hidden] {
+  display: none;
+}
+
+.testimonials-title {
+  margin: 0 0 1rem;
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.testimonial-viewport {
+  min-height: 9.5rem;
+}
+
+.testimonial {
+  margin: 0;
+}
+
+.testimonial.is-entering {
+  animation: testimonial-in 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes testimonial-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.testimonial-stars {
+  margin: 0;
+  color: #e6c15a;
+  font-size: 1.3rem;
+  letter-spacing: 0.15em;
+}
+
+.testimonial-message {
+  margin: 0.6rem auto 0;
+  max-width: 34rem;
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+.testimonial-author {
+  display: grid;
+  gap: 0.1rem;
+  margin-top: 0.85rem;
+}
+
+.testimonial-name {
+  font-weight: 800;
+}
+
+.testimonial-location {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.testimonial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.testimonial-dots[hidden] {
+  display: none;
+}
+
+.testimonial-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  padding: 0;
+  background: var(--line);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.testimonial-dot[aria-pressed="true"] {
+  width: 1.6rem;
+  background: #b48cf2;
+}
+
+/* The small dots skip the shared hover lift */
+.testimonial-dot:hover {
+  transform: none;
+  box-shadow: none;
+  background: #b48cf2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial.is-entering {
+    animation: none;
+  }
+}
+
+.testimonial-message-field {
+  grid-column: 1 / -1;
+}
+
+.match-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.match-form textarea:focus {
+  border-color: var(--accent);
+  outline: none;
 }

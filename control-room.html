@@ -185,6 +185,46 @@
       <div id="member-list"></div>
     </section>
 
+    <section class="control-section" aria-labelledby="testimonials-admin-title">
+      <h2 id="testimonials-admin-title">Testimonials</h2>
+      <p class="form-hint">Add real reviews your members send you. They rotate under the VVIP table on the website. The section stays hidden until you add one.</p>
+      <form class="match-form" id="testimonial-form" novalidate>
+        <label>Member name
+          <input id="t-name" maxlength="40" autocomplete="off" placeholder="As the member wants it shown">
+        </label>
+        <label>Location
+          <input id="t-location" maxlength="40" autocomplete="off" list="t-locations" placeholder="e.g. Accra, Ghana">
+        </label>
+        <label>Rating
+          <select id="t-rating">
+            <option value="5">★★★★★ 5 stars</option>
+            <option value="4">★★★★☆ 4 stars</option>
+            <option value="3">★★★☆☆ 3 stars</option>
+            <option value="2">★★☆☆☆ 2 stars</option>
+            <option value="1">★☆☆☆☆ 1 star</option>
+          </select>
+        </label>
+        <label class="testimonial-message-field">Their message
+          <textarea id="t-message" maxlength="280" rows="3" placeholder="Paste what the member said"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Add testimonial</button>
+        </div>
+      </form>
+      <datalist id="t-locations">
+        <option value="Accra, Ghana"></option>
+        <option value="Kumasi, Ghana"></option>
+        <option value="Takoradi, Ghana"></option>
+        <option value="Tamale, Ghana"></option>
+        <option value="Lagos, Nigeria"></option>
+        <option value="Abuja, Nigeria"></option>
+        <option value="Port Harcourt, Nigeria"></option>
+        <option value="Ibadan, Nigeria"></option>
+      </datalist>
+      <p class="form-message" id="testimonial-message-status" role="status"></p>
+      <div id="testimonial-list"></div>
+    </section>
+
     <section class="control-section" aria-labelledby="payments-title">
       <div class="gateway-head">
         <h2 id="payments-title">Payment Gateway</h2>

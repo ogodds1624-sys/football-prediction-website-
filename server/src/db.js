@@ -38,6 +38,15 @@ const SCHEMA = [
     value      TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
+  // Real member reviews, added by the admin, shown under the VVIP table.
+  `CREATE TABLE IF NOT EXISTS testimonials (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    location   TEXT NOT NULL DEFAULT '',
+    rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    message    TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
   // SportyBet booking code for the free predictions, one per day (YYYY-MM-DD).
   `CREATE TABLE IF NOT EXISTS booking_codes (
     date       TEXT PRIMARY KEY,

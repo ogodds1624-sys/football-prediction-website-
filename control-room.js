@@ -917,6 +917,67 @@ checkoutForm.addEventListener("submit", async (event) => {
 
 document.querySelector("#gateway-refresh").addEventListener("click", loadGateway);
 
+/* ---------- Testimonials (stored on the server) ---------- */
+
+const testimonialForm = document.querySelector("#testimonial-form");
+const testimonialStatus = document.querySelector("#testimonial-message-status");
+const testimonialList = document.querySelector("#testimonial-list");
+
+function testimonialRow(item) {
+  const row = document.createElement("tr");
+  const actions = document.createElement("td");
+  actions.append(
+    actionButton("Delete", async () => {
+      if (!window.confirm(`Delete the review from ${item.name}?`)) {
+        return;
+      }
+      try {
+        await postJson("/api/admin/testimonials/delete", { id: item.id });
+        showMessage(testimonialStatus, "Testimonial deleted.");
+        loadTestimonials();
+      } catch (error) {
+        showMessage(testimonialStatus, error.message, true);
+      }
+    }, "danger"),
+  );
+  row.append(
+    textCell(item.name),
+    textCell(item.location || "–"),
+    textCell("★".repeat(item.rating) + "☆".repeat(5 - item.rating)),
+    textCell(item.message),
+    actions,
+  );
+  return row;
+}
+
+async function loadTestimonials() {
+  try {
+    const { testimonials } = await adminFetch("/api/admin/testimonials");
+    testimonialList.replaceChildren(
+      simpleTable(["Name", "Location", "Rating", "Message", ""], testimonials.map(testimonialRow), "No testimonials yet."),
+    );
+  } catch (error) {
+    showMessage(testimonialStatus, error.message, true);
+  }
+}
+
+testimonialForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await postJson("/api/admin/testimonials", {
+      name: document.querySelector("#t-name").value,
+      location: document.querySelector("#t-location").value,
+      rating: Number(document.querySelector("#t-rating").value),
+      message: document.querySelector("#t-message").value,
+    });
+    testimonialForm.reset();
+    showMessage(testimonialStatus, "Testimonial added. It now rotates under the VVIP table.");
+    loadTestimonials();
+  } catch (error) {
+    showMessage(testimonialStatus, error.message, true);
+  }
+});
+
 /* ---------- Events ---------- */
 
 for (const button of dayButtons) {
@@ -1024,3 +1085,4 @@ resetForm();
 render();
 renderPeople();
 loadGateway();
+loadTestimonials();
