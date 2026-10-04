@@ -35,11 +35,14 @@ header {
   background: rgba(12, 20, 36, 0.92);
 }
 
+/* Always pinned to the top-right corner */
 .header-end {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem;
   min-width: 0;
+  margin-left: auto;
 }
 
 .menu-toggle {
@@ -468,12 +471,16 @@ button {
 }
 
 .sign-in {
+  flex-shrink: 0;
+  min-width: 6.25rem;
   padding: 0.5rem 1rem;
   color: var(--accent-ink);
   background: var(--accent);
-  border: 0;
+  border: 1px solid var(--accent);
   border-radius: 999px;
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .sign-in:hover,
@@ -483,21 +490,18 @@ button {
   outline-offset: 2px;
 }
 
-.sign-out {
-  padding: 0.5rem 1rem;
+/* Same button once signed in: outlined "Sign out", turns red on hover */
+.sign-in.is-signed-in {
   color: var(--text);
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
+  border-color: var(--line);
 }
 
-.sign-out:hover,
-.sign-out:focus-visible {
+.sign-in.is-signed-in:hover,
+.sign-in.is-signed-in:focus-visible {
   color: #ff6b6b;
   border-color: #ff6b6b;
+  filter: none;
   outline: none;
 }
 
@@ -1893,4 +1897,88 @@ button {
 
 .pay-note[hidden] {
   display: none;
+}
+
+/* ---------- Soft buttons (all pages) ---------- */
+button,
+.plan-button,
+.admin-button,
+.admin-submit,
+.booking-join,
+.pay-whatsapp {
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    filter 0.3s ease;
+}
+
+button:not(:disabled):not(.toggle-passcode):hover,
+.plan-button:hover,
+.admin-button:hover,
+.admin-submit:hover,
+.booking-join:hover,
+.pay-whatsapp:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+button:not(:disabled):not(.toggle-passcode):active,
+.plan-button:active,
+.admin-button:active,
+.admin-submit:active,
+.booking-join:active,
+.pay-whatsapp:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  transition-duration: 0.1s;
+}
+
+/* Pop into view on page load (added by ui.js), 2 seconds with a soft bounce */
+.pop-in {
+  animation: button-pop 2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--pop-delay, 0s);
+}
+
+@keyframes button-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  55% {
+    transform: scale(0.97);
+  }
+  75% {
+    transform: scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  .plan-button,
+  .admin-button,
+  .admin-submit,
+  .booking-join,
+  .pay-whatsapp {
+    transition-duration: 0.01s;
+  }
+
+  button:not(:disabled):not(.toggle-passcode):hover,
+  .plan-button:hover,
+  .admin-button:hover,
+  .admin-submit:hover,
+  .booking-join:hover,
+  .pay-whatsapp:hover {
+    transform: none;
+  }
 }

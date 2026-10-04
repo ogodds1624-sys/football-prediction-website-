@@ -1,5 +1,5 @@
+// One button in the top-right corner: "Sign in" when signed out, "Sign out" when signed in.
 const signInButton = document.querySelector("#sign-in");
-const signOutButton = document.querySelector("#sign-out");
 const footerSignIn = document.querySelector("#footer-sign-in");
 const userLabel = document.querySelector("#user-label");
 const menuToggle = document.querySelector("#menu-toggle");
@@ -18,8 +18,8 @@ function setMenuOpen(open) {
 
 function showUser(user) {
   currentUser = user;
-  signInButton.hidden = Boolean(user);
-  signOutButton.hidden = !user;
+  signInButton.textContent = user ? "Sign out" : "Sign in";
+  signInButton.classList.toggle("is-signed-in", Boolean(user));
   footerSignIn.textContent = user ? "Sign out" : "Sign in";
   userLabel.hidden = !user;
   if (!user) {
@@ -416,10 +416,12 @@ async function signOut() {
 }
 
 signInButton.addEventListener("click", () => {
-  location.href = "account.html";
+  if (currentUser) {
+    signOut();
+  } else {
+    location.href = "account.html";
+  }
 });
-
-signOutButton.addEventListener("click", signOut);
 
 async function loadCurrentUser() {
   if (location.protocol === "file:") {
