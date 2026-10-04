@@ -38,6 +38,20 @@ const SCHEMA = [
     value      TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
+  // Predictions shown on the front page, one row per match per day.
+  `CREATE TABLE IF NOT EXISTS matches (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL,
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip')),
+    home       TEXT NOT NULL,
+    away       TEXT NOT NULL,
+    tip        TEXT NOT NULL,
+    odds       TEXT NOT NULL DEFAULT '',
+    image      TEXT NOT NULL DEFAULT '',
+    result     TEXT NOT NULL DEFAULT 'pending' CHECK (result IN ('pending', 'won', 'lost')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
+  "CREATE INDEX IF NOT EXISTS matches_date ON matches(date)",
   // Real member reviews, added by the admin, shown under the VVIP table.
   `CREATE TABLE IF NOT EXISTS testimonials (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,

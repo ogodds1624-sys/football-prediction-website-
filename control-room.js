@@ -44,6 +44,9 @@ const settingsMessage = document.querySelector("#settings-message");
 const currencyInput = document.querySelector("#s-currency");
 
 let data = loadData() || { matches: [], members: [], payments: [], settings: { whatsapp: "", currency: "GH₵" } };
+// Predictions for the selected day, loaded from the server (shared with the front page).
+let serverMatches = [];
+let resultTotals = { won: 0, lost: 0 };
 let selectedOffset = 0;
 let editingId = null;
 
@@ -337,24 +340,33 @@ function resultSelect(match) {
     select.append(option);
   }
   select.value = match.result || "pending";
-  select.addEventListener("change", () => {
-    match.result = select.value;
-    persist(formMessage, `Result saved for ${match.home} vs ${match.away}.`);
-    renderStats();
+  select.addEventListener("change", async () => {
+    try {
+      await postJson("/api/admin/matches/result", { id: match.id, result: select.value });
+      showMessage(formMessage, `Result saved for ${match.home} vs ${match.away}.`);
+      render();
+    } catch (error) {
+      select.value = match.result || "pending";
+      showMessage(formMessage, error.message, true);
+    }
   });
   return select;
 }
 
-function deleteMatch(match) {
+async function deleteMatch(match) {
   if (!window.confirm(`Delete ${match.home} vs ${match.away}?`)) {
     return;
   }
-  data.matches = data.matches.filter((other) => other.id !== match.id);
-  if (editingId === match.id) {
-    resetForm();
+  try {
+    await postJson("/api/admin/matches/delete", { id: match.id });
+    if (editingId === match.id) {
+      resetForm();
+    }
+    showMessage(formMessage, "Match deleted. It's gone from the front page too.");
+    render();
+  } catch (error) {
+    showMessage(formMessage, error.message, true);
   }
-  persist(formMessage, "Match deleted.");
-  render();
 }
 
 function matchRow(match) {
@@ -439,21 +451,36 @@ function tierSection(tier, matches) {
 }
 
 function renderStats() {
-  const date = dateKey(selectedOffset);
   for (const tier of TIERS) {
-    document.querySelector(`#stat-${tier.id}`).textContent = matchesFor(data, date, tier.id).length;
+    document.querySelector(`#stat-${tier.id}`).textContent = serverMatches.filter((match) => match.tier === tier.id).length;
   }
-  const won = data.matches.filter((match) => match.result === "won").length;
-  const lost = data.matches.filter((match) => match.result === "lost").length;
+  const { won, lost } = resultTotals;
   document.querySelector("#stat-rate").textContent = won + lost ? `${Math.round((won / (won + lost)) * 100)}%` : "–";
 }
 
-function render() {
+let matchesRequest = 0;
+
+async function render() {
+  const request = ++matchesRequest;
   const date = dateKey(selectedOffset);
   dateText.textContent = dateLabel(selectedOffset);
-  tierSections.replaceChildren(...TIERS.map((tier) => tierSection(tier, matchesFor(data, date, tier.id))));
-  renderStats();
   loadBookingCode();
+  try {
+    const body = await adminFetch(`/api/admin/matches?date=${date}`);
+    // Ignore the answer if the day was switched while it was loading.
+    if (request !== matchesRequest) {
+      return;
+    }
+    serverMatches = body.matches;
+    resultTotals = body.stats;
+  } catch (error) {
+    showMessage(formMessage, error.message, true);
+    return;
+  }
+  tierSections.replaceChildren(
+    ...TIERS.map((tier) => tierSection(tier, serverMatches.filter((match) => match.tier === tier.id))),
+  );
+  renderStats();
 }
 
 /* ---------- SportyBet booking code (stored on the server) ---------- */
@@ -528,7 +555,7 @@ document.querySelector("#b-clear").addEventListener("click", () => {
 
 /* ---------- Saving ---------- */
 
-function addSlipMatches(tier) {
+async function addSlipMatches(tier) {
   const incomplete = slipMatches.findIndex((match) => !match.home.trim() || !match.away.trim() || !match.tip.trim());
   if (incomplete !== -1) {
     showMessage(formMessage, `Row ${incomplete + 1} is missing a team or the tip. Fill it in or remove the row.`, true);
@@ -536,28 +563,25 @@ function addSlipMatches(tier) {
     return false;
   }
 
-  const date = dateKey(selectedOffset);
-  const added = slipMatches.map((match) => ({
-    id: newId(),
-    date,
+  const matches = slipMatches.map((match) => ({
     tier,
-    result: "pending",
     home: match.home.trim(),
     away: match.away.trim(),
     tip: match.tip.trim(),
     odds: formatOdds(match.odds),
-    image: "",
   }));
-  data.matches.push(...added);
-  const count = added.length;
-  if (!persist(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}. They're now on the front page.`)) {
-    data.matches.splice(-count, count);
+  try {
+    await postJson("/api/admin/matches", { date: dateKey(selectedOffset), matches });
+  } catch (error) {
+    showMessage(formMessage, error.message, true);
     return false;
   }
+  const count = matches.length;
+  showMessage(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}. They're now on the front page.`);
   return true;
 }
 
-function saveSingleMatch(tier) {
+async function saveSingleMatch(tier) {
   const values = {
     tier,
     home: fields.home.value.trim(),
@@ -571,20 +595,16 @@ function saveSingleMatch(tier) {
     return false;
   }
 
-  const editedMatch = editingId && data.matches.find((match) => match.id === editingId);
-  if (editedMatch) {
-    const previous = { ...editedMatch };
-    Object.assign(editedMatch, values);
-    if (!persist(formMessage, `Updated ${values.home} vs ${values.away}.`)) {
-      Object.assign(editedMatch, previous);
-      return false;
+  try {
+    if (editingId) {
+      await postJson("/api/admin/matches/update", { id: editingId, ...values });
+      showMessage(formMessage, `Updated ${values.home} vs ${values.away}.`);
+    } else {
+      await postJson("/api/admin/matches", { date: dateKey(selectedOffset), ...values });
+      showMessage(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}. It's now on the front page.`);
     }
-    return true;
-  }
-
-  data.matches.push({ id: newId(), date: dateKey(selectedOffset), result: "pending", ...values });
-  if (!persist(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}. It's now on the front page.`)) {
-    data.matches.pop();
+  } catch (error) {
+    showMessage(formMessage, error.message, true);
     return false;
   }
   return true;
@@ -1000,6 +1020,51 @@ testimonialForm.addEventListener("submit", async (event) => {
   }
 });
 
+/* ---------- One-time move of browser-only matches to the server ---------- */
+
+const migrateBanner = document.querySelector("#migrate-banner");
+const migrateText = document.querySelector("#migrate-text");
+const migrateButton = document.querySelector("#migrate-button");
+
+function showMigrateBanner() {
+  const count = data.matches.length;
+  migrateBanner.hidden = !count;
+  migrateText.textContent = `You have ${count} match${count === 1 ? "" : "es"} saved only in this browser from before. Visitors can't see them until they're published.`;
+}
+
+migrateButton.addEventListener("click", async () => {
+  migrateButton.disabled = true;
+  const byDate = new Map();
+  for (const match of data.matches) {
+    if (!byDate.has(match.date)) {
+      byDate.set(match.date, []);
+    }
+    byDate.get(match.date).push({
+      tier: match.tier,
+      home: match.home,
+      away: match.away,
+      tip: match.tip,
+      odds: match.odds,
+      image: match.image || "",
+    });
+  }
+  try {
+    for (const [date, matches] of byDate) {
+      for (let start = 0; start < matches.length; start += 50) {
+        await postJson("/api/admin/matches", { date, matches: matches.slice(start, start + 50) });
+      }
+    }
+    data.matches = [];
+    persist(formMessage, "All saved matches are now published on the website.");
+    showMigrateBanner();
+    render();
+  } catch (error) {
+    migrateText.textContent = `Couldn't publish: ${error.message}`;
+  } finally {
+    migrateButton.disabled = false;
+  }
+});
+
 /* ---------- Events ---------- */
 
 for (const button of dayButtons) {
@@ -1019,7 +1084,7 @@ fields.tier.addEventListener("change", () => {
   showMessage(formMessage, "");
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const tier = fields.tier.value;
   if (!tier) {
@@ -1031,7 +1096,9 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  const saved = !editingId && slipMatches.length ? addSlipMatches(tier) : saveSingleMatch(tier);
+  submitButton.disabled = true;
+  const saved = await (!editingId && slipMatches.length ? addSlipMatches(tier) : saveSingleMatch(tier));
+  submitButton.disabled = false;
   if (!saved) {
     return;
   }
@@ -1108,3 +1175,4 @@ render();
 renderPeople();
 loadGateway();
 loadTestimonials();
+showMigrateBanner();

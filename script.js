@@ -19,7 +19,11 @@ function setMenuOpen(open) {
 }
 
 function showUser(user) {
+  const changed = (currentUser?.id ?? null) !== (user?.id ?? null) || currentUser?.plan !== user?.plan;
   currentUser = user;
+  if (changed) {
+    renderPredictions();
+  }
   signInButton.textContent = user ? "Sign out" : "Sign in";
   signInButton.classList.toggle("is-signed-in", Boolean(user));
   footerSignIn.textContent = user ? "Sign out" : "Sign in";
@@ -57,15 +61,12 @@ function matchRow(match, tier) {
 
   const meta = document.createElement("span");
   meta.className = "match-meta";
-  if (tier === "free") {
-    meta.textContent = match.odds ? `Tip: ${match.tip} · Odds: ${match.odds}` : `Tip: ${match.tip}`;
-  } else {
-    meta.textContent = "Tip locked · buy the plan to unlock";
-  }
+  const odds = match.odds ? ` · Odds: ${match.odds}` : "";
+  // The server only sends a VIP/VVIP tip to members whose plan covers it.
+  meta.textContent = match.locked ? `Tip locked · buy the plan to unlock${odds}` : `Tip: ${match.tip}${odds}`;
   info.append(meta);
 
-  // Paid-tier pictures stay hidden since they may reveal the locked tip.
-  if (tier === "free" && match.image) {
+  if (match.image) {
     const picture = document.createElement("img");
     picture.className = "match-picture";
     picture.src = match.image;
@@ -99,23 +100,45 @@ function emptyRow() {
   return row;
 }
 
-function renderPredictions() {
-  const data = loadData();
+function messageRow(text) {
+  const row = emptyRow();
+  row.firstChild.textContent = text;
+  return row;
+}
 
-  // Keep the placeholder rows until the admin has saved something.
-  if (!data) {
+// Each request gets a number so a slow answer for an old day can't overwrite a newer one.
+let predictionsRequest = 0;
+
+async function renderPredictions() {
+  const request = ++predictionsRequest;
+  const date = dateKey(selectedOffset);
+  let matches;
+  try {
+    const response = await fetch(`/api/matches?date=${date}`);
+    if (!response.ok) {
+      throw new Error("predictions unavailable");
+    }
+    matches = (await response.json()).matches;
+  } catch {
+    if (request === predictionsRequest) {
+      for (const tier of TIERS) {
+        tierBodies[tier.id].replaceChildren(messageRow("Couldn't load predictions. Refresh the page to try again."));
+      }
+    }
+    return;
+  }
+  if (request !== predictionsRequest) {
     return;
   }
 
-  const date = dateKey(selectedOffset);
   for (const tier of TIERS) {
-    const matches = matchesFor(data, date, tier.id);
-    const rows = matches.length ? matches.map((match) => matchRow(match, tier.id)) : [emptyRow()];
+    const tierMatches = matches.filter((match) => match.tier === tier.id);
+    const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id)) : [emptyRow()];
     tierBodies[tier.id].replaceChildren(...rows);
   }
 
   for (const button of planButtons) {
-    const total = totalOdds(matchesFor(data, date, button.dataset.tier));
+    const total = totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
   }
 }
@@ -569,12 +592,6 @@ for (const button of planButtons) {
 }
 
 document.querySelector("#pay-close").addEventListener("click", () => payDialog.close());
-
-window.addEventListener("storage", (event) => {
-  if (event.key === DATA_KEY) {
-    renderPredictions();
-  }
-});
 
 renderPredictions();
 

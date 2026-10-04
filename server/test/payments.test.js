@@ -504,3 +504,90 @@ describe("member reviews", () => {
     assert.equal(result.status, 401);
   });
 });
+
+describe("predictions", () => {
+  const DATE = "2026-11-01";
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+  async function memberWithPlan(plan) {
+    const member = await newUser();
+    const reference = await startCheckout(member.cookie, "paystack", plan);
+    providerRecords.set(reference, { status: "success", amount: PLANS[plan].amount, currency: "GHS" });
+    await api(`/api/payments/${reference}`, { cookie: member.cookie });
+    return member;
+  }
+
+  before(async () => {
+    const admin = await adminCookie();
+    const saved = await api("/api/admin/matches", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        date: DATE,
+        matches: [
+          { tier: "free", home: "Hearts", away: "Kotoko", tip: "Over 1.5", odds: "1.45" },
+          { tier: "vip", home: "Enyimba", away: "Rangers", tip: "Home win", odds: "1.90" },
+          { tier: "vvip", home: "Arsenal", away: "Chelsea", tip: "GG", odds: "1.70" },
+        ],
+      },
+    });
+    assert.equal(saved.status, 201);
+  });
+
+  function tipsByTier(matches) {
+    return Object.fromEntries(matches.map((match) => [match.tier, match.tip]));
+  }
+
+  test("visitors see free tips only; teams and odds stay visible", async () => {
+    const { data } = await api(`/api/matches?date=${DATE}`);
+    assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, vvip: null });
+    const vip = data.matches.find((match) => match.tier === "vip");
+    assert.equal(vip.home, "Enyimba");
+    assert.equal(vip.odds, "1.90");
+    assert.equal(vip.locked, true);
+  });
+
+  test("VIP members unlock VIP, VVIP members unlock both", async () => {
+    const vip = await memberWithPlan("vip");
+    const vipView = await api(`/api/matches?date=${DATE}`, { cookie: vip.cookie });
+    assert.deepEqual(tipsByTier(vipView.data.matches), { free: "Over 1.5", vip: "Home win", vvip: null });
+
+    const vvip = await memberWithPlan("vvip");
+    const vvipView = await api(`/api/matches?date=${DATE}`, { cookie: vvip.cookie });
+    assert.deepEqual(tipsByTier(vvipView.data.matches), { free: "Over 1.5", vip: "Home win", vvip: "GG" });
+  });
+
+  test("admin can update, set results and delete; members cannot", async () => {
+    const { cookie } = await newUser();
+    const asMember = await api("/api/admin/matches", { method: "POST", cookie, body: { date: DATE, tier: "free", home: "A", away: "B", tip: "1" } });
+    assert.equal(asMember.status, 401);
+
+    const admin = await adminCookie();
+    const { data } = await api(`/api/admin/matches?date=${DATE}`, { cookie: admin });
+    const free = data.matches.find((match) => match.tier === "free");
+
+    await api("/api/admin/matches/update", { method: "POST", cookie: admin, body: { ...free, tip: "Over 2.5" } });
+    await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: free.id, result: "won" } });
+    const after = await api(`/api/matches?date=${DATE}`);
+    const updated = after.data.matches.find((match) => match.tier === "free");
+    assert.equal(updated.tip, "Over 2.5");
+    assert.equal(updated.result, "won");
+
+    const stats = await api(`/api/admin/matches?date=${DATE}`, { cookie: admin });
+    assert.ok(stats.data.stats.won >= 1);
+
+    await api("/api/admin/matches/delete", { method: "POST", cookie: admin, body: { id: free.id } });
+    const gone = await api(`/api/matches?date=${DATE}`);
+    assert.ok(!gone.data.matches.some((match) => match.tier === "free"));
+  });
+
+  test("bad matches are rejected", async () => {
+    const admin = await adminCookie();
+    const noTip = await api("/api/admin/matches", { method: "POST", cookie: admin, body: { date: DATE, tier: "vip", home: "A", away: "B", tip: "" } });
+    assert.equal(noTip.status, 400);
+    const badTier = await api("/api/admin/matches", { method: "POST", cookie: admin, body: { date: DATE, tier: "gold", home: "A", away: "B", tip: "1" } });
+    assert.equal(badTier.status, 400);
+  });
+});

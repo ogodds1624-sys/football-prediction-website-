@@ -19,6 +19,17 @@ import { config } from "./config.js";
 import { execute, one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
 import { getGateway, publicCheckout, saveCheckout, saveRates } from "./gateway.js";
+import {
+  createMatches,
+  deleteMatch,
+  matchesForDate,
+  matchFrom,
+  publicMatch,
+  resultStats,
+  setResult,
+  unlockedTiers,
+  updateMatch,
+} from "./matches.js";
 import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
@@ -109,7 +120,10 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/webhooks/paystack", rawJson, webhookHandler("paystack"));
   app.post("/api/webhooks/flutterwave", rawJson, webhookHandler("flutterwave"));
 
-  app.use(express.json({ limit: "20kb" }));
+  // Matches can carry a shrunk picture, so their admin routes accept larger bodies.
+  const smallJson = express.json({ limit: "20kb" });
+  const largeJson = express.json({ limit: "8mb" });
+  app.use((req, res, next) => (req.path.startsWith("/api/admin/matches") ? largeJson : smallJson)(req, res, next));
   app.use(loadUser);
 
   // Browsers cannot send cross-site JSON without a CORS preflight (which we
@@ -185,6 +199,16 @@ export function createApp({ limitRequests = true } = {}) {
     res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
   });
 
+  /* ---------- Predictions ---------- */
+
+  // Everyone sees free tips; VIP/VVIP tips only reach members with that plan.
+  app.get("/api/matches", async (req, res) => {
+    const plan = req.user ? publicUser(req.user).plan : "free";
+    const unlocked = unlockedTiers(plan);
+    const matches = await matchesForDate(dateFrom(req.query.date));
+    res.json({ plan, matches: matches.map((match) => publicMatch(match, unlocked)) });
+  });
+
   /* ---------- Testimonials ---------- */
 
   // Only reviews the admin has accepted are public.
@@ -252,6 +276,35 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.post("/api/admin/testimonials/delete", requireAdmin, async (req, res) => {
     await execute("DELETE FROM testimonials WHERE id = ?", [Number(req.body?.id)]);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/admin/matches", requireAdmin, async (req, res) => {
+    res.json({ matches: await matchesForDate(dateFrom(req.query.date)), stats: await resultStats() });
+  });
+
+  // One match, or several at once (e.g. read from a SportyBet slip).
+  app.post("/api/admin/matches", requireAdmin, async (req, res) => {
+    const date = dateFrom(req.body?.date);
+    const list = Array.isArray(req.body?.matches) ? req.body.matches : [req.body];
+    if (!list.length || list.length > 50) {
+      throw new HttpError(400, "Send between 1 and 50 matches.");
+    }
+    const matches = list.map((match) => matchFrom(match));
+    res.status(201).json({ matches: await createMatches(date, matches) });
+  });
+
+  app.post("/api/admin/matches/update", requireAdmin, async (req, res) => {
+    res.json({ match: await updateMatch(Number(req.body?.id), matchFrom(req.body)) });
+  });
+
+  app.post("/api/admin/matches/result", requireAdmin, async (req, res) => {
+    await setResult(Number(req.body?.id), String(req.body?.result || ""));
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/matches/delete", requireAdmin, async (req, res) => {
+    await deleteMatch(Number(req.body?.id));
     res.json({ ok: true });
   });
 
