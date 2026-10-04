@@ -16,20 +16,47 @@ try {
 function required(name) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`Missing environment variable ${name}. Copy server/.env.example to server/.env and fill it in.`);
+    const fix = process.env.VERCEL
+      ? "Add it in Vercel > Project > Settings > Environment Variables, then redeploy."
+      : "Copy server/.env.example to server/.env and fill it in.";
+    throw new Error(`Missing environment variable ${name}. ${fix}`);
   }
   return value;
 }
 
-const isProduction = process.env.NODE_ENV === "production";
+const onVercel = Boolean(process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+
+// On Vercel the site address is known automatically; elsewhere APP_URL is required.
+function appUrl() {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  return required("APP_URL");
+}
+
+// Vercel has no lasting disk, so it must use Turso. Locally a SQLite file is used.
+function databaseUrl() {
+  if (process.env.TURSO_DATABASE_URL) {
+    return process.env.TURSO_DATABASE_URL;
+  }
+  if (onVercel) {
+    return required("TURSO_DATABASE_URL");
+  }
+  return process.env.DATABASE_FILE || path.join(serverDir, "data", "app.db");
+}
 
 export const config = {
   isProduction,
   port: Number(process.env.PORT || 3000),
-  appUrl: required("APP_URL").replace(/\/+$/, ""),
+  appUrl: appUrl().replace(/\/+$/, ""),
   sessionSecret: required("SESSION_SECRET"),
   currency: (process.env.CURRENCY || "GHS").toUpperCase(),
-  databaseFile: process.env.DATABASE_FILE || path.join(serverDir, "data", "app.db"),
+  databaseUrl: databaseUrl(),
+  databaseToken: process.env.TURSO_AUTH_TOKEN || undefined,
   // The existing front-end lives one folder up from server/.
   siteDir: path.resolve(serverDir, ".."),
   paystack: {
@@ -50,6 +77,6 @@ if (isProduction) {
     throw new Error("APP_URL must use https:// in production.");
   }
   if (config.paystack.secretKey.startsWith("sk_test_") || config.flutterwave.secretKey.includes("_TEST")) {
-    console.warn("Warning: NODE_ENV is production but a TEST payment key is configured.");
+    console.warn("Warning: running in production with a TEST payment key.");
   }
 }

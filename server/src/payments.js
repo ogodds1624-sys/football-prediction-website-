@@ -1,32 +1,32 @@
 import crypto from "node:crypto";
 import { config } from "./config.js";
-import { db, transaction } from "./db.js";
+import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
 import { getPlan } from "./plans.js";
 import { getProvider } from "./providers/index.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
-const insertPayment = db.prepare(`
-  INSERT INTO payments (user_id, provider, reference, plan, amount, currency)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
-const findPayment = db.prepare("SELECT * FROM payments WHERE reference = ?");
-const markFailed = db.prepare(`
-  UPDATE payments
-  SET status = 'failed', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  WHERE reference = ? AND status = 'pending'
-`);
-const markSuccess = db.prepare(`
-  UPDATE payments
-  SET status = 'success',
-      provider_transaction_id = ?,
-      paid_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  WHERE reference = ? AND status = 'pending'
-`);
-const findUser = db.prepare("SELECT id, plan, plan_expires_at FROM users WHERE id = ?");
-const updateUserPlan = db.prepare("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?");
+const SQL = {
+  insertPayment: `
+    INSERT INTO payments (user_id, provider, reference, plan, amount, currency)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+  findPayment: "SELECT * FROM payments WHERE reference = ?",
+  markFailed: `
+    UPDATE payments SET status = 'failed', updated_at = ${NOW}
+    WHERE reference = ? AND status = 'pending'`,
+  markSuccess: `
+    UPDATE payments
+    SET status = 'success', provider_transaction_id = ?, paid_at = ${NOW}, updated_at = ${NOW}
+    WHERE reference = ? AND status = 'pending'`,
+  findUser: "SELECT id, plan, plan_expires_at FROM users WHERE id = ?",
+  updateUserPlan: "UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?",
+};
+
+export function findPayment(reference) {
+  return one(SQL.findPayment, [reference]);
+}
 
 export function publicPayment(payment) {
   return {
@@ -53,7 +53,7 @@ export async function startPayment(user, providerName, planId) {
   }
 
   const reference = `${plan.id}_${crypto.randomUUID()}`;
-  insertPayment.run(user.id, provider.name, reference, plan.id, plan.amount, config.currency);
+  await execute(SQL.insertPayment, [user.id, provider.name, reference, plan.id, plan.amount, config.currency]);
 
   try {
     const checkoutUrl = await provider.initialize({
@@ -66,15 +66,15 @@ export async function startPayment(user, providerName, planId) {
     });
     return { reference, checkoutUrl };
   } catch (error) {
-    markFailed.run(reference);
+    await execute(SQL.markFailed, [reference]);
     throw error;
   }
 }
 
 // Extends from the current expiry if the plan is still running, so renewing
 // early never loses days. A higher plan replaces a lower one.
-function upgradeUser(userId, plan) {
-  const user = findUser.get(userId);
+async function upgradeUser(tx, userId, plan) {
+  const user = (await tx.execute(SQL.findUser, [userId])).rows[0];
   const now = Date.now();
   const currentExpiry = user.plan_expires_at ? Date.parse(user.plan_expires_at) : 0;
   const stillActive = user.plan !== "free" && currentExpiry > now;
@@ -82,16 +82,16 @@ function upgradeUser(userId, plan) {
   const start = stillActive ? currentExpiry : now;
   const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
   const keepCurrent = stillActive && getPlan(user.plan)?.rank > plan.rank;
-  updateUserPlan.run(keepCurrent ? user.plan : plan.id, expiresAt, userId);
+  await tx.execute(SQL.updateUserPlan, [keepCurrent ? user.plan : plan.id, expiresAt, userId]);
 }
 
 // Confirms a payment with the provider's own servers and, if it really
 // succeeded for the right amount, marks it paid and upgrades the user.
 // Safe to call many times (callback, webhook and status checks all use it).
 export async function confirmPayment(reference) {
-  const payment = findPayment.get(reference);
+  const payment = await findPayment(reference);
   if (!payment || payment.status !== "pending") {
-    return payment || null;
+    return payment;
   }
 
   const provider = getProvider(payment.provider);
@@ -107,7 +107,7 @@ export async function confirmPayment(reference) {
   const genuine =
     result.state === "success" &&
     result.reference === payment.reference &&
-    result.amount === payment.amount &&
+    result.amount === Number(payment.amount) &&
     result.currency === payment.currency;
 
   if (!genuine) {
@@ -117,16 +117,16 @@ export async function confirmPayment(reference) {
           `provider reported ${result.amount} ${result.currency} for ${result.reference}`,
       );
     }
-    markFailed.run(reference);
-    return findPayment.get(reference);
+    await execute(SQL.markFailed, [reference]);
+    return findPayment(reference);
   }
 
-  transaction(() => {
+  await transaction(async (tx) => {
     // Only the first confirmation changes anything; repeats are no-ops.
-    const changed = markSuccess.run(result.transactionId, reference).changes;
-    if (changed) {
-      upgradeUser(payment.user_id, getPlan(payment.plan));
+    const { rowsAffected } = await tx.execute(SQL.markSuccess, [result.transactionId, reference]);
+    if (rowsAffected) {
+      await upgradeUser(tx, payment.user_id, getPlan(payment.plan));
     }
   });
-  return findPayment.get(reference);
+  return findPayment(reference);
 }

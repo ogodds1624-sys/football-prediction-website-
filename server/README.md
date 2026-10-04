@@ -1,13 +1,16 @@
 # Football Predictions – payments server
 
 Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
-The server also serves the website, so the pages and the API share one address.
+Runs on **Vercel** (database: **Turso**) or on your own computer (database: a local SQLite file).
 
 ```
+package.json          dependencies and npm scripts (run them from the repo root)
+vercel.json           Vercel routing: /api/* goes to the server, everything else is the website
+api/index.js          Vercel entry point
 server/
   .env.example        template for your keys (copy to .env)
   src/config.js       loads and checks .env
-  src/db.js           SQLite tables: users, payments
+  src/db.js           tables users + payments (Turso online, SQLite file locally)
   src/plans.js        plan prices and durations (edit prices here)
   src/auth.js         passwords (scrypt) and signed login cookies
   src/providers/      paystack.js, flutterwave.js
@@ -16,7 +19,7 @@ server/
   test/               automated tests (no real keys needed)
 ```
 
-Needs **Node.js 22.13 or newer** (it uses Node's built-in SQLite).
+Locally it needs **Node.js 22.13 or newer** (for Node's built-in SQLite).
 
 ---
 
@@ -40,7 +43,7 @@ Then open `.env` and paste your keys. Rules:
 
 - `.env` is in `.gitignore`. **Never commit it, email it, or paste it in chat.**
 - Never put a secret key in any `.html` or browser `.js` file. Everything in those files is visible to visitors.
-- On a host (Render, Railway, a VPS, etc.), set the same names as **environment variables** in the host's dashboard instead of uploading `.env`.
+- On Vercel (or any host), set the same names as **environment variables** in the dashboard instead of uploading `.env`. See section 7.
 - If a secret key ever leaks, open the provider dashboard and **regenerate it** straight away.
 
 Generate the `SESSION_SECRET` with:
@@ -51,8 +54,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ## 2. Run it
 
+From the **repo root** (the folder with `index.html`):
+
 ```bash
-cd server
 npm install
 npm test          # 18 tests, uses fake providers, no keys needed
 npm run dev       # restarts when files change
@@ -141,7 +145,7 @@ The server answers `200` once a webhook is handled. If verification fails becaus
 - [ ] `NODE_ENV=production` and `APP_URL=https://yourdomain.com` (HTTPS is required; the server refuses to start without it).
 - [ ] Webhook URLs registered in **live** mode on both dashboards (test and live have separate settings).
 - [ ] Prices in `src/plans.js` are correct, and `CURRENCY` is enabled on your provider accounts.
-- [ ] Back up `server/data/app.db` regularly. It holds your users and payments.
+- [ ] Turn on Turso backups / point-in-time restore. The database holds your users and payments.
 
 ## API reference
 
@@ -157,3 +161,44 @@ The server answers `200` once a webhook is handled. If verification fails becaus
 | GET | `/api/payments/:reference` | the signed-in user's payment status (re-verifies if pending) |
 | POST | `/api/webhooks/paystack` | signed by Paystack |
 | POST | `/api/webhooks/flutterwave` | carries `verif-hash` |
+
+## 7. Deploy on Vercel with Turso
+
+Vercel runs the server as short-lived functions with **no lasting disk**, so the
+database lives on **Turso** (hosted SQLite, free tier available).
+
+**1. Create the Turso database**
+
+1. Sign up at **turso.tech** → **Create database** (pick the region closest to your users).
+2. Open the database → **Connect** → copy the URL (`libsql://...turso.io`).
+3. **Create token** → copy it.
+
+**2. Vercel project settings**
+
+- **Settings → General → Root Directory:** leave it **empty** (the repo root, where `index.html` and `vercel.json` are). Do **not** set it to `server`.
+- **Framework Preset:** Other.
+
+**3. Vercel environment variables** (Settings → Environment Variables):
+
+| Name | Value |
+|---|---|
+| `SESSION_SECRET` | long random string (command in section 1) |
+| `TURSO_DATABASE_URL` | `libsql://...turso.io` |
+| `TURSO_AUTH_TOKEN` | the Turso token |
+| `PAYSTACK_SECRET_KEY` | `sk_test_...` to start |
+| `FLW_SECRET_KEY` | `FLWSECK_TEST-...` to start |
+| `FLW_WEBHOOK_HASH` | random string, same as in Flutterwave's dashboard |
+| `CURRENCY` | `GHS` (optional) |
+| `APP_URL` | only if you use your own domain; otherwise your `.vercel.app` address is used |
+
+Then **Deployments → ⋯ → Redeploy**. Variables only apply to new deployments.
+
+**4. Check it**
+
+- Open `https://<project>.vercel.app/api/payments/options`. It should list your plans and providers.
+- If something fails, open **Deployments → the deployment → Logs**. A missing variable is named in the error, e.g. *"Missing environment variable TURSO_DATABASE_URL"*.
+- Webhook URLs become `https://<project>.vercel.app/api/webhooks/paystack` and `.../flutterwave`.
+
+Note: on Vercel the rate limits are counted per function instance, so they're a light
+safeguard there. Payment safety does not depend on them; it comes from server-side
+verification.

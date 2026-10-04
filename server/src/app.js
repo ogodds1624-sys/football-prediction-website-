@@ -1,20 +1,17 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { endSession, hashPassword, loadUser, publicUser, requireUser, startSession, verifyPassword } from "./auth.js";
+import { endSession, findUserById, hashPassword, loadUser, publicUser, requireUser, startSession, verifyPassword } from "./auth.js";
 import { config } from "./config.js";
-import { db } from "./db.js";
+import { one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
-import { confirmPayment, publicPayment, startPayment } from "./payments.js";
+import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const insertUser = db.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email, plan, plan_expires_at");
-const findUserByEmail = db.prepare("SELECT * FROM users WHERE email = ?");
-const findUserPayment = db.prepare("SELECT * FROM payments WHERE reference = ? AND user_id = ?");
-const findUserById = db.prepare("SELECT id, email, plan, plan_expires_at FROM users WHERE id = ?");
+const findUserByEmail = (email) => one("SELECT * FROM users WHERE email = ?", [email]);
 
 function webhookHandler(providerName) {
   return async (req, res) => {
@@ -91,10 +88,13 @@ export function createApp({ limitRequests = true } = {}) {
     if (password.length < 8 || password.length > 200) {
       throw new HttpError(400, "Password must be at least 8 characters.");
     }
-    if (findUserByEmail.get(email)) {
+    if (await findUserByEmail(email)) {
       throw new HttpError(409, "An account with this email already exists. Sign in instead.");
     }
-    const user = insertUser.get(email, await hashPassword(password));
+    const user = await one(
+      "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email, plan, plan_expires_at",
+      [email, await hashPassword(password)],
+    );
     startSession(res, user.id);
     res.status(201).json({ user: publicUser(user) });
   });
@@ -102,7 +102,7 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/auth/login", authLimiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    const user = findUserByEmail.get(email);
+    const user = await findUserByEmail(email);
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new HttpError(401, "Wrong email or password.");
     }
@@ -149,14 +149,14 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/payments/:reference", requireUser, async (req, res) => {
-    let payment = findUserPayment.get(req.params.reference, req.user.id);
-    if (!payment) {
+    let payment = await findPayment(req.params.reference);
+    if (!payment || payment.user_id !== req.user.id) {
       throw new HttpError(404, "Payment not found.");
     }
     if (payment.status === "pending") {
       payment = (await confirmPayment(payment.reference)) || payment;
     }
-    const user = findUserById.get(req.user.id);
+    const user = await findUserById(req.user.id);
     res.json({ payment: publicPayment(payment), user: publicUser(user) });
   });
 
@@ -181,6 +181,11 @@ export function createApp({ limitRequests = true } = {}) {
   app.use((error, req, res, next) => {
     if (error instanceof HttpError) {
       res.status(error.status).json({ error: error.message });
+      return;
+    }
+    // Two sign-ups with the same email at the same moment.
+    if (/UNIQUE constraint failed: users\.email/i.test(error.message)) {
+      res.status(409).json({ error: "An account with this email already exists. Sign in instead." });
       return;
     }
     if (error.type === "entity.parse.failed") {

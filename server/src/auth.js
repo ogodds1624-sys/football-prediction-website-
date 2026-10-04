@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { config } from "./config.js";
-import { db } from "./db.js";
+import { one } from "./db.js";
 
 const scrypt = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
@@ -29,7 +29,9 @@ export async function verifyPassword(password, stored) {
   return safeEqual(key.toString("base64"), expected);
 }
 
-const findUserById = db.prepare("SELECT id, email, plan, plan_expires_at FROM users WHERE id = ?");
+export function findUserById(userId) {
+  return one("SELECT id, email, plan, plan_expires_at FROM users WHERE id = ?", [userId]);
+}
 
 export function publicUser(user) {
   const active = user.plan !== "free" && user.plan_expires_at && user.plan_expires_at > new Date().toISOString();
@@ -86,9 +88,9 @@ function sessionUserId(req) {
 }
 
 // Attaches req.user (or null) to every request.
-export function loadUser(req, res, next) {
+export async function loadUser(req, res, next) {
   const userId = sessionUserId(req);
-  req.user = userId ? findUserById.get(userId) || null : null;
+  req.user = userId ? await findUserById(userId) : null;
   next();
 }
 
