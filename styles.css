@@ -165,15 +165,132 @@ header {
   font-weight: 700;
 }
 
-.user-label {
+/* Signed-in member: initials avatar, name and plan badge in one pill */
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   min-width: 0;
-  max-width: 14rem;
-  margin: 0;
+  padding: 0.25rem 0.7rem 0.25rem 0.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  animation: chip-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.user-chip[hidden] {
+  display: none;
+}
+
+.user-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent), #2bb3a0);
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 0 2px rgba(61, 220, 132, 0.25);
+}
+
+.user-name {
+  min-width: 0;
+  max-width: 11rem;
   overflow: hidden;
-  color: var(--muted);
+  color: var(--text);
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
   font-size: 0.9rem;
+  font-weight: 400;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.user-plan {
+  flex-shrink: 0;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.user-plan.plan-free {
+  color: var(--accent);
+}
+
+.user-plan.plan-vip {
+  color: #e6c15a;
+  background: rgba(230, 193, 90, 0.12);
+}
+
+.user-plan.plan-vvip {
+  color: #b48cf2;
+  background: rgba(180, 140, 242, 0.14);
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Greeting after signing in or creating an account; slides down, then away */
+.welcome-toast {
+  position: fixed;
+  top: 4.5rem;
+  left: 50%;
+  z-index: 35;
+  display: grid;
+  gap: 0.2rem;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 0.9rem 1.1rem 0.9rem 1.25rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translate(-50%, -14px);
+  transition:
+    opacity 0.35s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.welcome-toast.is-shown {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.welcome-toast strong {
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.welcome-toast span {
+  color: var(--muted);
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 300;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-chip {
+    animation: none;
+  }
+
+  .welcome-toast {
+    transition: none;
+  }
 }
 
 h1 {
@@ -1605,9 +1722,27 @@ button {
 }
 
 /* Small phones: keep the header on one line */
-@media (max-width: 420px) {
-  .user-label {
-    max-width: 8rem;
+/* Small phones: plan shows as the avatar's ring instead of a badge */
+@media (max-width: 480px) {
+  .user-chip {
+    gap: 0.45rem;
+    padding-right: 0.6rem;
+  }
+
+  .user-name {
+    max-width: 6rem;
+  }
+
+  .user-plan {
+    display: none;
+  }
+
+  .user-chip[data-plan="vip"] .user-avatar {
+    box-shadow: 0 0 0 2px #e6c15a;
+  }
+
+  .user-chip[data-plan="vvip"] .user-avatar {
+    box-shadow: 0 0 0 2px #b48cf2;
   }
 }
 

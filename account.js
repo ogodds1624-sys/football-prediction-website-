@@ -69,6 +69,12 @@ form.addEventListener("submit", async (event) => {
       nameInput.focus();
       return;
     }
+    // The home page greets the member once: "new" after sign-up, "back" after sign-in.
+    try {
+      sessionStorage.setItem("welcome", mode === "register" ? "new" : "back");
+    } catch {
+      // No storage (private window): skip the greeting.
+    }
     location.href = nextPage();
   } catch {
     errorText.textContent = "Can't reach the server. Check your connection and try again.";

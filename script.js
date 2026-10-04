@@ -49,12 +49,51 @@ function showUser(user) {
   footerSignIn.textContent = user ? "Sign out" : "Sign in";
   userLabel.hidden = !user;
   if (!user) {
-    userLabel.textContent = "";
     return;
   }
   // Older accounts have no name, so they still show the email.
   const who = user.name || user.email;
-  userLabel.textContent = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()}`;
+  document.querySelector("#user-avatar").textContent = initials(who);
+  document.querySelector("#user-name").textContent = who;
+  const planBadge = document.querySelector("#user-plan");
+  planBadge.textContent = user.plan.toUpperCase();
+  planBadge.className = `user-plan plan-${user.plan}`;
+  userLabel.dataset.plan = user.plan;
+  userLabel.title = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()} member`;
+  showWelcome(user);
+}
+
+// "Kwame Mensah" -> "KM"; an email falls back to its first letter.
+function initials(text) {
+  const words = text.split("@")[0].split(/[\s._-]+/).filter(Boolean);
+  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "?";
+}
+
+// The account page leaves a note after signing in ("back") or creating an account ("new").
+// It is shown once, then cleared.
+function showWelcome(user) {
+  let kind = null;
+  try {
+    kind = sessionStorage.getItem("welcome");
+    sessionStorage.removeItem("welcome");
+  } catch {
+    return;
+  }
+  if (kind !== "back" && kind !== "new") {
+    return;
+  }
+  const firstName = (user.name || "").split(" ")[0];
+  const toast = document.querySelector("#welcome-toast");
+  toast.replaceChildren(
+    element("strong", "", kind === "new" ? `Welcome to O G Sports Hub${firstName ? `, ${firstName}` : ""}!` : `Welcome back${firstName ? `, ${firstName}` : ""}!`),
+    element("span", "", kind === "new" ? "Your account is ready. Enjoy today's predictions." : "Good to see you again. Today's picks are waiting."),
+  );
+  toast.hidden = false;
+  requestAnimationFrame(() => toast.classList.add("is-shown"));
+  setTimeout(() => {
+    toast.classList.remove("is-shown");
+    setTimeout(() => (toast.hidden = true), 400);
+  }, 4500);
 }
 
 const tierBodies = {

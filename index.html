@@ -17,10 +17,15 @@
       <span class="menu-bars" aria-hidden="true"></span>
     </button>
     <div class="header-end">
-      <p id="user-label" class="user-label" hidden></p>
+      <div id="user-label" class="user-chip" hidden>
+        <span class="user-avatar" id="user-avatar" aria-hidden="true"></span>
+        <span class="user-name" id="user-name"></span>
+        <span class="user-plan" id="user-plan"></span>
+      </div>
       <button type="button" class="sign-in" id="sign-in">Sign in</button>
     </div>
   </header>
+  <div class="welcome-toast" id="welcome-toast" role="status" aria-live="polite" hidden></div>
   <nav id="site-menu" class="site-menu" aria-label="Main" hidden>
     <p class="menu-title">Menu</p>
     <a class="menu-item" href="#free">
