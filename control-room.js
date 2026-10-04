@@ -39,7 +39,6 @@ let scanning = false;
 let tesseractReady = null;
 
 const settingsForm = document.querySelector("#settings-form");
-const whatsappInput = document.querySelector("#s-whatsapp");
 const settingsMessage = document.querySelector("#settings-message");
 
 const currencyInput = document.querySelector("#s-currency");
@@ -769,6 +768,155 @@ paymentForm.addEventListener("submit", (event) => {
   renderPeople();
 });
 
+/* ---------- Payment gateway (stored on the server) ---------- */
+
+const GATEWAY_METHODS = {
+  momo: ["network", "number", "name"],
+  ghBank: ["bank", "number", "name"],
+  ngBank: ["bank", "number", "name"],
+};
+const ratesForm = document.querySelector("#rates-form");
+const ratesMessage = document.querySelector("#rates-message");
+const checkoutForm = document.querySelector("#checkout-form");
+const checkoutMessage = document.querySelector("#checkout-message");
+const rateInputs = document.querySelectorAll("[data-rate]");
+let savedRates = {};
+
+async function adminFetch(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    throw new Error("Your admin sign-in has expired. Sign out and sign in again.");
+  }
+  if (!response.ok) {
+    throw new Error(body.error || "Something went wrong. Please try again.");
+  }
+  return body;
+}
+
+function postJson(url, payload) {
+  return adminFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+}
+
+function accountRow(methodId, account = {}) {
+  const container = document.querySelector(`[data-method-rows="${methodId}"]`);
+  const placeholders = container.dataset.placeholders.split("|");
+  const row = document.createElement("div");
+  row.className = "account-row";
+  GATEWAY_METHODS[methodId].forEach((field, index) => {
+    const input = document.createElement("input");
+    input.dataset.field = field;
+    input.maxLength = 60;
+    input.autocomplete = "off";
+    input.placeholder = placeholders[index];
+    input.setAttribute("aria-label", placeholders[index]);
+    input.value = account[field] || "";
+    row.append(input);
+  });
+  // The first row always stays; extra rows can be removed.
+  if (container.children.length) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "round-button remove-row";
+    remove.textContent = "×";
+    remove.setAttribute("aria-label", "Remove this account");
+    remove.addEventListener("click", () => row.remove());
+    row.append(remove);
+  }
+  container.append(row);
+  return row;
+}
+
+function fillGateway({ checkout, rates }) {
+  document.querySelector("#c-business").value = checkout.businessName;
+  document.querySelector("#c-whatsapp").value = checkout.whatsapp;
+  document.querySelector("#c-email").value = checkout.email;
+  for (const methodId of Object.keys(GATEWAY_METHODS)) {
+    const method = checkout.methods[methodId];
+    document.querySelector(`[data-method-toggle="${methodId}"]`).checked = method.enabled;
+    document.querySelector(`[data-method-rows="${methodId}"]`).replaceChildren();
+    const accounts = method.accounts.length ? method.accounts : [{}];
+    accounts.forEach((account) => accountRow(methodId, account));
+  }
+  savedRates = rates;
+  for (const input of rateInputs) {
+    input.value = rates[input.dataset.rate] ?? "";
+  }
+}
+
+function readCheckout() {
+  const methods = {};
+  for (const methodId of Object.keys(GATEWAY_METHODS)) {
+    const rows = document.querySelectorAll(`[data-method-rows="${methodId}"] .account-row`);
+    methods[methodId] = {
+      enabled: document.querySelector(`[data-method-toggle="${methodId}"]`).checked,
+      accounts: [...rows].map((row) =>
+        Object.fromEntries([...row.querySelectorAll("input")].map((input) => [input.dataset.field, input.value])),
+      ),
+    };
+  }
+  return {
+    businessName: document.querySelector("#c-business").value,
+    whatsapp: document.querySelector("#c-whatsapp").value,
+    email: document.querySelector("#c-email").value,
+    methods,
+  };
+}
+
+async function loadGateway() {
+  try {
+    fillGateway(await adminFetch("/api/admin/gateway"));
+    showMessage(checkoutMessage, "");
+    showMessage(ratesMessage, "");
+  } catch (error) {
+    showMessage(checkoutMessage, error.message, true);
+  }
+}
+
+for (const button of document.querySelectorAll("[data-method-add]")) {
+  button.addEventListener("click", () => {
+    const methodId = button.dataset.methodAdd;
+    const container = document.querySelector(`[data-method-rows="${methodId}"]`);
+    if (container.children.length >= 5) {
+      showMessage(checkoutMessage, "You can add up to 5 accounts per method.", true);
+      return;
+    }
+    accountRow(methodId).querySelector("input").focus();
+  });
+}
+
+for (const button of document.querySelectorAll("[data-reset]")) {
+  button.addEventListener("click", () => {
+    const id = button.dataset.reset;
+    document.querySelector(`#rate-${id}`).value = savedRates[id] ?? "";
+  });
+}
+
+ratesForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = Object.fromEntries([...rateInputs].map((input) => [input.dataset.rate, input.value]));
+  try {
+    const { rates } = await postJson("/api/admin/gateway/rates", payload);
+    savedRates = rates;
+    showMessage(ratesMessage, "Exchange rates saved.");
+  } catch (error) {
+    showMessage(ratesMessage, error.message, true);
+  }
+});
+
+checkoutForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const { checkout } = await postJson("/api/admin/gateway/checkout", readCheckout());
+    fillGateway({ checkout, rates: savedRates });
+    showMessage(checkoutMessage, "Checkout settings saved. Visitors see switched-on methods when they press BUY PLAN.");
+  } catch (error) {
+    showMessage(checkoutMessage, error.message, true);
+  }
+});
+
+document.querySelector("#gateway-refresh").addEventListener("click", loadGateway);
+
 /* ---------- Events ---------- */
 
 for (const button of dayButtons) {
@@ -852,9 +1000,7 @@ cancelButton.addEventListener("click", () => {
 
 settingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  data.settings.whatsapp = whatsappInput.value.replace(/\D/g, "");
   data.settings.currency = currencyInput.value.trim() || "GH₵";
-  whatsappInput.value = data.settings.whatsapp;
   currencyInput.value = data.settings.currency;
   persist(settingsMessage, "Settings saved.");
   renderPeople();
@@ -873,8 +1019,8 @@ document.querySelector("#control-sign-out").addEventListener("click", async () =
   }
 });
 
-whatsappInput.value = data.settings.whatsapp;
 currencyInput.value = data.settings.currency;
 resetForm();
 render();
 renderPeople();
+loadGateway();

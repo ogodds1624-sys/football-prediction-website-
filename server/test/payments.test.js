@@ -363,3 +363,63 @@ describe("booking codes", () => {
     assert.equal(result.data.code, null);
   });
 });
+
+describe("payment gateway settings", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("everything starts empty and switched off", async () => {
+    const admin = await adminCookie();
+    const { data } = await api("/api/admin/gateway", { cookie: admin });
+    assert.equal(data.checkout.businessName, "");
+    assert.equal(data.checkout.whatsapp, "");
+    for (const method of Object.values(data.checkout.methods)) {
+      assert.equal(method.enabled, false);
+      assert.deepEqual(method.accounts, []);
+    }
+    assert.ok(Object.values(data.rates).every((rate) => rate === null));
+  });
+
+  test("only the admin can read or change settings", async () => {
+    assert.equal((await api("/api/admin/gateway")).status, 401);
+    const { cookie } = await newUser();
+    const asUser = await api("/api/admin/gateway/checkout", { method: "POST", cookie, body: { businessName: "Hacked" } });
+    assert.equal(asUser.status, 401);
+  });
+
+  test("visitors only see switched-on methods with accounts", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        businessName: "  O G Sports Hub  ",
+        whatsapp: "+233 20 000 0000",
+        email: "",
+        methods: {
+          momo: { enabled: true, accounts: [{ network: "MTN", number: "0200000000", name: "OG" }, { network: "", number: "", name: "" }] },
+          ghBank: { enabled: false, accounts: [{ bank: "GCB", number: "1", name: "OG" }] },
+          ngBank: { enabled: true, accounts: [] },
+        },
+      },
+    });
+    await api("/api/admin/gateway/rates", { method: "POST", cookie: admin, body: { ngn: "105.5", kes: "" } });
+
+    const { data } = await api("/api/payments/options");
+    assert.equal(data.checkout.businessName, "O G Sports Hub");
+    assert.equal(data.checkout.whatsapp, "233200000000");
+    assert.deepEqual(data.checkout.methods.map((method) => method.id), ["momo"]);
+    assert.equal(data.checkout.methods[0].accounts.length, 1);
+    assert.deepEqual(data.checkout.rates.map((rate) => [rate.id, rate.rate]), [["ngn", 105.5]]);
+  });
+
+  test("bad rates and emails are rejected", async () => {
+    const admin = await adminCookie();
+    const badRate = await api("/api/admin/gateway/rates", { method: "POST", cookie: admin, body: { ngn: "-5" } });
+    assert.equal(badRate.status, 400);
+    const badEmail = await api("/api/admin/gateway/checkout", { method: "POST", cookie: admin, body: { email: "not-an-email" } });
+    assert.equal(badEmail.status, 400);
+  });
+});

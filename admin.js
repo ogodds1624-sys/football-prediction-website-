@@ -26,17 +26,29 @@ passcodeInput.addEventListener("input", () => {
   errorText.textContent = "";
 });
 
+const NO_SERVER_MESSAGE =
+  "Admin sign-in needs the server. Open the live site, or on your computer run \"npm run dev\" and go to http://localhost:3000/admin.html";
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   errorText.textContent = "";
+  if (location.protocol === "file:") {
+    errorText.textContent = NO_SERVER_MESSAGE;
+    return;
+  }
   try {
     const response = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ passcode: passcodeInput.value.trim() }),
     });
+    const body = await response.json().catch(() => null);
+    // A plain file server (e.g. Live Server) answers with a 404 page, not JSON.
+    if (!body) {
+      errorText.textContent = NO_SERVER_MESSAGE;
+      return;
+    }
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
       errorText.textContent = body.error || "Couldn't sign in. Please try again.";
       passcodeInput.select();
       return;

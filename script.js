@@ -98,12 +98,6 @@ function emptyRow() {
 
 function renderPredictions() {
   const data = loadData();
-  const whatsapp = data ? data.settings.whatsapp : "";
-
-  const footerLink = whatsappLink(whatsapp, "Hello, I have a question about your predictions.");
-  if (footerLink) {
-    footerWhatsapp.href = footerLink;
-  }
 
   // Keep the placeholder rows until the admin has saved something.
   if (!data) {
@@ -217,17 +211,101 @@ const payTitle = document.querySelector("#pay-title");
 const payPrice = document.querySelector("#pay-price");
 const payOptions = document.querySelector("#pay-options");
 const payError = document.querySelector("#pay-error");
+const payNote = document.querySelector("#pay-note");
+const payManual = document.querySelector("#pay-manual");
 
 const PROVIDER_NAMES = { paystack: "Pay with Paystack", flutterwave: "Pay with Flutterwave" };
 
-function whatsappFallback(plan) {
-  const data = loadData();
-  const link = whatsappLink(data && data.settings.whatsapp, `Hello, I want to buy the ${plan.toUpperCase()} plan.`);
-  if (link) {
-    window.open(link, "_blank", "noopener");
-  } else {
-    window.alert("Online payment isn't available right now. Please contact us on WhatsApp.");
+// Plan prices, online providers and the admin's checkout details, from the server.
+async function loadOptions() {
+  const response = await fetch("/api/payments/options");
+  if (!response.ok) {
+    throw new Error("options unavailable");
   }
+  return response.json();
+}
+
+function element(tag, className, textContent) {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  if (textContent !== undefined) {
+    node.textContent = textContent;
+  }
+  return node;
+}
+
+function contactLinks(checkout, message) {
+  const nodes = [];
+  const link = whatsappLink(checkout.whatsapp, message);
+  if (link) {
+    const button = element("a", "plan-button pay-whatsapp", "SEND PROOF ON WHATSAPP");
+    button.href = link;
+    button.target = "_blank";
+    button.rel = "noopener";
+    nodes.push(button);
+  }
+  if (checkout.email) {
+    const line = element("p", "pay-small", "Questions? Email ");
+    const mail = element("a", "", checkout.email);
+    mail.href = `mailto:${checkout.email}`;
+    line.append(mail);
+    nodes.push(line);
+  }
+  return nodes;
+}
+
+// Manual payment details: accounts, price in other currencies, and how to send proof.
+function manualPayment(planInfo, options, hasOnline) {
+  const { checkout, currency } = options;
+  const amountText = `${currency} ${planInfo.amount.toFixed(2)}`;
+  const nodes = [];
+
+  if (!checkout.methods.length) {
+    if (!hasOnline) {
+      nodes.push(element("p", "pay-small", "Payments are opening soon. Contact us to get your plan today."));
+      const link = whatsappLink(checkout.whatsapp, `Hello, I want to buy the ${planInfo.name} plan.`);
+      if (link) {
+        const button = element("a", "plan-button pay-whatsapp", "CONTACT US ON WHATSAPP");
+        button.href = link;
+        button.target = "_blank";
+        button.rel = "noopener";
+        nodes.push(button);
+      }
+      nodes.push(...contactLinks({ ...checkout, whatsapp: "" }, ""));
+    }
+    return nodes;
+  }
+
+  nodes.push(element("p", "pay-heading", hasOnline ? "Or pay manually" : `Send ${amountText} to any of these:`));
+  for (const method of checkout.methods) {
+    const block = element("div", "pay-method");
+    block.append(element("p", "pay-method-title", method.label));
+    for (const account of method.accounts) {
+      const provider = account.network || account.bank || "";
+      const card = element("div", "pay-account");
+      card.append(element("span", "pay-account-number", [provider, account.number].filter(Boolean).join(" · ")));
+      if (account.name) {
+        card.append(element("span", "pay-account-name", account.name));
+      }
+      block.append(card);
+    }
+    nodes.push(block);
+  }
+
+  if (checkout.rates.length) {
+    const list = element("p", "pay-small pay-convert");
+    list.textContent = "Paying from abroad: " + checkout.rates
+      .map((rate) => `${rate.symbol} ${(planInfo.amount * rate.rate).toLocaleString(undefined, { maximumFractionDigits: 2 })} (${rate.country})`)
+      .join(" · ");
+    nodes.push(list);
+  }
+
+  nodes.push(element("p", "pay-small", `Use your account email (${currentUser.email}) as the payment reference. Your plan is activated once we confirm your payment.`));
+  const message = `Hello${checkout.businessName ? ` ${checkout.businessName}` : ""}, I've paid ${amountText} for the ${planInfo.name} plan. My account email: ${currentUser.email}. Here is my proof of payment:`;
+  nodes.push(...contactLinks(checkout, message));
+  return nodes;
 }
 
 async function startCheckout(provider, plan, button) {
@@ -253,10 +331,6 @@ async function startCheckout(provider, plan, button) {
 }
 
 async function openPayment(plan) {
-  if (location.protocol === "file:") {
-    whatsappFallback(plan);
-    return;
-  }
   if (!currentUser) {
     location.href = "account.html?mode=register";
     return;
@@ -264,21 +338,22 @@ async function openPayment(plan) {
 
   let options;
   try {
-    const response = await fetch("/api/payments/options");
-    options = await response.json();
+    options = await loadOptions();
   } catch {
-    whatsappFallback(plan);
+    window.alert("Couldn't load the payment options. Check your connection and try again.");
     return;
   }
   const planInfo = options.plans.find((item) => item.id === plan);
-  if (!planInfo || !options.providers.length) {
-    whatsappFallback(plan);
+  if (!planInfo) {
     return;
   }
+  const hasOnline = options.providers.length > 0;
 
   payTitle.textContent = `Buy ${planInfo.name} plan`;
   payPrice.textContent = `${options.currency} ${planInfo.amount.toFixed(2)} for ${planInfo.days} days`;
   payError.textContent = "";
+  payNote.hidden = !hasOnline;
+  payManual.replaceChildren(...manualPayment(planInfo, options, hasOnline));
   payOptions.replaceChildren(
     ...options.providers.map((provider) => {
       const button = document.createElement("button");
@@ -360,6 +435,16 @@ async function loadCurrentUser() {
 }
 
 loadCurrentUser();
+
+// Footer WhatsApp card uses the support number saved in the Control Room.
+loadOptions()
+  .then(({ checkout }) => {
+    const link = whatsappLink(checkout.whatsapp, "Hello, I have a question about your predictions.");
+    if (link) {
+      footerWhatsapp.href = link;
+    }
+  })
+  .catch(() => {});
 
 document.querySelector("#year").textContent = new Date().getFullYear();
 

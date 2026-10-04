@@ -186,47 +186,149 @@
     </section>
 
     <section class="control-section" aria-labelledby="payments-title">
-      <div class="tier-heading">
-        <h2 id="payments-title">Payment gateway</h2>
-        <span class="gateway-status">Not connected</span>
+      <div class="gateway-head">
+        <h2 id="payments-title">Payment Gateway</h2>
+        <button type="button" class="outline-button refresh-button" id="gateway-refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="refresh-icon"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>REFRESH</button>
       </div>
-      <p class="form-hint gateway-note">Online payments (e.g. Paystack or MTN MoMo) need a server before they can be connected. Until then, record each payment you receive here.</p>
-      <form class="match-form" id="payment-form" novalidate>
-        <label>Member name
-          <input id="p-name" maxlength="60" autocomplete="off" list="member-names">
-        </label>
-        <label>Plan
-          <select id="p-plan">
-            <option value="vip">VIP</option>
-            <option value="vvip">VVIP</option>
-          </select>
-        </label>
-        <label>Amount
-          <input id="p-amount" type="number" step="0.01" min="0" placeholder="e.g. 50">
-        </label>
-        <label>Method
-          <select id="p-method">
-            <option>Mobile Money</option>
-            <option>Card</option>
-            <option>Bank transfer</option>
-            <option>Cash</option>
-          </select>
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Record payment</button>
-        </div>
-      </form>
-      <datalist id="member-names"></datalist>
-      <p class="form-message" id="payment-message" role="status"></p>
-      <div id="payment-list"></div>
+
+      <div class="gateway-card">
+        <h3>Exchange Rates</h3>
+        <form id="rates-form" novalidate>
+          <div class="rates-grid">
+          <div class="rate-field">
+            <label for="rate-ngn">Nigeria — ₦ per GHS</label>
+            <div class="rate-row">
+              <input id="rate-ngn" data-rate="ngn" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <button type="button" class="round-button" data-reset="ngn" aria-label="Reset Nigeria rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
+          <div class="rate-field">
+            <label for="rate-kes">Kenya — KSh per GHS</label>
+            <div class="rate-row">
+              <input id="rate-kes" data-rate="kes" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <button type="button" class="round-button" data-reset="kes" aria-label="Reset Kenya rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
+          <div class="rate-field">
+            <label for="rate-tzs">Tanzania — TSh per GHS</label>
+            <div class="rate-row">
+              <input id="rate-tzs" data-rate="tzs" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <button type="button" class="round-button" data-reset="tzs" aria-label="Reset Tanzania rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
+          <div class="rate-field">
+            <label for="rate-zmw">Zambia — ZK per GHS</label>
+            <div class="rate-row">
+              <input id="rate-zmw" data-rate="zmw" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <button type="button" class="round-button" data-reset="zmw" aria-label="Reset Zambia rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
+          <div class="rate-field">
+            <label for="rate-zar">South Africa — R per GHS</label>
+            <div class="rate-row">
+              <input id="rate-zar" data-rate="zar" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <button type="button" class="round-button" data-reset="zar" aria-label="Reset South Africa rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
+          </div>
+          <button type="submit" class="control-primary gateway-save">SAVE RATES</button>
+          <p class="form-message" id="rates-message" role="status"></p>
+        </form>
+      </div>
+
+      <div class="gateway-card">
+        <h3>Checkout</h3>
+        <form id="checkout-form" class="checkout-form" novalidate>
+          <div class="gateway-field">
+            <label for="c-business">Business / display name</label>
+            <input id="c-business" maxlength="60" autocomplete="off">
+          </div>
+          <div class="gateway-field">
+            <label for="c-whatsapp">WhatsApp support number</label>
+            <input id="c-whatsapp" inputmode="tel" maxlength="20" autocomplete="off">
+          </div>
+          <div class="gateway-field">
+            <label for="c-email">Support email</label>
+            <input id="c-email" type="email" maxlength="120" autocomplete="off">
+          </div>
+
+          <div class="method-block" data-method="momo">
+            <div class="method-head">
+              <span class="method-title" id="method-momo-title">Ghana MoMo</span>
+              <label class="switch">
+                <input type="checkbox" data-method-toggle="momo" aria-labelledby="method-momo-title">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="method-rows" data-method-rows="momo" data-placeholders="Network|MoMo number|Account name"></div>
+            <button type="button" class="outline-button" data-method-add="momo">ADD MOMO</button>
+          </div>
+
+          <div class="method-block" data-method="ghBank">
+            <div class="method-head">
+              <span class="method-title" id="method-ghBank-title">Ghana bank</span>
+              <label class="switch">
+                <input type="checkbox" data-method-toggle="ghBank" aria-labelledby="method-ghBank-title">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="method-rows" data-method-rows="ghBank" data-placeholders="Bank|Account number|Account name"></div>
+            <button type="button" class="outline-button" data-method-add="ghBank">ADD BANK</button>
+          </div>
+
+          <div class="method-block" data-method="ngBank">
+            <div class="method-head">
+              <span class="method-title" id="method-ngBank-title">Nigeria bank transfer</span>
+              <label class="switch">
+                <input type="checkbox" data-method-toggle="ngBank" aria-labelledby="method-ngBank-title">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="method-rows" data-method-rows="ngBank" data-placeholders="Bank|Account number|Account name"></div>
+            <button type="button" class="outline-button" data-method-add="ngBank">ADD NIGERIA ACCOUNT</button>
+          </div>
+          <button type="submit" class="control-primary gateway-save">SAVE SETTINGS</button>
+          <p class="form-message" id="checkout-message" role="status"></p>
+        </form>
+      </div>
+
+      <div class="gateway-card">
+        <h3>Payment records</h3>
+        <p class="form-hint gateway-note">Record each payment you receive so the overview totals stay up to date.</p>
+        <form class="match-form" id="payment-form" novalidate>
+          <label>Member name
+            <input id="p-name" maxlength="60" autocomplete="off" list="member-names">
+          </label>
+          <label>Plan
+            <select id="p-plan">
+              <option value="vip">VIP</option>
+              <option value="vvip">VVIP</option>
+            </select>
+          </label>
+          <label>Amount
+            <input id="p-amount" type="number" step="0.01" min="0" placeholder="e.g. 50">
+          </label>
+          <label>Method
+            <select id="p-method">
+              <option>Mobile Money</option>
+              <option>Card</option>
+              <option>Bank transfer</option>
+              <option>Cash</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="control-primary">Record payment</button>
+          </div>
+        </form>
+        <datalist id="member-names"></datalist>
+        <p class="form-message" id="payment-message" role="status"></p>
+        <div id="payment-list"></div>
+      </div>
     </section>
 
     <section class="control-section" aria-labelledby="settings-title">
       <h2 id="settings-title">Settings</h2>
       <form class="match-form" id="settings-form">
-        <label>WhatsApp number (with country code)
-          <input id="s-whatsapp" inputmode="tel" placeholder="e.g. 233201234567" autocomplete="off">
-        </label>
         <label>Currency symbol
           <input id="s-currency" maxlength="5" placeholder="e.g. GH₵" autocomplete="off">
         </label>

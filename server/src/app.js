@@ -18,6 +18,7 @@ import {
 import { config } from "./config.js";
 import { execute, one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
+import { getGateway, publicCheckout, saveCheckout, saveRates } from "./gateway.js";
 import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
@@ -181,6 +182,18 @@ export function createApp({ limitRequests = true } = {}) {
     res.json({ ok: true });
   });
 
+  app.get("/api/admin/gateway", requireAdmin, async (req, res) => {
+    res.json(await getGateway());
+  });
+
+  app.post("/api/admin/gateway/checkout", requireAdmin, async (req, res) => {
+    res.json({ checkout: await saveCheckout(req.body) });
+  });
+
+  app.post("/api/admin/gateway/rates", requireAdmin, async (req, res) => {
+    res.json({ rates: await saveRates(req.body) });
+  });
+
   app.get("/api/admin/booking-code", requireAdmin, async (req, res) => {
     res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
   });
@@ -207,11 +220,13 @@ export function createApp({ limitRequests = true } = {}) {
 
   /* ---------- Payments ---------- */
 
-  app.get("/api/payments/options", (req, res) => {
+  // Public: plan prices, online providers and the manual checkout details.
+  app.get("/api/payments/options", async (req, res) => {
     res.json({
       currency: config.currency,
       providers: enabledProviders(),
       plans: Object.values(PLANS).map((plan) => ({ id: plan.id, name: plan.name, amount: plan.amount / 100, days: plan.days })),
+      checkout: await publicCheckout(),
     });
   });
 

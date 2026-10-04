@@ -32,6 +32,12 @@ const SCHEMA = [
     paid_at                 TEXT
   )`,
   "CREATE INDEX IF NOT EXISTS payments_user_id ON payments(user_id)",
+  // Admin settings stored as JSON, e.g. "checkout" and "rates" (see gateway.js).
+  `CREATE TABLE IF NOT EXISTS settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
   // SportyBet booking code for the free predictions, one per day (YYYY-MM-DD).
   `CREATE TABLE IF NOT EXISTS booking_codes (
     date       TEXT PRIMARY KEY,
