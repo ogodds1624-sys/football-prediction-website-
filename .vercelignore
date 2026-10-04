@@ -1,0 +1,10 @@
+# Never upload local secrets, data or editor files
+.env
+**/.env
+server/data/
+*.db
+*.db-*
+node_modules/
+.vscode/
+.env.local
+.vercel/
