@@ -36,7 +36,8 @@ const tierBodies = {
   vip: document.querySelector("#vip-body"),
   vvip: document.querySelector("#vvip-body"),
 };
-const planButtons = document.querySelectorAll(".plan-button");
+// Only the VIP/VVIP buttons; other buttons share the .plan-button look.
+const planButtons = document.querySelectorAll(".plan-button[data-tier]");
 const footerWhatsapp = document.querySelector("#footer-whatsapp");
 
 let selectedOffset = 0;
