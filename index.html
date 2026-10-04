@@ -23,9 +23,43 @@
   </header>
   <nav id="site-menu" class="site-menu" aria-label="Main" hidden>
     <p class="menu-title">Menu</p>
-    <a href="#free">Free predictions</a>
-    <a href="#vip">VIP predictions</a>
-    <a href="#vvip">VVIP predictions</a>
+    <a class="menu-item" href="#free">
+      <svg class="menu-icon icon-free" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9.5"/>
+        <path d="M12 7.2l3.6 2.6-1.4 4.2H9.8L8.4 9.8z" fill="currentColor"/>
+        <path d="M12 7.2V2.6M15.6 9.8l4.3-1.4M14.2 14l2.7 3.7M9.8 14l-2.7 3.7M8.4 9.8L4.1 8.4"/>
+      </svg>
+      Free predictions
+    </a>
+    <a class="menu-item" href="#vip">
+      <svg class="menu-icon icon-vip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/>
+      </svg>
+      VIP predictions
+    </a>
+    <a class="menu-item" href="#vvip">
+      <svg class="menu-icon icon-vvip" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M3 8l4.5 3.5L12 4.5l4.5 7L21 8l-1.8 10H4.8z"/>
+        <rect x="4.8" y="19.2" width="14.4" height="2" rx="1"/>
+      </svg>
+      VVIP predictions
+    </a>
+    <button type="button" class="menu-item" id="menu-calendar">
+      <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4.5" width="18" height="16" rx="2.5"/>
+        <path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>
+        <path d="M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 17h2M11 17h2"/>
+      </svg>
+      Calendar
+    </button>
+    <input type="date" id="calendar-input" class="calendar-input" tabindex="-1" aria-hidden="true">
+    <a class="menu-item menu-telegram" href="https://t.me/ogsportsafrica" target="_blank" rel="noopener">
+      <svg class="menu-icon telegram-logo" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="12" fill="#229ED9"/>
+        <path fill="#fff" d="M5.4 11.7l11.1-4.3c.5-.2 1 .1.8.9l-1.9 8.9c-.1.6-.5.8-1 .5l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-2.9 5.4-4.9c.2-.2 0-.3-.3-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.2-.9z"/>
+      </svg>
+      Join our Telegram
+    </a>
   </nav>
   <main>
     <h1 class="brand-title" aria-label="O G SPORTS HUB">
@@ -46,6 +80,7 @@
         <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
         <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
         <button type="button" class="day-button" data-day="1" aria-pressed="false">Tomorrow</button>
+        <button type="button" class="day-button day-custom" id="day-custom" aria-pressed="true" hidden></button>
       </div>
       <table>
         <thead>

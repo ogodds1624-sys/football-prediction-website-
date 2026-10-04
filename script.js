@@ -5,7 +5,9 @@ const userLabel = document.querySelector("#user-label");
 const menuToggle = document.querySelector("#menu-toggle");
 const siteMenu = document.querySelector("#site-menu");
 const menuLinks = document.querySelectorAll("#site-menu a");
-const dayButtons = document.querySelectorAll(".day-button");
+const dayButtons = document.querySelectorAll(".day-button[data-day]");
+const customDayButton = document.querySelector("#day-custom");
+const calendarInput = document.querySelector("#calendar-input");
 
 // Signed-in account from the server: { email, plan, planExpiresAt } or null.
 let currentUser = null;
@@ -117,16 +119,59 @@ function renderPredictions() {
   }
 }
 
-for (const button of dayButtons) {
-  button.addEventListener("click", () => {
-    for (const other of dayButtons) {
-      other.setAttribute("aria-pressed", String(other === button));
-    }
-    selectedOffset = Number(button.dataset.day);
-    hideBooking();
-    renderPredictions();
-  });
+// Shows the predictions for a day, as an offset from today (0 = today).
+function selectDay(offset) {
+  selectedOffset = offset;
+  for (const button of dayButtons) {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.day) === offset));
+  }
+  // Dates other than yesterday/today/tomorrow get their own highlighted button.
+  const isCustom = ![-1, 0, 1].includes(offset);
+  customDayButton.hidden = !isCustom;
+  if (isCustom) {
+    customDayButton.textContent = shortDayLabel(offset);
+  }
+  hideBooking();
+  renderPredictions();
 }
+
+function shortDayLabel(offset) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+for (const button of dayButtons) {
+  button.addEventListener("click", () => selectDay(Number(button.dataset.day)));
+}
+
+/* ---------- Calendar (menu) ---------- */
+
+function openCalendar() {
+  calendarInput.value = dateKey(selectedOffset);
+  try {
+    calendarInput.showPicker();
+  } catch {
+    calendarInput.focus();
+    calendarInput.click();
+  }
+}
+
+calendarInput.addEventListener("change", () => {
+  if (!calendarInput.value) {
+    return;
+  }
+  const [year, month, day] = calendarInput.value.split("-").map(Number);
+  const picked = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  selectDay(Math.round((picked - today) / 86400000));
+  setMenuOpen(false);
+  document.querySelector("#free").scrollIntoView({ behavior: "smooth" });
+});
+
+document.querySelector("#menu-calendar").addEventListener("click", openCalendar);
+customDayButton.addEventListener("click", openCalendar);
 
 /* ---------- SportyBet booking code (free predictions) ---------- */
 
@@ -160,7 +205,7 @@ function sendToRegister() {
 
 // The code is only sent by the server to signed-in users.
 async function revealBookingCode() {
-  const dayName = DAY_NAMES[selectedOffset];
+  const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
   if (!currentUser) {
     sendToRegister();
     return;
