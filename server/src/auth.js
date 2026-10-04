@@ -30,7 +30,7 @@ export async function verifyPassword(password, stored) {
 }
 
 export function findUserById(userId) {
-  return one("SELECT id, email, plan, plan_expires_at FROM users WHERE id = ?", [userId]);
+  return one("SELECT id, email, name, plan, plan_expires_at FROM users WHERE id = ?", [userId]);
 }
 
 export function publicUser(user) {
@@ -38,6 +38,7 @@ export function publicUser(user) {
   return {
     id: user.id,
     email: user.email,
+    name: user.name || "",
     plan: active ? user.plan : "free",
     planExpiresAt: active ? user.plan_expires_at : null,
   };

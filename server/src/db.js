@@ -11,6 +11,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     email           TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name            TEXT NOT NULL DEFAULT '',
     password_hash   TEXT NOT NULL,
     plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip')),
     plan_expires_at TEXT,
@@ -184,6 +185,8 @@ const MIGRATIONS = [
   // Existing reviews were added by the admin, so they count as approved.
   "ALTER TABLE testimonials ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
   "ALTER TABLE testimonials ADD COLUMN user_id INTEGER",
+  // Accounts made before sign-up asked for a name keep an empty one.
+  "ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''",
 ];
 
 // SQLite can't change a CHECK rule in place, so tables made before the

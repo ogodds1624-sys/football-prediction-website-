@@ -3,6 +3,8 @@ const tabRegister = document.querySelector("#tab-register");
 const title = document.querySelector("#account-title");
 const subtitle = document.querySelector("#account-subtitle");
 const form = document.querySelector("#account-form");
+const nameRow = document.querySelector("#name-row");
+const nameInput = document.querySelector("#name");
 const emailInput = document.querySelector("#email");
 const passwordInput = document.querySelector("#password");
 const errorText = document.querySelector("#account-error");
@@ -24,6 +26,9 @@ function setMode(newMode) {
   title.textContent = registering ? "Create account" : "Sign in";
   subtitle.textContent = registering ? "Create an account to buy VIP and VVIP plans." : "Sign in to buy VIP and VVIP plans.";
   submitButton.textContent = registering ? "CREATE ACCOUNT" : "SIGN IN";
+  // Name is only asked for when creating an account.
+  nameRow.hidden = !registering;
+  nameInput.required = registering;
   passwordInput.autocomplete = registering ? "new-password" : "current-password";
   passwordInput.placeholder = registering ? "Password (at least 8 characters)" : "Password";
   errorText.textContent = "";
@@ -40,7 +45,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch(`/api/auth/${mode}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailInput.value, password: passwordInput.value }),
+      body: JSON.stringify({ name: nameInput.value, email: emailInput.value, password: passwordInput.value }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {

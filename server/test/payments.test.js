@@ -97,7 +97,7 @@ async function newUser() {
   userCount += 1;
   const result = await api("/api/auth/register", {
     method: "POST",
-    body: { email: `fan${userCount}@example.com`, password: "correct horse battery" },
+    body: { name: "Kwame Mensah", email: `fan${userCount}@example.com`, password: "correct horse battery" },
   });
   assert.equal(result.status, 201);
   const cookie = result.headers.get("set-cookie").split(";")[0];
@@ -123,9 +123,18 @@ describe("accounts", () => {
 
     const me = await api("/api/me", { cookie });
     assert.equal(me.data.user.email, user.email);
+    assert.equal(me.data.user.name, "Kwame Mensah");
 
     const login = await api("/api/auth/login", { method: "POST", body: { email: user.email, password: "correct horse battery" } });
     assert.equal(login.status, 200);
+  });
+
+  test("sign-up needs a name", async () => {
+    const result = await api("/api/auth/register", {
+      method: "POST",
+      body: { name: " ", email: "noname@example.com", password: "correct horse battery" },
+    });
+    assert.equal(result.status, 400);
   });
 
   test("wrong password and tampered cookie are rejected", async () => {

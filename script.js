@@ -52,7 +52,9 @@ function showUser(user) {
     userLabel.textContent = "";
     return;
   }
-  userLabel.textContent = user.plan === "free" ? user.email : `${user.email} · ${user.plan.toUpperCase()}`;
+  // Older accounts have no name, so they still show the email.
+  const who = user.name || user.email;
+  userLabel.textContent = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()}`;
 }
 
 const tierBodies = {
@@ -582,7 +584,9 @@ function openReviewForm() {
   reviewForm.hidden = false;
   reviewThanks.hidden = true;
   reviewOpen.setAttribute("aria-expanded", "true");
-  document.querySelector("#review-name").focus();
+  const reviewName = document.querySelector("#review-name");
+  reviewName.value ||= (currentUser.name || "").slice(0, 40);
+  reviewName.focus();
 }
 
 reviewOpen.addEventListener("click", () => {

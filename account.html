@@ -18,6 +18,12 @@
       </div>
 
       <form class="admin-form" id="account-form" novalidate>
+        <div id="name-row" hidden>
+          <label for="name" class="visually-hidden">Full name</label>
+          <div class="passcode-field">
+            <input type="text" id="name" placeholder="Full name" autocomplete="name" maxlength="60">
+          </div>
+        </div>
         <label for="email" class="visually-hidden">Email</label>
         <div class="passcode-field">
           <input type="email" id="email" placeholder="Email" autocomplete="email" required>

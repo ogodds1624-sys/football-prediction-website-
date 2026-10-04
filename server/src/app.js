@@ -157,6 +157,10 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
+    const name = String(req.body?.name || "").trim().replace(/\s+/g, " ");
+    if (name.length < 2 || name.length > 60) {
+      throw new HttpError(400, "Enter your name.");
+    }
     if (!EMAIL_PATTERN.test(email) || email.length > 200) {
       throw new HttpError(400, "Enter a valid email address.");
     }
@@ -167,8 +171,8 @@ export function createApp({ limitRequests = true } = {}) {
       throw new HttpError(409, "An account with this email already exists. Sign in instead.");
     }
     const user = await one(
-      "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email, plan, plan_expires_at",
-      [email, await hashPassword(password)],
+      "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?) RETURNING id, email, name, plan, plan_expires_at",
+      [email, name, await hashPassword(password)],
     );
     startSession(res, user.id);
     res.status(201).json({ user: publicUser(user) });
