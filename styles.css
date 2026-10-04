@@ -170,9 +170,57 @@ h1 {
 .lede {
   margin: 0.75rem auto 0;
   max-width: 40rem;
+  overflow: hidden;
   color: var(--muted);
-  text-align: center;
   line-height: 1.55;
+  white-space: nowrap;
+  /* Fade the text in and out at the edges */
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+/* Two copies side by side; moving left by half makes the loop seamless */
+.lede-track {
+  display: inline-flex;
+  animation: lede-scroll 28s linear infinite;
+}
+
+.lede:hover .lede-track {
+  animation-play-state: paused;
+}
+
+.lede-item {
+  padding-right: 3rem;
+}
+
+@keyframes lede-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* People who turn off motion get the normal centred paragraph */
+@media (prefers-reduced-motion: reduce) {
+  .lede {
+    white-space: normal;
+    text-align: center;
+    mask-image: none;
+  }
+
+  .lede-track {
+    display: inline;
+    animation: none;
+  }
+
+  .lede-item {
+    padding-right: 0;
+  }
+
+  .lede-item[aria-hidden="true"] {
+    display: none;
+  }
 }
 
 main hr {
