@@ -923,23 +923,38 @@ const testimonialForm = document.querySelector("#testimonial-form");
 const testimonialStatus = document.querySelector("#testimonial-message-status");
 const testimonialList = document.querySelector("#testimonial-list");
 
+async function testimonialAction(url, id, doneText) {
+  try {
+    await postJson(url, { id });
+    showMessage(testimonialStatus, doneText);
+    loadTestimonials();
+  } catch (error) {
+    showMessage(testimonialStatus, error.message, true);
+  }
+}
+
 function testimonialRow(item) {
   const row = document.createElement("tr");
   const actions = document.createElement("td");
-  actions.append(
-    actionButton("Delete", async () => {
-      if (!window.confirm(`Delete the review from ${item.name}?`)) {
-        return;
-      }
-      try {
-        await postJson("/api/admin/testimonials/delete", { id: item.id });
-        showMessage(testimonialStatus, "Testimonial deleted.");
-        loadTestimonials();
-      } catch (error) {
-        showMessage(testimonialStatus, error.message, true);
-      }
-    }, "danger"),
-  );
+  actions.className = "row-actions";
+  if (item.status === "pending") {
+    actions.append(
+      actionButton("Accept", () => testimonialAction("/api/admin/testimonials/approve", item.id, `Accepted. ${item.name}'s review is now on the website.`), "accept"),
+      actionButton("Reject", () => {
+        if (window.confirm(`Reject and delete the review from ${item.name}?`)) {
+          testimonialAction("/api/admin/testimonials/delete", item.id, "Review rejected.");
+        }
+      }, "danger"),
+    );
+  } else {
+    actions.append(
+      actionButton("Delete", () => {
+        if (window.confirm(`Remove ${item.name}'s review from the website?`)) {
+          testimonialAction("/api/admin/testimonials/delete", item.id, "Review removed from the website.");
+        }
+      }, "danger"),
+    );
+  }
   row.append(
     textCell(item.name),
     textCell(item.location || "–"),
@@ -953,9 +968,16 @@ function testimonialRow(item) {
 async function loadTestimonials() {
   try {
     const { testimonials } = await adminFetch("/api/admin/testimonials");
-    testimonialList.replaceChildren(
-      simpleTable(["Name", "Location", "Rating", "Message", ""], testimonials.map(testimonialRow), "No testimonials yet."),
+    const pending = testimonials.filter((item) => item.status === "pending");
+    const approved = testimonials.filter((item) => item.status !== "pending");
+    const headers = ["Name", "Location", "Rating", "Message", ""];
+    document.querySelector("#pending-list").replaceChildren(
+      simpleTable(headers, pending.map(testimonialRow), "No reviews waiting. New ones from members appear here."),
     );
+    testimonialList.replaceChildren(simpleTable(headers, approved.map(testimonialRow), "No reviews on the website yet."));
+    const badge = document.querySelector("#pending-count");
+    badge.hidden = !pending.length;
+    badge.textContent = `${pending.length} waiting`;
   } catch (error) {
     showMessage(testimonialStatus, error.message, true);
   }

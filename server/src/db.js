@@ -153,11 +153,34 @@ const backend = config.databaseUrl.startsWith("libsql://") || config.databaseUrl
 let ready;
 
 // Creates the tables once per server start (or per serverless cold start).
+// Columns added after a table already existed in production. Each runs once;
+// "duplicate column" means it was already applied.
+const MIGRATIONS = [
+  // Existing reviews were added by the admin, so they count as approved.
+  "ALTER TABLE testimonials ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
+  "ALTER TABLE testimonials ADD COLUMN user_id INTEGER",
+];
+
+async function migrate() {
+  for (const statement of MIGRATIONS) {
+    try {
+      await backend.execute(statement, []);
+    } catch (error) {
+      if (!/duplicate column/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+}
+
 export function dbReady() {
-  ready ??= backend.init().catch((error) => {
-    ready = null;
-    throw error;
-  });
+  ready ??= backend
+    .init()
+    .then(migrate)
+    .catch((error) => {
+      ready = null;
+      throw error;
+    });
   return ready;
 }
 

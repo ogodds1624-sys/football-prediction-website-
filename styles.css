@@ -2207,3 +2207,131 @@ button:not(:disabled):not(.toggle-passcode):active,
   border-color: var(--accent);
   outline: none;
 }
+
+/* ---------- Leave a review ---------- */
+.testimonial-carousel[hidden],
+.testimonials-empty[hidden],
+.review-form[hidden],
+.review-status[hidden] {
+  display: none;
+}
+
+.testimonials-empty {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+}
+
+.review-open {
+  margin-top: 1.1rem;
+  color: #e6c15a;
+  border-color: rgba(230, 193, 90, 0.5);
+}
+
+.review-form {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 28rem;
+  margin: 1rem auto 0;
+  text-align: left;
+}
+
+.review-form label {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.review-form input:not([type="radio"]),
+.review-form textarea {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+.review-form input:focus,
+.review-form textarea:focus {
+  border-color: #b48cf2;
+  outline: none;
+}
+
+.review-form .plan-button {
+  margin-top: 0.75rem;
+}
+
+.review-status {
+  margin: 0.6rem 0 0;
+  color: #e6c15a;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Stars light up from the left as you hover or choose (inputs are in reverse order). */
+.star-picker {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.star-picker legend {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.star-picker input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.star-picker label {
+  margin: 0;
+  color: var(--line);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.star-picker input:checked ~ label,
+.star-picker label:hover,
+.star-picker label:hover ~ label {
+  color: #e6c15a;
+}
+
+.star-picker label:hover {
+  transform: scale(1.15);
+}
+
+.star-picker input:focus-visible + label {
+  outline: 2px solid #e6c15a;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.subsection-title {
+  margin: 1.5rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.row-action.accept {
+  color: var(--accent);
+  border-color: rgba(61, 220, 132, 0.5);
+}
+
+.row-action.accept:hover,
+.row-action.accept:focus-visible {
+  color: var(--accent-ink);
+  background: var(--accent);
+}

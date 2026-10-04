@@ -257,8 +257,11 @@ async function loadTestimonials() {
   } catch {
     testimonials = [];
   }
-  // Stays hidden until the admin has added a real review.
-  if (!testimonials.length) {
+  // The slider stays hidden until there is an approved review.
+  const hasReviews = testimonials.length > 0;
+  document.querySelector("#testimonial-carousel").hidden = !hasReviews;
+  document.querySelector("#testimonials-empty").hidden = hasReviews;
+  if (!hasReviews) {
     return;
   }
   testimonialDots.replaceChildren(
@@ -275,7 +278,6 @@ async function loadTestimonials() {
     }),
   );
   testimonialDots.hidden = testimonials.length < 2;
-  testimonialsBox.hidden = false;
   showTestimonial(0);
   startTestimonialTimer();
 }
@@ -287,6 +289,71 @@ testimonialsBox.addEventListener("focusin", stopTestimonialTimer);
 testimonialsBox.addEventListener("focusout", startTestimonialTimer);
 
 loadTestimonials();
+
+/* ---------- Leave a review (members only, shown after admin approval) ---------- */
+
+const reviewOpen = document.querySelector("#review-open");
+const reviewForm = document.querySelector("#review-form");
+const reviewStatus = document.querySelector("#review-status");
+const reviewThanks = document.querySelector("#review-thanks");
+
+function openReviewForm() {
+  if (!currentUser) {
+    location.href = `account.html?mode=register&next=${encodeURIComponent("index.html?review=1")}`;
+    return;
+  }
+  reviewForm.hidden = false;
+  reviewThanks.hidden = true;
+  reviewOpen.setAttribute("aria-expanded", "true");
+  document.querySelector("#review-name").focus();
+}
+
+reviewOpen.addEventListener("click", () => {
+  if (!reviewForm.hidden) {
+    reviewForm.hidden = true;
+    reviewOpen.setAttribute("aria-expanded", "false");
+    return;
+  }
+  openReviewForm();
+});
+
+reviewForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  reviewStatus.textContent = "";
+  const submit = reviewForm.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    const response = await fetch("/api/testimonials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: document.querySelector("#review-name").value,
+        location: document.querySelector("#review-location").value,
+        rating: Number(reviewForm.querySelector('input[name="rating"]:checked').value),
+        message: document.querySelector("#review-message").value,
+      }),
+    });
+    if (response.status === 401) {
+      showUser(null);
+      openReviewForm();
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      reviewStatus.textContent = body.error || "Couldn't send your review. Please try again.";
+      return;
+    }
+    reviewForm.reset();
+    reviewForm.hidden = true;
+    reviewOpen.setAttribute("aria-expanded", "false");
+    reviewThanks.textContent = "Thank you! Your review has been sent and will appear here once it's approved.";
+    reviewThanks.hidden = false;
+  } catch {
+    reviewStatus.textContent = "Couldn't reach the server. Check your connection and try again.";
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 /* ---------- Buying a plan ---------- */
 
@@ -528,6 +595,14 @@ loadCurrentUser().then(() => {
     if (currentUser) {
       bookingButton.scrollIntoView({ behavior: "smooth", block: "center" });
       revealBookingCode();
+    }
+  }
+  // Back from registering via "Leave a review": open the form for them.
+  if (params.get("review") === "1") {
+    history.replaceState(null, "", location.pathname);
+    if (currentUser) {
+      reviewOpen.scrollIntoView({ behavior: "smooth", block: "center" });
+      openReviewForm();
     }
   }
 });

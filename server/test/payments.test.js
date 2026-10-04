@@ -464,3 +464,43 @@ describe("testimonials", () => {
     assert.ok(!list.data.testimonials.some((item) => item.name === "To Delete"));
   });
 });
+
+describe("member reviews", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+  const review = { name: "Ama K.", location: "Accra, Ghana", rating: 5, message: "Really helpful daily tips." };
+
+  test("visitors must sign in to send a review", async () => {
+    const result = await api("/api/testimonials", { method: "POST", body: review });
+    assert.equal(result.status, 401);
+  });
+
+  test("a member's review waits until the admin accepts it", async () => {
+    const { cookie } = await newUser();
+    const sent = await api("/api/testimonials", { method: "POST", cookie, body: review });
+    assert.equal(sent.status, 201);
+
+    const before = await api("/api/testimonials");
+    assert.ok(!before.data.testimonials.some((item) => item.message === review.message));
+
+    const second = await api("/api/testimonials", { method: "POST", cookie, body: { ...review, message: "Another one here" } });
+    assert.equal(second.status, 409);
+
+    const admin = await adminCookie();
+    const list = await api("/api/admin/testimonials", { cookie: admin });
+    const pending = list.data.testimonials.find((item) => item.message === review.message);
+    assert.equal(pending.status, "pending");
+
+    await api("/api/admin/testimonials/approve", { method: "POST", cookie: admin, body: { id: pending.id } });
+    const after = await api("/api/testimonials");
+    assert.ok(after.data.testimonials.some((item) => item.message === review.message));
+  });
+
+  test("members cannot approve reviews", async () => {
+    const { cookie } = await newUser();
+    const result = await api("/api/admin/testimonials/approve", { method: "POST", cookie, body: { id: 1 } });
+    assert.equal(result.status, 401);
+  });
+});

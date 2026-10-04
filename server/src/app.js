@@ -35,6 +35,23 @@ function dateFrom(value) {
   return date;
 }
 
+// Shared checks for reviews from members and from the admin.
+function reviewFrom(body) {
+  const review = {
+    name: String(body?.name || "").trim().slice(0, 40),
+    location: String(body?.location || "").trim().slice(0, 40),
+    message: String(body?.message || "").trim().slice(0, 280),
+    rating: Number(body?.rating),
+  };
+  if (!review.name || review.message.length < 5) {
+    throw new HttpError(400, "Enter a name and a message of at least 5 characters.");
+  }
+  if (!Number.isInteger(review.rating) || review.rating < 1 || review.rating > 5) {
+    throw new HttpError(400, "Choose a rating from 1 to 5 stars.");
+  }
+  return review;
+}
+
 async function bookingCodeFor(date) {
   const row = await one("SELECT code FROM booking_codes WHERE date = ?", [date]);
   return row ? row.code : null;
@@ -111,6 +128,10 @@ export function createApp({ limitRequests = true } = {}) {
     ? rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, skipSuccessfulRequests: true, standardHeaders: "draft-8", legacyHeaders: false })
     : noLimit;
   // Counted per account (requireUser runs first), not per IP.
+  // A few review submissions per hour per account.
+  const reviewLimiter = limitRequests
+    ? rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, keyGenerator: (req) => `review:${req.user.id}`, standardHeaders: "draft-8", legacyHeaders: false })
+    : noLimit;
   const paymentLimiter = limitRequests
     ? rateLimit({ windowMs: 60 * 1000, limit: 10, keyGenerator: (req) => `user:${req.user.id}`, standardHeaders: "draft-8", legacyHeaders: false })
     : noLimit;
@@ -166,11 +187,26 @@ export function createApp({ limitRequests = true } = {}) {
 
   /* ---------- Testimonials ---------- */
 
+  // Only reviews the admin has accepted are public.
   app.get("/api/testimonials", async (req, res) => {
     const { rows } = await execute(
-      "SELECT name, location, rating, message FROM testimonials ORDER BY id DESC LIMIT 30",
+      "SELECT name, location, rating, message FROM testimonials WHERE status = 'approved' ORDER BY id DESC LIMIT 30",
     );
     res.json({ testimonials: rows });
+  });
+
+  // Signed-in members send a review; it waits for the admin to accept it.
+  app.post("/api/testimonials", requireUser, reviewLimiter, async (req, res) => {
+    const review = reviewFrom(req.body);
+    const waiting = await one("SELECT id FROM testimonials WHERE user_id = ? AND status = 'pending'", [req.user.id]);
+    if (waiting) {
+      throw new HttpError(409, "Your last review is still waiting for approval. Thanks for your patience!");
+    }
+    await execute(
+      "INSERT INTO testimonials (name, location, rating, message, status, user_id) VALUES (?, ?, ?, ?, 'pending', ?)",
+      [review.name, review.location, review.rating, review.message, req.user.id],
+    );
+    res.status(201).json({ ok: true });
   });
 
   /* ---------- Admin ---------- */
@@ -192,26 +228,26 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/testimonials", requireAdmin, async (req, res) => {
-    const { rows } = await execute("SELECT id, name, location, rating, message, created_at FROM testimonials ORDER BY id DESC");
+    const { rows } = await execute(
+      "SELECT id, name, location, rating, message, status, created_at FROM testimonials ORDER BY id DESC",
+    );
     res.json({ testimonials: rows });
   });
 
+  // Reviews the admin adds directly are shown straight away.
   app.post("/api/admin/testimonials", requireAdmin, async (req, res) => {
-    const name = String(req.body?.name || "").trim().slice(0, 40);
-    const location = String(req.body?.location || "").trim().slice(0, 40);
-    const message = String(req.body?.message || "").trim().slice(0, 280);
-    const rating = Number(req.body?.rating);
-    if (!name || message.length < 5) {
-      throw new HttpError(400, "Enter the member's name and their message.");
-    }
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      throw new HttpError(400, "Choose a rating from 1 to 5 stars.");
-    }
+    const review = reviewFrom(req.body);
     const testimonial = await one(
-      "INSERT INTO testimonials (name, location, rating, message) VALUES (?, ?, ?, ?) RETURNING id, name, location, rating, message, created_at",
-      [name, location, rating, message],
+      `INSERT INTO testimonials (name, location, rating, message, status) VALUES (?, ?, ?, ?, 'approved')
+       RETURNING id, name, location, rating, message, status, created_at`,
+      [review.name, review.location, review.rating, review.message],
     );
     res.status(201).json({ testimonial });
+  });
+
+  app.post("/api/admin/testimonials/approve", requireAdmin, async (req, res) => {
+    await execute("UPDATE testimonials SET status = 'approved' WHERE id = ?", [Number(req.body?.id)]);
+    res.json({ ok: true });
   });
 
   app.post("/api/admin/testimonials/delete", requireAdmin, async (req, res) => {

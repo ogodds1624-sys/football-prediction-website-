@@ -186,8 +186,16 @@
     </section>
 
     <section class="control-section" aria-labelledby="testimonials-admin-title">
-      <h2 id="testimonials-admin-title">Testimonials</h2>
-      <p class="form-hint">Add real reviews your members send you. They rotate under the VVIP table on the website. The section stays hidden until you add one.</p>
+      <div class="tier-heading">
+        <h2 id="testimonials-admin-title">Testimonials</h2>
+        <span class="gateway-status" id="pending-count" hidden></span>
+      </div>
+      <h3 class="subsection-title">Waiting for approval</h3>
+      <p class="form-hint">Reviews sent by members from the website. Accept to show them under the VVIP table straight away, or reject to delete them.</p>
+      <div id="pending-list"></div>
+
+      <h3 class="subsection-title">Add a review yourself</h3>
+      <p class="form-hint">For real feedback members send you directly (e.g. on WhatsApp). It is shown straight away.</p>
       <form class="match-form" id="testimonial-form" novalidate>
         <label>Member name
           <input id="t-name" maxlength="40" autocomplete="off" placeholder="As the member wants it shown">
@@ -222,6 +230,7 @@
         <option value="Ibadan, Nigeria"></option>
       </datalist>
       <p class="form-message" id="testimonial-message-status" role="status"></p>
+      <h3 class="subsection-title">Shown on the website</h3>
       <div id="testimonial-list"></div>
     </section>
 
