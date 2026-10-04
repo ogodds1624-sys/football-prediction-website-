@@ -1,15 +1,43 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { endSession, findUserById, hashPassword, loadUser, publicUser, requireUser, startSession, verifyPassword } from "./auth.js";
+import {
+  endAdminSession,
+  endSession,
+  findUserById,
+  hashPassword,
+  loadUser,
+  publicUser,
+  requireAdmin,
+  requireUser,
+  safeEqual,
+  startAdminSession,
+  startSession,
+  verifyPassword,
+} from "./auth.js";
 import { config } from "./config.js";
-import { one } from "./db.js";
+import { execute, one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
 import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const BOOKING_CODE_PATTERN = /^[A-Z0-9]{4,20}$/;
+
+function dateFrom(value) {
+  const date = String(value || "");
+  if (!DATE_PATTERN.test(date)) {
+    throw new HttpError(400, "Invalid date.");
+  }
+  return date;
+}
+
+async function bookingCodeFor(date) {
+  const row = await one("SELECT code FROM booking_codes WHERE date = ?", [date]);
+  return row ? row.code : null;
+}
 
 const findUserByEmail = (email) => one("SELECT * FROM users WHERE email = ?", [email]);
 
@@ -126,6 +154,55 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.get("/api/me", (req, res) => {
     res.json({ user: req.user ? publicUser(req.user) : null });
+  });
+
+  /* ---------- Booking codes ---------- */
+
+  // Signed-in users only, so the code never appears in the public page.
+  app.get("/api/booking-code", requireUser, async (req, res) => {
+    res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
+  });
+
+  /* ---------- Admin ---------- */
+
+  app.post("/api/admin/login", authLimiter, (req, res) => {
+    if (!config.adminPasscode) {
+      throw new HttpError(503, "Admin sign-in is not set up. Add ADMIN_PASSCODE to the server settings.");
+    }
+    if (!safeEqual(String(req.body?.passcode || ""), config.adminPasscode)) {
+      throw new HttpError(401, "Incorrect passcode. Try again.");
+    }
+    startAdminSession(res);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/logout", (req, res) => {
+    endAdminSession(res);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/admin/booking-code", requireAdmin, async (req, res) => {
+    res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
+  });
+
+  // An empty code removes the day's booking code.
+  app.post("/api/admin/booking-code", requireAdmin, async (req, res) => {
+    const date = dateFrom(req.body?.date);
+    const code = String(req.body?.code || "").trim().toUpperCase();
+    if (!code) {
+      await execute("DELETE FROM booking_codes WHERE date = ?", [date]);
+      res.json({ code: null });
+      return;
+    }
+    if (!BOOKING_CODE_PATTERN.test(code)) {
+      throw new HttpError(400, "Booking codes are 4 to 20 letters and numbers.");
+    }
+    await execute(
+      `INSERT INTO booking_codes (date, code) VALUES (?, ?)
+       ON CONFLICT(date) DO UPDATE SET code = excluded.code, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      [date, code],
+    );
+    res.json({ code });
   });
 
   /* ---------- Payments ---------- */

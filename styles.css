@@ -1369,3 +1369,76 @@ button {
 .result-button[hidden] {
   display: none;
 }
+
+/* SportyBet booking code (free predictions) */
+.booking-button {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.booking-panel {
+  margin-top: 0.75rem;
+  padding: 1rem 1.1rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.booking-panel[hidden],
+.booking-code-row[hidden],
+.booking-actions[hidden] {
+  display: none;
+}
+
+.booking-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.booking-code-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.booking-code {
+  padding: 0.45rem 1rem;
+  color: var(--accent);
+  background: var(--bg);
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  user-select: all;
+}
+
+.booking-actions {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.booking-join {
+  margin: 0;
+  color: var(--accent-ink);
+  background: var(--accent);
+  text-align: center;
+  text-decoration: none;
+}
+
+.booking-signin {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.booking-input {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

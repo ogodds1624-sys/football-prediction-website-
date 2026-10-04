@@ -94,6 +94,40 @@ export async function loadUser(req, res, next) {
   next();
 }
 
+/* ---------- Admin session: separate cookie, signed for the "admin" role ---------- */
+
+const ADMIN_COOKIE = "admin_session";
+const ADMIN_MS = 12 * 60 * 60 * 1000;
+
+function signAdmin(expires) {
+  return sign(`admin:${expires}`);
+}
+
+export function startAdminSession(res) {
+  const expires = Date.now() + ADMIN_MS;
+  res.cookie(ADMIN_COOKIE, `${expires}.${signAdmin(expires)}`, {
+    httpOnly: true,
+    secure: config.isProduction,
+    sameSite: "lax",
+    maxAge: ADMIN_MS,
+    path: "/",
+  });
+}
+
+export function endAdminSession(res) {
+  res.clearCookie(ADMIN_COOKIE, { path: "/" });
+}
+
+export function requireAdmin(req, res, next) {
+  const [expires, signature] = (readCookie(req, ADMIN_COOKIE) || "").split(".");
+  const valid = expires && signature && safeEqual(signature, signAdmin(expires)) && Number(expires) > Date.now();
+  if (!valid) {
+    res.status(401).json({ error: "Admin sign-in required." });
+    return;
+  }
+  next();
+}
+
 export function requireUser(req, res, next) {
   if (!req.user) {
     res.status(401).json({ error: "Please sign in first." });

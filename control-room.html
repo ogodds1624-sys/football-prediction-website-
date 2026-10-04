@@ -48,6 +48,21 @@
       <p class="control-date" id="control-date"></p>
     </div>
 
+    <section class="control-section" aria-labelledby="booking-title">
+      <h2 id="booking-title">SportyBet booking code (free predictions)</h2>
+      <form class="match-form" id="booking-form" novalidate>
+        <label>Booking code for the selected day
+          <input id="b-code" maxlength="20" autocomplete="off" placeholder="e.g. BC7K9Q" class="booking-input">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Save code</button>
+          <button type="button" class="control-sign-out" id="b-clear">Remove</button>
+        </div>
+      </form>
+      <p class="form-hint">Only signed-in members can see this code on the website.</p>
+      <p class="form-message" id="booking-message" role="status"></p>
+    </section>
+
     <section class="stat-grid" aria-label="Summary for the selected day">
       <div class="stat">
         <p class="stat-label">Free matches</p>

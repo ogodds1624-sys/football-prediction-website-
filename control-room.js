@@ -454,7 +454,78 @@ function render() {
   dateText.textContent = dateLabel(selectedOffset);
   tierSections.replaceChildren(...TIERS.map((tier) => tierSection(tier, matchesFor(data, date, tier.id))));
   renderStats();
+  loadBookingCode();
 }
+
+/* ---------- SportyBet booking code (stored on the server) ---------- */
+
+const bookingForm = document.querySelector("#booking-form");
+const bookingInput = document.querySelector("#b-code");
+const bookingMessage = document.querySelector("#booking-message");
+
+function adminSessionEnded() {
+  showMessage(bookingMessage, "Your admin sign-in has expired. Sign out and sign in again to manage booking codes.", true);
+}
+
+async function loadBookingCode() {
+  const date = dateKey(selectedOffset);
+  bookingInput.value = "";
+  showMessage(bookingMessage, "");
+  try {
+    const response = await fetch(`/api/admin/booking-code?date=${date}`);
+    if (response.status === 401) {
+      adminSessionEnded();
+      return;
+    }
+    const body = await response.json();
+    // Ignore the answer if the admin switched day while it was loading.
+    if (date === dateKey(selectedOffset)) {
+      bookingInput.value = body.code || "";
+    }
+  } catch {
+    showMessage(bookingMessage, "Couldn't load the booking code. Check your connection.", true);
+  }
+}
+
+async function saveBookingCode(code) {
+  const date = dateKey(selectedOffset);
+  try {
+    const response = await fetch("/api/admin/booking-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, code }),
+    });
+    if (response.status === 401) {
+      adminSessionEnded();
+      return;
+    }
+    const body = await response.json();
+    if (!response.ok) {
+      showMessage(bookingMessage, body.error || "Couldn't save the code.", true);
+      return;
+    }
+    bookingInput.value = body.code || "";
+    showMessage(bookingMessage, body.code ? `Saved ${body.code} for ${dateLabel(selectedOffset)}.` : "Booking code removed.");
+  } catch {
+    showMessage(bookingMessage, "Couldn't reach the server. Try again.", true);
+  }
+}
+
+bookingForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const code = bookingInput.value.trim();
+  if (!code) {
+    showMessage(bookingMessage, "Type the booking code first.", true);
+    return;
+  }
+  saveBookingCode(code);
+});
+
+document.querySelector("#b-clear").addEventListener("click", () => {
+  if (window.confirm(`Remove the booking code for ${dateLabel(selectedOffset)}?`)) {
+    saveBookingCode("");
+  }
+});
 
 /* ---------- Saving ---------- */
 
@@ -789,13 +860,17 @@ settingsForm.addEventListener("submit", (event) => {
   renderPeople();
 });
 
-document.querySelector("#control-sign-out").addEventListener("click", () => {
+document.querySelector("#control-sign-out").addEventListener("click", async () => {
   try {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
   } catch {
     // Nothing stored to clear.
   }
-  location.replace("admin.html");
+  try {
+    await fetch("/api/admin/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  } finally {
+    location.replace("admin.html");
+  }
 });
 
 whatsappInput.value = data.settings.whatsapp;

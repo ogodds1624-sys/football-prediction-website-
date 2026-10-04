@@ -61,6 +61,18 @@
           </tr>
         </tbody>
       </table>
+      <button type="button" class="plan-button booking-button" id="booking-button" aria-expanded="false" aria-controls="booking-panel">GET SPORTYBET BOOKING CODE</button>
+      <div class="booking-panel" id="booking-panel" aria-live="polite" hidden>
+        <p class="booking-text" id="booking-text"></p>
+        <div class="booking-code-row" id="booking-code-row" hidden>
+          <span class="booking-code" id="booking-code"></span>
+          <button type="button" class="control-sign-out booking-copy" id="booking-copy">Copy</button>
+        </div>
+        <div class="booking-actions" id="booking-actions" hidden>
+          <a class="plan-button booking-join" href="account.html?mode=register">CREATE FREE ACCOUNT</a>
+          <a class="booking-signin" href="account.html">Already registered? Sign in</a>
+        </div>
+      </div>
     </section>
     <hr>
     <section id="vip" aria-labelledby="vip-title">

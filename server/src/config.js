@@ -73,6 +73,8 @@ export const config = {
     secretKey: process.env.FLW_SECRET_KEY || "",
     webhookHash: process.env.FLW_WEBHOOK_HASH || "",
   },
+  // Passcode for the Control Room. Admin sign-in is off until it is set.
+  adminPasscode: process.env.ADMIN_PASSCODE || "",
 };
 
 if (config.sessionSecret && config.sessionSecret.length < 32) {

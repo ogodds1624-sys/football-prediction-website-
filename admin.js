@@ -1,4 +1,4 @@
-const ADMIN_PASSCODE = "8057";
+// The passcode is checked by the server (ADMIN_PASSCODE setting), never stored here.
 const SESSION_KEY = "predictions-admin";
 const CONTROL_ROOM = "control-room.html";
 
@@ -26,11 +26,23 @@ passcodeInput.addEventListener("input", () => {
   errorText.textContent = "";
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (passcodeInput.value.trim() !== ADMIN_PASSCODE) {
-    errorText.textContent = "Incorrect passcode. Try again.";
-    passcodeInput.select();
+  errorText.textContent = "";
+  try {
+    const response = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode: passcodeInput.value.trim() }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      errorText.textContent = body.error || "Couldn't sign in. Please try again.";
+      passcodeInput.select();
+      return;
+    }
+  } catch {
+    errorText.textContent = "Can't reach the server. Check your connection and try again.";
     return;
   }
 

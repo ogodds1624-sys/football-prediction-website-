@@ -128,9 +128,86 @@ for (const button of dayButtons) {
       other.setAttribute("aria-pressed", String(other === button));
     }
     selectedOffset = Number(button.dataset.day);
+    hideBooking();
     renderPredictions();
   });
 }
+
+/* ---------- SportyBet booking code (free predictions) ---------- */
+
+const bookingButton = document.querySelector("#booking-button");
+const bookingPanel = document.querySelector("#booking-panel");
+const bookingText = document.querySelector("#booking-text");
+const bookingCodeRow = document.querySelector("#booking-code-row");
+const bookingCode = document.querySelector("#booking-code");
+const bookingCopy = document.querySelector("#booking-copy");
+const bookingActions = document.querySelector("#booking-actions");
+
+const DAY_NAMES = { "-1": "yesterday", 0: "today", 1: "tomorrow" };
+
+function showBooking({ text, code = null, askToJoin = false }) {
+  bookingPanel.hidden = false;
+  bookingButton.setAttribute("aria-expanded", "true");
+  bookingText.textContent = text;
+  bookingCodeRow.hidden = !code;
+  bookingCode.textContent = code || "";
+  bookingCopy.textContent = "Copy";
+  bookingActions.hidden = !askToJoin;
+}
+
+function hideBooking() {
+  bookingPanel.hidden = true;
+  bookingButton.setAttribute("aria-expanded", "false");
+}
+
+// The code is only sent by the server to signed-in users.
+async function revealBookingCode() {
+  const dayName = DAY_NAMES[selectedOffset];
+  if (!currentUser) {
+    showBooking({ text: `Create a free account or sign in to get ${dayName}'s SportyBet booking code.`, askToJoin: true });
+    return;
+  }
+
+  bookingButton.disabled = true;
+  try {
+    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}`);
+    if (response.status === 401) {
+      showUser(null);
+      showBooking({ text: "Your session has ended. Sign in again to get the booking code.", askToJoin: true });
+      return;
+    }
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error);
+    }
+    if (body.code) {
+      showBooking({ text: `SportyBet booking code for ${dayName}'s free predictions:`, code: body.code });
+    } else {
+      showBooking({ text: `The booking code for ${dayName} isn't ready yet. Check back soon.` });
+    }
+  } catch {
+    showBooking({ text: "Couldn't load the booking code. Check your connection and try again." });
+  } finally {
+    bookingButton.disabled = false;
+  }
+}
+
+bookingButton.addEventListener("click", () => {
+  if (!bookingPanel.hidden) {
+    hideBooking();
+    return;
+  }
+  revealBookingCode();
+});
+
+bookingCopy.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(bookingCode.textContent);
+    bookingCopy.textContent = "Copied!";
+  } catch {
+    bookingCopy.textContent = "Select and copy";
+  }
+});
 
 /* ---------- Buying a plan ---------- */
 

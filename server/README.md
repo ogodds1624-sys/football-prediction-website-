@@ -189,6 +189,7 @@ database lives on **Turso** (hosted SQLite, free tier available).
 | `FLW_SECRET_KEY` | `FLWSECK_TEST-...` to start |
 | `FLW_WEBHOOK_HASH` | random string, same as in Flutterwave's dashboard |
 | `CURRENCY` | `GHS` (optional) |
+| `ADMIN_PASSCODE` | passcode for the Control Room (checked on the server) |
 | `APP_URL` | only if you use your own domain; otherwise your `.vercel.app` address is used |
 
 Then **Deployments → ⋯ → Redeploy**. Variables only apply to new deployments.

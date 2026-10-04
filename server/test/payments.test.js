@@ -10,6 +10,7 @@ process.env.DATABASE_FILE = ":memory:";
 process.env.PAYSTACK_SECRET_KEY = "sk_test_fake";
 process.env.FLW_SECRET_KEY = "FLWSECK_TEST-fake";
 process.env.FLW_WEBHOOK_HASH = "flw-test-hash";
+process.env.ADMIN_PASSCODE = "8057";
 
 const { createApp } = await import("../src/app.js");
 const { PLANS } = await import("../src/plans.js");
@@ -310,5 +311,55 @@ describe("static files", () => {
       const result = await api(path);
       assert.equal(result.status, 404, path);
     }
+  });
+});
+
+describe("booking codes", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(result.status, 200);
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("wrong admin passcode is refused", async () => {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "1234" } });
+    assert.equal(result.status, 401);
+  });
+
+  test("only the admin can set a code, and it is cleaned up", async () => {
+    const { cookie: userCookie } = await newUser();
+    const asUser = await api("/api/admin/booking-code", { method: "POST", cookie: userCookie, body: { date: "2026-10-04", code: "ABC123" } });
+    assert.equal(asUser.status, 401);
+
+    const admin = await adminCookie();
+    const saved = await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-04", code: " bc7k9q " } });
+    assert.equal(saved.data.code, "BC7K9Q");
+
+    const bad = await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-04", code: "<script>" } });
+    assert.equal(bad.status, 400);
+  });
+
+  test("signed-in users get the code; visitors do not", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-05", code: "XY12Z9" } });
+
+    const visitor = await api("/api/booking-code?date=2026-10-05");
+    assert.equal(visitor.status, 401);
+
+    const { cookie } = await newUser();
+    const member = await api("/api/booking-code?date=2026-10-05", { cookie });
+    assert.equal(member.data.code, "XY12Z9");
+
+    const otherDay = await api("/api/booking-code?date=2026-10-06", { cookie });
+    assert.equal(otherDay.data.code, null);
+  });
+
+  test("an empty code removes it", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-07", code: "DEL123" } });
+    await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-07", code: "" } });
+    const { cookie } = await newUser();
+    const result = await api("/api/booking-code?date=2026-10-07", { cookie });
+    assert.equal(result.data.code, null);
   });
 });
