@@ -87,13 +87,13 @@
       </span>
     </p>
     <hr>
+    <div class="match-days day-switcher" role="group" aria-label="Match day">
+      <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
+      <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
+      <button type="button" class="day-button" data-day="1" aria-pressed="false">Tomorrow</button>
+      <button type="button" class="day-button day-custom" id="day-custom" aria-pressed="true" hidden></button>
+    </div>
     <section id="free" aria-labelledby="free-title">
-      <div class="match-days" role="group" aria-label="Match day">
-        <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
-        <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
-        <button type="button" class="day-button" data-day="1" aria-pressed="false">Tomorrow</button>
-        <button type="button" class="day-button day-custom" id="day-custom" aria-pressed="true" hidden></button>
-      </div>
       <table>
         <thead>
           <tr>

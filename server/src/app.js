@@ -203,9 +203,10 @@ export function createApp({ limitRequests = true } = {}) {
 
   /* ---------- Predictions ---------- */
 
-  // Everyone sees free tips; VIP/VVIP tips only reach members with that plan.
+  // Signed-in members see free tips; VIP/VVIP tips only reach members with that plan.
+  // Visitors see teams and odds only.
   app.get("/api/matches", async (req, res) => {
-    const plan = req.user ? publicUser(req.user).plan : "free";
+    const plan = req.user ? publicUser(req.user).plan : null;
     const unlocked = unlockedTiers(plan);
     // Recovery bonus tips are only given out through /api/recovery.
     const matches = (await matchesForDate(dateFrom(req.query.date))).filter((match) => match.tier !== "recovery");

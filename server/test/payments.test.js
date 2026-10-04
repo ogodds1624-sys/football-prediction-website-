@@ -540,13 +540,20 @@ describe("predictions", () => {
     return Object.fromEntries(matches.map((match) => [match.tier, match.tip]));
   }
 
-  test("visitors see free tips only; teams and odds stay visible", async () => {
+  test("visitors see no tips at all; teams and odds stay visible", async () => {
     const { data } = await api(`/api/matches?date=${DATE}`);
-    assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, vvip: null });
+    assert.deepEqual(tipsByTier(data.matches), { free: null, vip: null, vvip: null });
+    assert.equal(data.matches.find((match) => match.tier === "free").home, "Hearts");
     const vip = data.matches.find((match) => match.tier === "vip");
     assert.equal(vip.home, "Enyimba");
     assert.equal(vip.odds, "1.90");
     assert.equal(vip.locked, true);
+  });
+
+  test("a free account unlocks free tips only", async () => {
+    const { cookie } = await newUser();
+    const { data } = await api(`/api/matches?date=${DATE}`, { cookie });
+    assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, vvip: null });
   });
 
   test("VIP members unlock VIP, VVIP members unlock both", async () => {
@@ -570,7 +577,7 @@ describe("predictions", () => {
 
     await api("/api/admin/matches/update", { method: "POST", cookie: admin, body: { ...free, tip: "Over 2.5" } });
     await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: free.id, result: "won" } });
-    const after = await api(`/api/matches?date=${DATE}`);
+    const after = await api(`/api/matches?date=${DATE}`, { cookie });
     const updated = after.data.matches.find((match) => match.tier === "free");
     assert.equal(updated.tip, "Over 2.5");
     assert.equal(updated.result, "won");

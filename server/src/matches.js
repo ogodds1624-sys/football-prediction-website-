@@ -2,8 +2,8 @@ import { execute, one } from "./db.js";
 import { HttpError } from "./errors.js";
 
 // Predictions managed in the Control Room and shown on the front page.
-// Free tips are public. VIP/VVIP tips are only sent to members whose plan
-// covers that table, so a locked tip never reaches the browser.
+// Free tips need a (free) account. VIP/VVIP tips are only sent to members
+// whose plan covers that table, so a locked tip never reaches the browser.
 
 // "recovery" holds bonus tips for recovery tickets; it is never in the public tables.
 export const TIERS = ["free", "vip", "vvip", "recovery"];
@@ -47,8 +47,12 @@ export function matchFrom(body) {
   return match;
 }
 
-// Which tables a viewer may see tips for.
+// Which tables a viewer may see tips for. Visitors who aren't signed in
+// (plan null) see teams and odds only; a free account unlocks free tips.
 export function unlockedTiers(plan) {
+  if (!plan) {
+    return new Set();
+  }
   if (plan === "vvip") {
     return new Set(["free", "vip", "vvip"]);
   }

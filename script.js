@@ -17,9 +17,30 @@ function setMenuOpen(open) {
   siteMenu.hidden = !open;
 }
 
+// Signed-in members see the paid tables first: VIP, then VVIP, then Free.
+// Visitors see Free first. The dividers between tables move with them.
+const tableSections = { free: document.querySelector("#free"), vip: document.querySelector("#vip"), vvip: document.querySelector("#vvip") };
+// Tables are placed after the day switcher, which always stays on top.
+const leadDivider = document.querySelector(".day-switcher");
+const tableDividers = [tableSections.vip.previousElementSibling, tableSections.vvip.previousElementSibling];
+
+function arrangeTables(signedIn) {
+  const order = signedIn ? ["vip", "vvip", "free"] : ["free", "vip", "vvip"];
+  let previous = leadDivider;
+  order.forEach((id, index) => {
+    previous.after(tableSections[id]);
+    previous = tableSections[id];
+    if (index < tableDividers.length) {
+      previous.after(tableDividers[index]);
+      previous = tableDividers[index];
+    }
+  });
+}
+
 function showUser(user) {
   const changed = (currentUser?.id ?? null) !== (user?.id ?? null) || currentUser?.plan !== user?.plan;
   currentUser = user;
+  arrangeTables(Boolean(user));
   if (changed) {
     renderPredictions();
   }
@@ -61,8 +82,10 @@ function matchRow(match, tier) {
   const meta = document.createElement("span");
   meta.className = "match-meta";
   const odds = match.odds ? ` · Odds: ${match.odds}` : "";
-  // The server only sends a VIP/VVIP tip to members whose plan covers it.
-  meta.textContent = match.locked ? `Tip locked · buy the plan to unlock${odds}` : `Tip: ${match.tip}${odds}`;
+  // The server only sends tips the viewer may see: free tips need an account,
+  // VIP/VVIP tips need a plan that covers them.
+  const lockedText = tier === "free" ? "Tip hidden · register free to see it" : "Tip locked · buy the plan to unlock";
+  meta.textContent = match.locked ? `${lockedText}${odds}` : `Tip: ${match.tip}${odds}`;
   info.append(meta);
 
   if (match.image) {
