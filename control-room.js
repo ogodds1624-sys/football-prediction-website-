@@ -710,15 +710,6 @@ function renderOverview() {
     ? `${active.length} active · VIP ${vip} · VVIP ${vvip}`
     : "No members yet";
 
-  const total = data.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-  const monthPrefix = dateKey(0).slice(0, 7);
-  const thisMonth = data.payments
-    .filter((payment) => payment.date.startsWith(monthPrefix))
-    .reduce((sum, payment) => sum + Number(payment.amount), 0);
-  document.querySelector("#ov-revenue").textContent = money(total);
-  document.querySelector("#ov-revenue-detail").textContent = data.payments.length
-    ? `${data.payments.length} payment${data.payments.length === 1 ? "" : "s"} · ${money(thisMonth)} this month`
-    : "No payments recorded";
 }
 
 function renderPeople() {

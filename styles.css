@@ -304,8 +304,9 @@ h1 {
   }
 }
 
+/* Clear space between each predictions table */
 main hr {
-  margin: 1.5rem 0;
+  margin: 3rem 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
@@ -2565,4 +2566,43 @@ button:not(:disabled):not(.toggle-passcode):active,
   margin: 0;
   flex: 1 1 18rem;
   line-height: 1.5;
+}
+
+/* ---------- Control Room header ---------- */
+.control-bar .control-title {
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.control-title span {
+  color: var(--accent);
+  background: linear-gradient(100deg, var(--accent), #e6c15a 60%, #b48cf2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Smaller "View site" and "Sign out" buttons */
+.control-small {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.control-small .back-arrow {
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.8rem;
+}
+
+.control-actions {
+  gap: 0.5rem;
+}
+
+/* One overview card now: keep it a sensible width */
+.overview-grid {
+  grid-template-columns: minmax(0, 420px);
 }

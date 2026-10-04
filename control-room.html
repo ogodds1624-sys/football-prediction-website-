@@ -14,15 +14,18 @@
       location.replace("admin.html");
     }
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="control-room">
   <main class="control-main">
     <div class="control-bar">
-      <h1>Control Room</h1>
+      <h1 class="control-title">Control <span>Room</span></h1>
       <div class="control-actions">
-        <a class="back-button control-back" href="index.html" target="_blank" rel="noopener"><span class="back-arrow" aria-hidden="true">←</span> View site</a>
-        <button type="button" class="control-sign-out" id="control-sign-out">Sign out</button>
+        <a class="back-button control-back control-small" href="index.html" target="_blank" rel="noopener"><span class="back-arrow" aria-hidden="true">←</span> View site</a>
+        <button type="button" class="control-sign-out control-small" id="control-sign-out">Sign out</button>
       </div>
     </div>
 
@@ -36,11 +39,6 @@
         <p class="overview-label">Total members</p>
         <p class="overview-value" id="ov-members">0</p>
         <p class="overview-detail" id="ov-members-detail">No members yet</p>
-      </a>
-      <a class="overview-card" href="#payments-title">
-        <p class="overview-label">Payment gateway <span class="gateway-status">Not connected</span></p>
-        <p class="overview-value" id="ov-revenue">0</p>
-        <p class="overview-detail" id="ov-revenue-detail">No payments recorded</p>
       </a>
     </section>
 
