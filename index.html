@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Accurate football predictions, match previews, and expert tips for today's fixtures. Get odds insights, score forecasts, and smarter betting picks before kickoff">
+  <meta name="author" content="Andrew Frimpong">
+  <title>Football Predictions website</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Open menu">
+      <span class="menu-bars" aria-hidden="true"></span>
+    </button>
+    <div class="header-end">
+      <p id="user-label" class="user-label" hidden></p>
+      <button type="button" class="sign-in" id="sign-in">Sign in</button>
+    </div>
+  </header>
+  <nav id="site-menu" class="site-menu" aria-label="Main" hidden>
+    <p class="menu-title">Menu</p>
+    <a href="#free">Free predictions</a>
+    <a href="#vip">VIP predictions</a>
+    <a href="#vvip">VVIP predictions</a>
+  </nav>
+  <main>
+    <h1>PREDICTIONS</h1>
+    <p class="lede">Get accurate football predictions, match previews, and expert tips for today's fixtures. Get odds insights, score forecasts, and smarter betting picks before kickoff.</p>
+    <hr>
+    <section id="free" aria-labelledby="free-title">
+      <div class="match-days" role="group" aria-label="Match day">
+        <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
+        <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
+        <button type="button" class="day-button" data-day="1" aria-pressed="false">Tomorrow</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th id="free-title" scope="col">FREE PREDICTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="free-body">
+          <tr>
+            <td>Team A vs Team B</td>
+          </tr>
+          <tr>
+            <td>Team C vs Team D</td>
+          </tr>
+          <tr>
+            <td>Team E vs Team F</td>
+          </tr>
+          <tr>
+            <td>Team G vs Team H</td>
+          </tr>
+          <tr>
+            <td>Team I vs Team J</td>
+          </tr>
+          <tr>
+            <td>Team K vs Team L</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <hr>
+    <section id="vip" aria-labelledby="vip-title">
+      <table class="vip-table">
+        <thead>
+          <tr>
+            <th id="vip-title" scope="col">VIP PREDICTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="vip-body">
+          <tr>
+            <td>Team A vs Team B</td>
+          </tr>
+          <tr>
+            <td>Team C vs Team D</td>
+          </tr>
+          <tr>
+            <td>Team E vs Team F</td>
+          </tr>
+          <tr>
+            <td>Team G vs Team H</td>
+          </tr>
+          <tr>
+            <td>Team I vs Team J</td>
+          </tr>
+          <tr>
+            <td>Team K vs Team L</td>
+          </tr>
+        </tbody>
+      </table>
+      <button type="button" class="plan-button vip-plan" data-tier="vip">BUY PLAN (total odds)</button>
+    </section>
+    <hr>
+    <section id="vvip" aria-labelledby="vvip-title">
+      <table class="vvip-table">
+        <thead>
+          <tr>
+            <th id="vvip-title" scope="col">VVIP PREDICTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="vvip-body">
+          <tr>
+            <td>Team A vs Team B</td>
+          </tr>
+          <tr>
+            <td>Team C vs Team D</td>
+          </tr>
+          <tr>
+            <td>Team E vs Team F</td>
+          </tr>
+          <tr>
+            <td>Team G vs Team H</td>
+          </tr>
+          <tr>
+            <td>Team I vs Team J</td>
+          </tr>
+          <tr>
+            <td>Team K vs Team L</td>
+          </tr>
+        </tbody>
+      </table>
+      <button type="button" class="plan-button vvip-plan" data-tier="vvip">BUY PLAN (total odds)</button>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <p class="disclaimer"><strong>Bet responsibly.</strong> Gambling carries financial risk, and winnings are never guaranteed. Only wager money you can afford to lose. This platform is intended for individuals aged 18+ (or the legal betting age in your location). If betting begins to affect your finances, well-being, or personal life, please seek professional help and consider stopping. By using this site, you acknowledge and accept the risks involved in sports betting and gaming activities.</p>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <p class="footer-name">FOOTBALL <span>PREDICTIONS</span></p>
+        <p class="footer-tagline">Accurate football predictions, match previews, and expert tips for today's fixtures, ready before kickoff.</p>
+      </div>
+      <nav aria-labelledby="footer-links-title">
+        <h2 class="footer-heading" id="footer-links-title">LINKS</h2>
+        <ul class="footer-list">
+          <li><a href="#">Home</a></li>
+          <li><a href="#free">Free predictions</a></li>
+          <li><a href="#vip">VIP predictions</a></li>
+          <li><a href="#vvip">VVIP predictions</a></li>
+          <li><button type="button" id="footer-sign-in">Sign in</button></li>
+        </ul>
+      </nav>
+      <div>
+        <h2 class="footer-heading">SUPPORT</h2>
+        <ul class="footer-list plain">
+          <li>Prediction help</li>
+          <li>Payment confirmation</li>
+          <li>WhatsApp support</li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="footer-heading">WHATSAPP</h2>
+        <a class="whatsapp-card" id="footer-whatsapp" href="#" target="_blank" rel="noopener">
+          <span class="whatsapp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 20.5l1.3-4A8.5 8.5 0 1 1 8 19.6z"/>
+              <path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.5-2-1-1 .8a5 5 0 0 1-2.8-2.8l.8-1-1-2z" fill="#fff" stroke-width="1"/>
+            </svg>
+          </span>
+          <span class="whatsapp-text">
+            <strong>WhatsApp</strong>
+            <span>Text us</span>
+          </span>
+        </a>
+      </div>
+    </div>
+    <p class="copyright">&copy; <span id="year">2026</span> Football Predictions. All rights reserved.</p>
+  </footer>
+  <dialog class="pay-dialog" id="pay-dialog" aria-labelledby="pay-title">
+    <h2 id="pay-title">Buy plan</h2>
+    <p class="pay-price" id="pay-price"></p>
+    <div class="pay-options" id="pay-options"></div>
+    <p class="admin-error" id="pay-error" role="alert"></p>
+    <p class="pay-note">You'll be sent to a secure checkout page. Your plan activates as soon as the payment is confirmed.</p>
+    <button type="button" class="control-sign-out pay-close" id="pay-close">Cancel</button>
+  </dialog>
+  <a class="admin-button" href="admin.html">Admin</a>
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

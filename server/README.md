@@ -1,0 +1,159 @@
+# Football Predictions – payments server
+
+Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
+The server also serves the website, so the pages and the API share one address.
+
+```
+server/
+  .env.example        template for your keys (copy to .env)
+  src/config.js       loads and checks .env
+  src/db.js           SQLite tables: users, payments
+  src/plans.js        plan prices and durations (edit prices here)
+  src/auth.js         passwords (scrypt) and signed login cookies
+  src/providers/      paystack.js, flutterwave.js
+  src/payments.js     start payment, verify, upgrade user
+  src/app.js          all routes
+  test/               automated tests (no real keys needed)
+```
+
+Needs **Node.js 22.13 or newer** (it uses Node's built-in SQLite).
+
+---
+
+## 1. Where the API keys go
+
+Every provider gives you two keys:
+
+| Key | Where it lives | Can the public see it? |
+|---|---|---|
+| **Secret key** (`sk_...`, `FLWSECK...`) | `server/.env` only | **Never.** Anyone with it can refund, read and move your money. |
+| **Public key** (`pk_...`, `FLWPUBK...`) | `.env` (optional) | Yes, it's designed for browsers. This app doesn't need it because it uses redirect checkout. |
+
+Setup:
+
+```bash
+cd server
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
+```
+
+Then open `.env` and paste your keys. Rules:
+
+- `.env` is in `.gitignore`. **Never commit it, email it, or paste it in chat.**
+- Never put a secret key in any `.html` or browser `.js` file. Everything in those files is visible to visitors.
+- On a host (Render, Railway, a VPS, etc.), set the same names as **environment variables** in the host's dashboard instead of uploading `.env`.
+- If a secret key ever leaks, open the provider dashboard and **regenerate it** straight away.
+
+Generate the `SESSION_SECRET` with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+## 2. Run it
+
+```bash
+cd server
+npm install
+npm test          # 18 tests, uses fake providers, no keys needed
+npm run dev       # restarts when files change
+```
+
+Open **http://localhost:3000** (not the HTML file directly, which can't reach the API).
+
+## 3. Test in sandbox mode first
+
+Both providers give you separate **test keys** that never move real money.
+
+**Paystack**
+1. Dashboard → toggle **Test Mode** (top of the page) → Settings → **API Keys & Webhooks**.
+2. Copy the `sk_test_...` key into `PAYSTACK_SECRET_KEY`.
+3. Pay with test card **4084 0840 8408 4081**, any future expiry, CVV **408**, PIN **0000**, OTP **123456**.
+   Paystack's docs list more test cards and mobile-money test numbers (search "Paystack test payments").
+
+**Flutterwave**
+1. Dashboard → switch to **Test mode** → Settings → **API Keys**.
+2. Copy the `FLWSECK_TEST-...` key into `FLW_SECRET_KEY`.
+3. Pay with test card **5531 8866 5214 2950**, expiry **09/32**, CVV **564**, PIN **3310**, OTP **12345**.
+   Flutterwave's docs list current test cards (search "Flutterwave testing helpers").
+
+Test cards change from time to time, so check the providers' docs if one is refused.
+
+Then walk through it: create an account → BUY PLAN → pay with a test card → you land on
+`payment-result.html` showing "Payment successful", and your email in the header shows **VIP**.
+
+## 4. How a payment works (and why it can't be faked)
+
+```
+Browser                       Your server                          Paystack / Flutterwave
+   | BUY PLAN (plan only) --->  |                                          |
+   |                            | price from plans.js, save "pending" ---->| initialize
+   | <----- checkout URL ------ |                                          |
+   | ------------------------------- user pays on provider's page -------->|
+   | <------------------------- redirect to /api/payments/callback --------|
+   |                            | ---- "what happened to ref X?" --------->| verify
+   |                            | <--- status, amount, currency -----------|
+   |                            | checks all match → mark paid + upgrade   |
+   |                            | <---- webhook (signed) ------------------| (also, in background)
+```
+
+Protections in the code:
+
+- **The browser never sends a price.** `plans.js` sets it on the server.
+- **Redirects aren't trusted.** Someone can type `?status=successful` into the address bar. The server ignores that and asks the provider directly.
+- **Every confirmation is checked against what we saved.** Status must be success, and reference, amount and currency must all match. A user can't pay GH₵ 1 for a GH₵ 100 plan.
+- **Webhooks are checked twice.** First the signature (Paystack: HMAC-SHA512; Flutterwave: secret hash). Then the server still re-verifies with the provider's API before upgrading anyone.
+- **No double upgrades.** The callback, webhook and result page may all confirm the same payment, but a database transaction applies it only once.
+- **Other protections:**
+  - Passwords are hashed with scrypt.
+  - Login cookies are signed, `HttpOnly`, and `Secure` in production.
+  - JSON-only POSTs block cross-site form attacks.
+  - Sign-in and payment start are rate limited.
+  - The `server/` folder is never served to the web.
+
+## 5. Webhooks
+
+Webhooks let the provider tell your server about a payment even if the user closes the browser before the redirect. That makes them your safety net.
+
+**URLs to register:**
+
+| Provider | Dashboard setting | URL |
+|---|---|---|
+| Paystack | Settings → API Keys & Webhooks → **Webhook URL** | `https://yourdomain.com/api/webhooks/paystack` |
+| Flutterwave | Settings → Webhooks → **URL** | `https://yourdomain.com/api/webhooks/flutterwave` |
+
+For Flutterwave, also fill in **Secret hash** with the same value as `FLW_WEBHOOK_HASH` in `.env`.
+For Paystack, nothing extra is needed because it signs with your secret key.
+
+**Testing webhooks on your own computer.** Providers can't reach `localhost`, so open a tunnel:
+
+```bash
+npx ngrok http 3000        # or: cloudflared tunnel --url http://localhost:3000
+```
+
+Use the `https://....ngrok-free.app` address it prints as the webhook URL. Set `APP_URL` to the same address and restart the server.
+
+The server answers `200` once a webhook is handled. If verification fails because of a network problem, it answers `500` so the provider tries again later.
+
+## 6. Going live checklist
+
+- [ ] All tests pass (`npm test`) and a full sandbox payment works on both providers.
+- [ ] Swap test keys for **live** keys (`sk_live_...`, `FLWSECK-...` without `_TEST`) in the host's environment variables.
+- [ ] `NODE_ENV=production` and `APP_URL=https://yourdomain.com` (HTTPS is required; the server refuses to start without it).
+- [ ] Webhook URLs registered in **live** mode on both dashboards (test and live have separate settings).
+- [ ] Prices in `src/plans.js` are correct, and `CURRENCY` is enabled on your provider accounts.
+- [ ] Back up `server/data/app.db` regularly. It holds your users and payments.
+
+## API reference
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/auth/register` | `{ email, password }` |
+| POST | `/api/auth/login` | `{ email, password }` |
+| POST | `/api/auth/logout` | |
+| GET | `/api/me` | current user and active plan |
+| GET | `/api/payments/options` | enabled providers, plan prices |
+| POST | `/api/payments/initialize` | `{ provider: "paystack" \| "flutterwave", plan: "vip" \| "vvip" }` → `{ checkoutUrl, reference }` |
+| GET | `/api/payments/callback/:provider` | where the provider redirects the user |
+| GET | `/api/payments/:reference` | the signed-in user's payment status (re-verifies if pending) |
+| POST | `/api/webhooks/paystack` | signed by Paystack |
+| POST | `/api/webhooks/flutterwave` | carries `verif-hash` |

@@ -1,0 +1,11 @@
+# Secrets and local data - never commit
+.env
+*.db
+*.db-*
+server/data/
+
+# Installed packages
+node_modules/
+
+# Editor settings
+.vscode/

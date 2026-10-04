@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Access - Football Predictions</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="admin-page">
+    <section class="admin-card" id="admin-login" aria-labelledby="admin-title">
+      <div class="lock-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="10.5" width="16" height="10" rx="2.5"/>
+          <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+        </svg>
+      </div>
+      <h1 id="admin-title">Admin Access</h1>
+      <p>Enter your admin passcode.</p>
+      <form class="admin-form" id="admin-form" novalidate>
+        <div class="passcode-field">
+          <label for="passcode" class="visually-hidden">Passcode</label>
+          <input type="password" id="passcode" placeholder="Passcode" inputmode="numeric" autocomplete="current-password" required>
+          <button type="button" class="toggle-passcode" id="toggle-passcode" aria-label="Show passcode" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <p class="admin-error" id="admin-error" role="alert"></p>
+        <button type="submit" class="admin-submit">SIGN IN</button>
+      </form>
+      <a class="admin-back" href="index.html">&larr; Back to predictions</a>
+    </section>
+
+  </main>
+  <script src="admin.js"></script>
+</body>
+</html>

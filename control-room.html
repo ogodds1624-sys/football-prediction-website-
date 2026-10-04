@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control Room - Football Predictions</title>
+  <script>
+    // Send anyone without an admin session back to the passcode screen.
+    try {
+      if (sessionStorage.getItem("predictions-admin") !== "yes") {
+        location.replace("admin.html");
+      }
+    } catch {
+      location.replace("admin.html");
+    }
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="control-room">
+  <main class="control-main">
+    <div class="control-bar">
+      <h1>Control Room</h1>
+      <div class="control-actions">
+        <a class="control-link" href="index.html" target="_blank" rel="noopener">View site</a>
+        <button type="button" class="control-sign-out" id="control-sign-out">Sign out</button>
+      </div>
+    </div>
+
+    <section class="overview-grid" aria-label="Overview">
+      <a class="overview-card" href="#members-title">
+        <p class="overview-label">Total members</p>
+        <p class="overview-value" id="ov-members">0</p>
+        <p class="overview-detail" id="ov-members-detail">No members yet</p>
+      </a>
+      <a class="overview-card" href="#payments-title">
+        <p class="overview-label">Payment gateway <span class="gateway-status">Not connected</span></p>
+        <p class="overview-value" id="ov-revenue">0</p>
+        <p class="overview-detail" id="ov-revenue-detail">No payments recorded</p>
+      </a>
+    </section>
+
+    <div class="control-day">
+      <div class="match-days" role="group" aria-label="Day to manage">
+        <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
+        <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
+        <button type="button" class="day-button" data-day="1" aria-pressed="false">Tomorrow</button>
+      </div>
+      <p class="control-date" id="control-date"></p>
+    </div>
+
+    <section class="stat-grid" aria-label="Summary for the selected day">
+      <div class="stat">
+        <p class="stat-label">Free matches</p>
+        <p class="stat-value" id="stat-free">0</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">VIP matches</p>
+        <p class="stat-value" id="stat-vip">0</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">VVIP matches</p>
+        <p class="stat-value" id="stat-vvip">0</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">Win rate (all time)</p>
+        <p class="stat-value" id="stat-rate">–</p>
+      </div>
+    </section>
+
+    <section class="control-section" aria-labelledby="form-title">
+      <h2 id="form-title">Add match</h2>
+      <form class="add-form" id="match-form" novalidate>
+        <div class="tier-pick">
+          <label>Step 1 · Table
+            <select id="f-tier">
+              <option value="" selected disabled>Choose a table…</option>
+              <option value="free">Free</option>
+              <option value="vip">VIP</option>
+              <option value="vvip">VVIP</option>
+            </select>
+          </label>
+          <p class="form-hint" id="tier-hint">Choose a table first to unlock the rest of the form.</p>
+        </div>
+
+        <fieldset class="match-fields" id="match-fields" disabled>
+          <legend class="visually-hidden">Match details</legend>
+
+          <div class="match-form" id="manual-fields">
+            <label>Home team
+              <input id="f-home" maxlength="60" autocomplete="off">
+            </label>
+            <label>Away team
+              <input id="f-away" maxlength="60" autocomplete="off">
+            </label>
+            <label>Tip
+              <input id="f-tip" maxlength="60" placeholder="e.g. Over 2.5" autocomplete="off">
+            </label>
+            <label>Odds
+              <input id="f-odds" type="number" step="0.01" min="1" placeholder="e.g. 1.85">
+            </label>
+          </div>
+
+          <div class="image-field">
+            <label><span id="image-label">SportyBet slip screenshot (reads the matches for you)</span>
+              <input id="f-image" type="file" accept="image/*">
+            </label>
+            <p class="form-hint" id="slip-status" role="status"></p>
+            <div class="image-preview" id="image-preview" hidden>
+              <img id="image-preview-img" alt="Selected picture">
+              <button type="button" class="row-action danger" id="image-remove">Remove picture</button>
+            </div>
+          </div>
+
+          <div class="slip-results" id="slip-results" hidden>
+            <div class="tier-heading">
+              <h3 id="slip-title">Matches found</h3>
+              <button type="button" class="row-action danger" id="slip-clear">Clear all</button>
+            </div>
+            <p class="form-hint">Type the tip for each match. Teams and odds are read from the picture, so fix any misspelled names.</p>
+            <div class="table-wrap">
+              <table class="admin-table slip-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Home team</th>
+                    <th scope="col">Away team</th>
+                    <th scope="col">Tip</th>
+                    <th scope="col">Odds</th>
+                    <th scope="col"><span class="visually-hidden">Remove</span></th>
+                  </tr>
+                </thead>
+                <tbody id="slip-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="control-primary" id="f-submit">Add match</button>
+            <button type="button" class="control-sign-out" id="f-cancel" hidden>Cancel</button>
+          </div>
+        </fieldset>
+      </form>
+      <p class="form-message" id="form-message" role="status"></p>
+    </section>
+
+    <div id="tier-sections"></div>
+
+    <section class="control-section" aria-labelledby="members-title">
+      <h2 id="members-title">Members</h2>
+      <form class="match-form" id="member-form" novalidate>
+        <label>Name
+          <input id="m-name" maxlength="60" autocomplete="off">
+        </label>
+        <label>Phone
+          <input id="m-phone" inputmode="tel" maxlength="20" autocomplete="off">
+        </label>
+        <label>Plan
+          <select id="m-plan">
+            <option value="vip">VIP</option>
+            <option value="vvip">VVIP</option>
+          </select>
+        </label>
+        <label>Plan ends
+          <input id="m-expires" type="date">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Add member</button>
+        </div>
+      </form>
+      <p class="form-message" id="member-message" role="status"></p>
+      <div id="member-list"></div>
+    </section>
+
+    <section class="control-section" aria-labelledby="payments-title">
+      <div class="tier-heading">
+        <h2 id="payments-title">Payment gateway</h2>
+        <span class="gateway-status">Not connected</span>
+      </div>
+      <p class="form-hint gateway-note">Online payments (e.g. Paystack or MTN MoMo) need a server before they can be connected. Until then, record each payment you receive here.</p>
+      <form class="match-form" id="payment-form" novalidate>
+        <label>Member name
+          <input id="p-name" maxlength="60" autocomplete="off" list="member-names">
+        </label>
+        <label>Plan
+          <select id="p-plan">
+            <option value="vip">VIP</option>
+            <option value="vvip">VVIP</option>
+          </select>
+        </label>
+        <label>Amount
+          <input id="p-amount" type="number" step="0.01" min="0" placeholder="e.g. 50">
+        </label>
+        <label>Method
+          <select id="p-method">
+            <option>Mobile Money</option>
+            <option>Card</option>
+            <option>Bank transfer</option>
+            <option>Cash</option>
+          </select>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Record payment</button>
+        </div>
+      </form>
+      <datalist id="member-names"></datalist>
+      <p class="form-message" id="payment-message" role="status"></p>
+      <div id="payment-list"></div>
+    </section>
+
+    <section class="control-section" aria-labelledby="settings-title">
+      <h2 id="settings-title">Settings</h2>
+      <form class="match-form" id="settings-form">
+        <label>WhatsApp number (with country code)
+          <input id="s-whatsapp" inputmode="tel" placeholder="e.g. 233201234567" autocomplete="off">
+        </label>
+        <label>Currency symbol
+          <input id="s-currency" maxlength="5" placeholder="e.g. GH₵" autocomplete="off">
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Save settings</button>
+        </div>
+      </form>
+      <p class="form-message" id="settings-message" role="status"></p>
+    </section>
+  </main>
+  <script src="data.js"></script>
+  <script src="slip-parser.js"></script>
+  <script src="control-room.js"></script>
+</body>
+</html>
