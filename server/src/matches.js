@@ -5,7 +5,8 @@ import { HttpError } from "./errors.js";
 // Free tips are public. VIP/VVIP tips are only sent to members whose plan
 // covers that table, so a locked tip never reaches the browser.
 
-export const TIERS = ["free", "vip", "vvip"];
+// "recovery" holds bonus tips for recovery tickets; it is never in the public tables.
+export const TIERS = ["free", "vip", "vvip", "recovery"];
 const RESULTS = ["pending", "won", "lost"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // Pictures are shrunk in the browser first; this keeps a runaway upload out.
@@ -27,7 +28,7 @@ function text(value, max = 60) {
 export function matchFrom(body) {
   const tier = String(body?.tier || "");
   if (!TIERS.includes(tier)) {
-    throw new HttpError(400, "Choose a table: Free, VIP or VVIP.");
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP or Recovery.");
   }
   const match = {
     tier,
@@ -119,7 +120,7 @@ export async function deleteMatch(id) {
 
 export async function resultStats() {
   const row = await one(
-    "SELECT SUM(result = 'won') AS won, SUM(result = 'lost') AS lost FROM matches",
+    "SELECT SUM(result = 'won') AS won, SUM(result = 'lost') AS lost FROM matches WHERE tier != 'recovery'",
   );
   return { won: Number(row?.won || 0), lost: Number(row?.lost || 0) };
 }
@@ -135,7 +136,7 @@ export async function monthSummary(month) {
             SUM(result = 'won') AS won,
             SUM(result = 'lost') AS lost
      FROM matches
-     WHERE date LIKE ?
+     WHERE date LIKE ? AND tier != 'recovery'
      GROUP BY date
      ORDER BY date`,
     [`${month}-%`],

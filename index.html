@@ -44,6 +44,19 @@
       </svg>
       VVIP predictions
     </a>
+    <a class="menu-item" href="#mission">
+      <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+      </svg>
+      Our Mission
+    </a>
+    <button type="button" class="menu-item" id="menu-recovery">
+      <svg class="menu-icon icon-recovery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
+        <path d="M5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6"/>
+      </svg>
+      Recovery ticket
+    </button>
     <button type="button" class="menu-item" id="menu-calendar">
       <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="4.5" width="18" height="16" rx="2.5"/>
@@ -175,7 +188,7 @@
     </section>
   </main>
   <footer class="site-footer">
-    <div class="footer-mission">
+    <div class="footer-mission" id="mission">
       <h2 class="footer-name">OUR <span>MISSION</span></h2>
       <p class="footer-tagline">To help every member build a steady, winning rhythm. Each day we research the fixtures, study form and odds, and share clear, well-reasoned picks, so you can bet with confidence and discipline instead of guesswork. We track our results openly and keep improving, because your consistency is how we measure our success.</p>
     </div>
@@ -219,6 +232,20 @@
     </div>
     <p class="copyright">&copy; <span id="year">2026</span> Football Predictions. All rights reserved.</p>
   </footer>
+  <dialog class="recovery-dialog" id="recovery-dialog" aria-labelledby="recovery-title">
+    <h2 class="recovery-title" id="recovery-title">Recovery <span>ticket</span></h2>
+    <p class="recovery-intro">Bought a VIP or VVIP ticket that lost? Get bonus tips to bounce back. Recovery tickets are valid for 2 days after a lost ticket; winning tickets don't qualify.</p>
+    <form class="recovery-form" id="recovery-form" novalidate>
+      <label for="recovery-email">Your account email</label>
+      <input type="email" id="recovery-email" autocomplete="email" placeholder="you@example.com" required>
+      <button type="submit" class="plan-button recovery-submit" id="recovery-submit">CHECK MY TICKET</button>
+    </form>
+    <div class="recovery-result" id="recovery-result" aria-live="polite" hidden>
+      <p class="recovery-message" id="recovery-message"></p>
+      <ul class="recovery-tips" id="recovery-tips"></ul>
+    </div>
+    <button type="button" class="control-sign-out recovery-close" id="recovery-close">Close</button>
+  </dialog>
   <dialog class="calendar-dialog" id="calendar-dialog" aria-labelledby="calendar-title">
     <div class="calendar-head">
       <button type="button" class="calendar-nav" id="calendar-prev" aria-label="Previous month">‹</button>

@@ -614,3 +614,116 @@ describe("results calendar", () => {
     assert.equal((await api("/api/matches/month?month=bad")).status, 400);
   });
 });
+
+describe("recovery tickets", async () => {
+  const { todayKey, shiftDate } = await import("../src/recovery.js");
+  const TODAY = todayKey();
+  const YESTERDAY = shiftDate(TODAY, -1);
+  const THREE_DAYS_AGO = shiftDate(TODAY, -3);
+
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+  async function addTicket(admin, date, tier, results) {
+    const matches = results.map((_, index) => ({ tier, home: `H${index}`, away: `A${index}`, tip: "1" }));
+    const { data } = await api("/api/admin/matches", { method: "POST", cookie: admin, body: { date, matches } });
+    for (const [index, result] of results.entries()) {
+      if (result !== "pending") {
+        await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: data.matches[index].id, result } });
+      }
+    }
+  }
+  async function memberWho(boughtPlan, onDate) {
+    const member = await newUser();
+    const admin = await adminCookie();
+    if (boughtPlan) {
+      const activated = await api("/api/admin/members/activate", {
+        method: "POST",
+        cookie: admin,
+        body: { email: member.user.email, plan: boughtPlan, date: onDate },
+      });
+      assert.equal(activated.status, 201);
+    }
+    return member;
+  }
+  const check = (member, email = member.user.email) =>
+    api("/api/recovery", { method: "POST", cookie: member.cookie, body: { email, date: TODAY } });
+
+  before(async () => {
+    const admin = await adminCookie();
+    // Yesterday: VIP ticket lost, VVIP ticket won. Today: bonus tips posted.
+    await addTicket(admin, YESTERDAY, "vip", ["won", "lost"]);
+    await addTicket(admin, YESTERDAY, "vvip", ["won", "won"]);
+    await addTicket(admin, THREE_DAYS_AGO, "vvip", ["lost"]);
+    await api("/api/admin/matches", {
+      method: "POST",
+      cookie: admin,
+      body: { date: TODAY, matches: [{ tier: "recovery", home: "Bonus FC", away: "Comeback Utd", tip: "Over 1.5", odds: "1.40" }] },
+    });
+  });
+
+  test("visitors must sign in", async () => {
+    const result = await api("/api/recovery", { method: "POST", body: { email: "x@example.com", date: TODAY } });
+    assert.equal(result.status, 401);
+  });
+
+  test("the email must match the signed-in account", async () => {
+    const member = await memberWho("vip", YESTERDAY);
+    const result = await check(member, "someone-else@example.com");
+    assert.equal(result.status, 400);
+  });
+
+  test("a VIP ticket that lost yesterday unlocks today's bonus tips", async () => {
+    const member = await memberWho("vip", YESTERDAY);
+    const { data } = await check(member);
+    assert.equal(data.status, "eligible");
+    assert.equal(data.lostDate, YESTERDAY);
+    assert.equal(data.validUntil, shiftDate(YESTERDAY, 2));
+    assert.equal(data.tips[0].home, "Bonus FC");
+  });
+
+  test("a ticket that won does not qualify", async () => {
+    const member = await memberWho("vvip", YESTERDAY);
+    const { data } = await check(member);
+    assert.equal(data.status, "won");
+    assert.equal(data.tips, undefined);
+  });
+
+  test("a lost ticket older than 2 days has expired", async () => {
+    const member = await memberWho("vvip", THREE_DAYS_AGO);
+    const { data } = await check(member);
+    assert.equal(data.status, "expired");
+  });
+
+  test("members without a purchase are told so", async () => {
+    const member = await memberWho(null);
+    const { data } = await check(member);
+    assert.equal(data.status, "none");
+  });
+
+  test("a purchase made today waits for its results", async () => {
+    const member = await memberWho("vip", TODAY);
+    const { data } = await check(member);
+    assert.equal(data.status, "pending");
+  });
+
+  test("bonus tips never appear in the public tables or calendar", async () => {
+    const { data } = await api(`/api/matches?date=${TODAY}`);
+    assert.ok(!data.matches.some((match) => match.tier === "recovery"));
+    const month = await api(`/api/matches/month?month=${TODAY.slice(0, 7)}`);
+    assert.ok(!month.data.days.some((day) => day.date === TODAY));
+  });
+
+  test("activating today unlocks the member's VIP tips straight away", async () => {
+    const member = await memberWho("vip", TODAY);
+    const me = await api("/api/me", { cookie: member.cookie });
+    assert.equal(me.data.user.plan, "vip");
+  });
+
+  test("activation needs an existing account", async () => {
+    const admin = await adminCookie();
+    const result = await api("/api/admin/members/activate", { method: "POST", cookie: admin, body: { email: "nobody@example.com", plan: "vip" } });
+    assert.equal(result.status, 404);
+  });
+});

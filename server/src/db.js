@@ -42,7 +42,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS matches (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
     home       TEXT NOT NULL,
     away       TEXT NOT NULL,
     tip        TEXT NOT NULL,
@@ -52,6 +52,17 @@ const SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
   "CREATE INDEX IF NOT EXISTS matches_date ON matches(date)",
+  // Every VIP/VVIP purchase by day: online payments and admin activations.
+  // Used to check recovery ticket eligibility.
+  `CREATE TABLE IF NOT EXISTS purchases (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    plan       TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+    date       TEXT NOT NULL,
+    source     TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
+  "CREATE INDEX IF NOT EXISTS purchases_user_date ON purchases(user_id, date)",
   // Real member reviews, added by the admin, shown under the VVIP table.
   `CREATE TABLE IF NOT EXISTS testimonials (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,6 +186,40 @@ const MIGRATIONS = [
   "ALTER TABLE testimonials ADD COLUMN user_id INTEGER",
 ];
 
+// SQLite can't change a CHECK rule in place, so tables made before the
+// "recovery" tier existed are rebuilt once, keeping every row.
+async function allowRecoveryTier() {
+  const { rows } = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'matches'", []);
+  if (!rows.length || rows[0].sql.includes("'recovery'")) {
+    return;
+  }
+  await backend.transaction(async (tx) => {
+    await tx.execute(
+      `CREATE TABLE matches_rebuild (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        date       TEXT NOT NULL,
+        tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+        home       TEXT NOT NULL,
+        away       TEXT NOT NULL,
+        tip        TEXT NOT NULL,
+        odds       TEXT NOT NULL DEFAULT '',
+        image      TEXT NOT NULL DEFAULT '',
+        result     TEXT NOT NULL DEFAULT 'pending' CHECK (result IN ('pending', 'won', 'lost')),
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      )`,
+      [],
+    );
+    await tx.execute(
+      `INSERT INTO matches_rebuild (id, date, tier, home, away, tip, odds, image, result, created_at)
+       SELECT id, date, tier, home, away, tip, odds, image, result, created_at FROM matches`,
+      [],
+    );
+    await tx.execute("DROP TABLE matches", []);
+    await tx.execute("ALTER TABLE matches_rebuild RENAME TO matches", []);
+    await tx.execute("CREATE INDEX IF NOT EXISTS matches_date ON matches(date)", []);
+  });
+}
+
 async function migrate() {
   for (const statement of MIGRATIONS) {
     try {
@@ -185,6 +230,7 @@ async function migrate() {
       }
     }
   }
+  await allowRecoveryTier();
 }
 
 export function dbReady() {

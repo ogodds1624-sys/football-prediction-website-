@@ -4,6 +4,7 @@ import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
 import { getPlan } from "./plans.js";
 import { getProvider } from "./providers/index.js";
+import { recordPurchase, todayKey } from "./recovery.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -74,7 +75,7 @@ export async function startPayment(user, providerName, planId, siteUrl) {
 
 // Extends from the current expiry if the plan is still running, so renewing
 // early never loses days. A higher plan replaces a lower one.
-async function upgradeUser(tx, userId, plan) {
+async function upgradeUser(tx, userId, plan, source) {
   const user = (await tx.execute(SQL.findUser, [userId])).rows[0];
   const now = Date.now();
   const currentExpiry = user.plan_expires_at ? Date.parse(user.plan_expires_at) : 0;
@@ -84,6 +85,7 @@ async function upgradeUser(tx, userId, plan) {
   const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
   const keepCurrent = stillActive && getPlan(user.plan)?.rank > plan.rank;
   await tx.execute(SQL.updateUserPlan, [keepCurrent ? user.plan : plan.id, expiresAt, userId]);
+  await recordPurchase(tx, userId, plan.id, todayKey(), source);
 }
 
 // Confirms a payment with the provider's own servers and, if it really
@@ -126,7 +128,7 @@ export async function confirmPayment(reference) {
     // Only the first confirmation changes anything; repeats are no-ops.
     const { rowsAffected } = await tx.execute(SQL.markSuccess, [result.transactionId, reference]);
     if (rowsAffected) {
-      await upgradeUser(tx, payment.user_id, getPlan(payment.plan));
+      await upgradeUser(tx, payment.user_id, getPlan(payment.plan), payment.provider);
     }
   });
   return findPayment(reference);

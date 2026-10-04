@@ -69,8 +69,11 @@ function formatOdds(value) {
   return Number(value) > 0 ? Number(value).toFixed(2) : "";
 }
 
+// Control Room tables: the public ones plus recovery bonus tips.
+const ADMIN_TIERS = [...TIERS, { id: "recovery", label: "Recovery (bonus)" }];
+
 function tierLabel(tierId) {
-  return TIERS.find((tier) => tier.id === tierId).label;
+  return ADMIN_TIERS.find((tier) => tier.id === tierId)?.label || tierId;
 }
 
 /* ---------- Form state ---------- */
@@ -488,7 +491,7 @@ async function render() {
     return;
   }
   tierSections.replaceChildren(
-    ...TIERS.map((tier) => tierSection(tier, serverMatches.filter((match) => match.tier === tier.id))),
+    ...ADMIN_TIERS.map((tier) => tierSection(tier, serverMatches.filter((match) => match.tier === tier.id))),
   );
   renderStats();
 }
@@ -626,10 +629,6 @@ const memberForm = document.querySelector("#member-form");
 const memberMessage = document.querySelector("#member-message");
 const memberList = document.querySelector("#member-list");
 
-function isActive(member) {
-  return !member.expires || member.expires >= dateKey(0);
-}
-
 function simpleTable(headers, rows, emptyText) {
   if (!rows.length) {
     const empty = document.createElement("p");
@@ -658,79 +657,52 @@ function simpleTable(headers, rows, emptyText) {
   return wrap;
 }
 
-function removeRecord(listName, record, label, messageEl) {
-  if (!window.confirm(`Remove ${label}?`)) {
-    return;
-  }
-  data[listName] = data[listName].filter((other) => other.id !== record.id);
-  persist(messageEl, `Removed ${label}.`);
-  renderPeople();
-}
-
-function memberRow(member) {
+function purchaseRow(purchase) {
   const row = document.createElement("tr");
-  const status = document.createElement("td");
-  const badge = document.createElement("span");
-  badge.className = `status-badge ${isActive(member) ? "active" : "expired"}`;
-  badge.textContent = isActive(member) ? "Active" : "Expired";
-  status.append(badge);
-
-  const actions = document.createElement("td");
-  actions.append(actionButton("Remove", () => removeRecord("members", member, member.name, memberMessage), "danger"));
-
-  row.append(
-    textCell(member.name),
-    textCell(member.phone || "–"),
-    textCell(tierLabel(member.plan)),
-    textCell(member.expires || "–"),
-    status,
-    actions,
-  );
+  const source = purchase.source === "manual" ? "Activated here" : purchase.source.charAt(0).toUpperCase() + purchase.source.slice(1);
+  row.append(textCell(purchase.date), textCell(purchase.email), textCell(tierLabel(purchase.plan)), textCell(source));
   return row;
 }
 
-function renderOverview() {
-  const active = data.members.filter(isActive);
-  const vip = active.filter((member) => member.plan === "vip").length;
-  const vvip = active.filter((member) => member.plan === "vvip").length;
-  document.querySelector("#ov-members").textContent = data.members.length;
-  document.querySelector("#ov-members-detail").textContent = data.members.length
-    ? `${active.length} active · VIP ${vip} · VVIP ${vvip}`
-    : "No members yet";
-
+// Registered accounts, members on a plan today, and recent purchases (server).
+async function loadMembers() {
+  try {
+    const { totals, purchases } = await adminFetch("/api/admin/members");
+    document.querySelector("#ov-members").textContent = totals.users;
+    document.querySelector("#ov-members-detail").textContent = totals.users
+      ? `Active today: VIP ${totals.vip} · VVIP ${totals.vvip}`
+      : "No accounts yet";
+    memberList.replaceChildren(
+      simpleTable(["Day", "Email", "Plan", "How"], purchases.map(purchaseRow), "No purchases yet."),
+    );
+  } catch (error) {
+    showMessage(memberMessage, error.message, true);
+  }
 }
 
-function renderPeople() {
-  const members = [...data.members].sort((a, b) => a.name.localeCompare(b.name));
-  memberList.replaceChildren(
-    simpleTable(["Name", "Phone", "Plan", "Plan ends", "Status", ""], members.map(memberRow), "No members added yet."),
-  );
-
-  renderOverview();
-}
-
-memberForm.addEventListener("submit", (event) => {
+memberForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const member = {
-    id: newId(),
-    name: document.querySelector("#m-name").value.trim(),
-    phone: document.querySelector("#m-phone").value.trim(),
-    plan: document.querySelector("#m-plan").value,
-    expires: document.querySelector("#m-expires").value,
-    joined: dateKey(0),
-  };
-  if (!member.name) {
-    showMessage(memberMessage, "Enter the member's name.", true);
+  const email = document.querySelector("#m-email").value.trim();
+  if (!email) {
+    showMessage(memberMessage, "Enter the email the member registered with.", true);
     return;
   }
-  data.members.push(member);
-  if (!persist(memberMessage, `Added ${member.name}.`)) {
-    data.members.pop();
-    return;
+  try {
+    const result = await postJson("/api/admin/members/activate", {
+      email,
+      plan: document.querySelector("#m-plan").value,
+      date: document.querySelector("#m-date").value || dateKey(0),
+    });
+    showMessage(memberMessage, `Activated ${tierLabel(result.plan)} for ${result.email} (${result.date}).`);
+    memberForm.reset();
+    document.querySelector("#m-date").value = dateKey(0);
+    loadMembers();
+  } catch (error) {
+    showMessage(memberMessage, error.message, true);
   }
-  memberForm.reset();
-  renderPeople();
 });
+
+document.querySelector("#m-date").value = dateKey(0);
 
 /* ---------- Payment gateway (stored on the server) ---------- */
 
@@ -1138,7 +1110,7 @@ document.querySelector("#control-sign-out").addEventListener("click", async () =
 
 resetForm();
 render();
-renderPeople();
+loadMembers();
 loadGateway();
 loadTestimonials();
 showMigrateBanner();

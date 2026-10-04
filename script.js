@@ -168,6 +168,94 @@ for (const button of dayButtons) {
   button.addEventListener("click", () => selectDay(Number(button.dataset.day)));
 }
 
+/* ---------- Recovery ticket (menu) ---------- */
+
+const recoveryDialog = document.querySelector("#recovery-dialog");
+const recoveryForm = document.querySelector("#recovery-form");
+const recoveryEmail = document.querySelector("#recovery-email");
+const recoveryResult = document.querySelector("#recovery-result");
+const recoveryMessage = document.querySelector("#recovery-message");
+const recoveryTips = document.querySelector("#recovery-tips");
+const recoverySubmit = document.querySelector("#recovery-submit");
+
+function openRecovery() {
+  setMenuOpen(false);
+  recoveryEmail.value = currentUser?.email || recoveryEmail.value;
+  recoveryResult.hidden = true;
+  recoveryDialog.showModal();
+}
+
+function showRecovery(status, message, tips = []) {
+  recoveryResult.hidden = false;
+  recoveryResult.dataset.status = status;
+  recoveryMessage.textContent = message;
+  recoveryTips.replaceChildren(
+    ...tips.map((tip) => {
+      const item = document.createElement("li");
+      const teams = document.createElement("span");
+      teams.className = "recovery-teams";
+      teams.textContent = `${tip.home} vs ${tip.away}`;
+      const detail = document.createElement("span");
+      detail.className = "recovery-detail";
+      detail.textContent = tip.odds ? `Tip: ${tip.tip} · Odds: ${tip.odds}` : `Tip: ${tip.tip}`;
+      item.append(teams, detail);
+      return item;
+    }),
+  );
+}
+
+// The email is confirmed by signing in with it; the server checks the purchase rules.
+async function checkRecoveryTicket() {
+  const email = recoveryEmail.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showRecovery("error", "Enter the email you registered with.");
+    return;
+  }
+  if (!currentUser) {
+    const next = encodeURIComponent("index.html?recovery=1");
+    location.href = `account.html?mode=login&email=${encodeURIComponent(email)}&next=${next}`;
+    return;
+  }
+  recoverySubmit.disabled = true;
+  try {
+    const response = await fetch("/api/recovery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, date: dateKey(0) }),
+    });
+    if (response.status === 401) {
+      showUser(null);
+      await checkRecoveryTicket();
+      return;
+    }
+    const body = await response.json();
+    if (!response.ok) {
+      showRecovery("error", body.error || "Couldn't check your ticket. Please try again.");
+      return;
+    }
+    const until = body.validUntil
+      ? ` Valid until ${new Date(`${body.validUntil}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}.`
+      : "";
+    showRecovery(body.status, body.message + (body.status === "eligible" ? until : ""), body.tips || []);
+  } catch {
+    showRecovery("error", "Couldn't reach the server. Check your connection and try again.");
+  } finally {
+    recoverySubmit.disabled = false;
+  }
+}
+
+recoveryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  checkRecoveryTicket();
+});
+document.querySelector("#menu-recovery").addEventListener("click", openRecovery);
+document.querySelector("#recovery-close").addEventListener("click", () => recoveryDialog.close());
+recoveryDialog.addEventListener("click", (event) => {
+  if (event.target === recoveryDialog) {
+    recoveryDialog.close();
+  }
+});
+
 /* ---------- Results calendar (menu) ---------- */
 
 const calendarDialog = document.querySelector("#calendar-dialog");
@@ -667,7 +755,7 @@ async function openPayment(plan) {
   const hasOnline = options.providers.length > 0;
 
   payTitle.textContent = `Buy ${planInfo.name} plan`;
-  payPrice.textContent = `${options.currency} ${planInfo.amount.toFixed(2)} for ${planInfo.days} days`;
+  payPrice.textContent = `${options.currency} ${planInfo.amount.toFixed(2)} · valid for ${planInfo.days === 1 ? "today (renews daily)" : `${planInfo.days} days`}`;
   payError.textContent = "";
   payNote.hidden = !hasOnline;
   payManual.replaceChildren(...manualPayment(planInfo, options, hasOnline));
@@ -755,6 +843,13 @@ loadCurrentUser().then(() => {
     if (currentUser) {
       bookingButton.scrollIntoView({ behavior: "smooth", block: "center" });
       revealBookingCode();
+    }
+  }
+  if (params.get("recovery") === "1") {
+    history.replaceState(null, "", location.pathname);
+    if (currentUser) {
+      openRecovery();
+      checkRecoveryTicket();
     }
   }
   // Back from registering via "Leave a review": open the form for them.

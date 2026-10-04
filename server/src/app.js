@@ -32,6 +32,7 @@ import {
   updateMatch,
 } from "./matches.js";
 import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
+import { activatePlan, checkRecovery, memberTotals, recentPurchases, shiftDate, todayKey } from "./recovery.js";
 import { PLANS } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
@@ -206,13 +207,32 @@ export function createApp({ limitRequests = true } = {}) {
   app.get("/api/matches", async (req, res) => {
     const plan = req.user ? publicUser(req.user).plan : "free";
     const unlocked = unlockedTiers(plan);
-    const matches = await matchesForDate(dateFrom(req.query.date));
+    // Recovery bonus tips are only given out through /api/recovery.
+    const matches = (await matchesForDate(dateFrom(req.query.date))).filter((match) => match.tier !== "recovery");
     res.json({ plan, matches: matches.map((match) => publicMatch(match, unlocked)) });
   });
 
   // Which days of a month have predictions, with won/lost counts (no tips).
   app.get("/api/matches/month", async (req, res) => {
     res.json({ days: await monthSummary(req.query.month) });
+  });
+
+  /* ---------- Recovery tickets ---------- */
+
+  // The member confirms their email; it must be the account they're signed in
+  // with (signing in proved they own it). Then the purchase rules are checked.
+  app.post("/api/recovery", requireUser, async (req, res) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (email !== String(req.user.email).toLowerCase()) {
+      throw new HttpError(400, "That email doesn't match the account you're signed in with.");
+    }
+    // The browser sends its own "today"; allow a day either side for time zones.
+    const date = dateFrom(req.body?.date);
+    const server = todayKey();
+    if (date < shiftDate(server, -1) || date > shiftDate(server, 1)) {
+      throw new HttpError(400, "Check your device's date and try again.");
+    }
+    res.json(await checkRecovery(req.user.id, date));
   });
 
   /* ---------- Testimonials ---------- */
@@ -312,6 +332,16 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/admin/matches/delete", requireAdmin, async (req, res) => {
     await deleteMatch(Number(req.body?.id));
     res.json({ ok: true });
+  });
+
+  app.get("/api/admin/members", requireAdmin, async (req, res) => {
+    res.json({ totals: await memberTotals(), purchases: await recentPurchases() });
+  });
+
+  // Record a paid plan (e.g. MoMo) for a member's account.
+  app.post("/api/admin/members/activate", requireAdmin, async (req, res) => {
+    const date = req.body?.date ? dateFrom(req.body.date) : todayKey();
+    res.status(201).json(await activatePlan(req.body?.email, req.body?.plan, date));
   });
 
   app.get("/api/admin/gateway", requireAdmin, async (req, res) => {

@@ -56,3 +56,4 @@ form.addEventListener("submit", async (event) => {
 });
 
 setMode(mode);
+emailInput.value = new URLSearchParams(location.search).get("email") || "";

@@ -108,6 +108,7 @@
               <option value="free">Free</option>
               <option value="vip">VIP</option>
               <option value="vvip">VVIP</option>
+              <option value="recovery">Recovery (bonus tips)</option>
             </select>
           </label>
           <p class="form-hint" id="tier-hint">Choose a table first to unlock the rest of the form.</p>
@@ -177,27 +178,26 @@
 
     <section class="control-section app-anchor" id="members" aria-labelledby="members-title">
       <h2 id="members-title">Members</h2>
+      <p class="form-hint">When a member pays you (e.g. by MoMo), activate their plan with the email they registered with. It unlocks their tips for that day and makes their ticket eligible for a recovery ticket if it loses. Plans renew daily.</p>
       <form class="match-form" id="member-form" novalidate>
-        <label>Name
-          <input id="m-name" maxlength="60" autocomplete="off">
+        <label>Member's account email
+          <input id="m-email" type="email" maxlength="200" autocomplete="off" placeholder="member@example.com">
         </label>
-        <label>Phone
-          <input id="m-phone" inputmode="tel" maxlength="20" autocomplete="off">
-        </label>
-        <label>Plan
+        <label>Plan bought
           <select id="m-plan">
             <option value="vip">VIP</option>
             <option value="vvip">VVIP</option>
           </select>
         </label>
-        <label>Plan ends
-          <input id="m-expires" type="date">
+        <label>Paid for (day)
+          <input id="m-date" type="date">
         </label>
         <div class="form-actions">
-          <button type="submit" class="control-primary">Add member</button>
+          <button type="submit" class="control-primary">Activate plan</button>
         </div>
       </form>
       <p class="form-message" id="member-message" role="status"></p>
+      <h3 class="subsection-title">Recent purchases</h3>
       <div id="member-list"></div>
     </section>
 
