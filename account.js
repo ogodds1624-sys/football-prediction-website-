@@ -35,8 +35,8 @@ function setMode(newMode) {
   subtitle.textContent = naming
     ? "Tell us your name so we can show it on your account."
     : registering
-      ? "Create an account to get full access to our predictions."
-      : "Sign in to get full access to our predictions.";
+      ? "Create an account to get access to our predictions."
+      : "Sign in to get access to our predictions.";
   submitButton.textContent = naming ? "SAVE NAME" : registering ? "CREATE ACCOUNT" : "SIGN IN";
   // Name is asked for when creating an account, or once for older accounts.
   nameRow.hidden = !(registering || naming);

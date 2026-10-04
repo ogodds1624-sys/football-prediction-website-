@@ -83,17 +83,38 @@ function showWelcome(user) {
     return;
   }
   const firstName = (user.name || "").split(" ")[0];
-  const toast = document.querySelector("#welcome-toast");
-  toast.replaceChildren(
-    element("strong", "", kind === "new" ? `Welcome to O G Sports Hub${firstName ? `, ${firstName}` : ""}!` : `Welcome back${firstName ? `, ${firstName}` : ""}!`),
-    element("span", "", kind === "new" ? "Your account is ready. Enjoy today's predictions." : "Good to see you again. Today's picks are waiting."),
+  popToast(
+    kind === "new" ? `Welcome to O G Sports Hub${firstName ? `, ${firstName}` : ""}!` : `Welcome back${firstName ? `, ${firstName}` : ""}!`,
+    kind === "new" ? "Your account is ready. Enjoy today's predictions." : "Good to see you again. Today's picks are waiting.",
+    4500,
   );
+}
+
+// Visitors who aren't signed in are invited to create an account, once per visit.
+function showVisitorInvite() {
+  try {
+    if (sessionStorage.getItem("invited")) {
+      return;
+    }
+    sessionStorage.setItem("invited", "1");
+  } catch {
+    return;
+  }
+  popToast("Welcome to O G Sports Hub!", "Create an account to get access to our predictions.", 3000);
+}
+
+// Slides a card down under the header, then away after `ms`.
+let toastTimer;
+function popToast(title, text, ms) {
+  const toast = document.querySelector("#welcome-toast");
+  toast.replaceChildren(element("strong", "", title), element("span", "", text));
   toast.hidden = false;
   requestAnimationFrame(() => toast.classList.add("is-shown"));
-  setTimeout(() => {
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
     toast.classList.remove("is-shown");
-    setTimeout(() => (toast.hidden = true), 400);
-  }, 4500);
+    toastTimer = setTimeout(() => (toast.hidden = true), 400);
+  }, ms);
 }
 
 const tierBodies = {
@@ -911,6 +932,9 @@ async function loadCurrentUser() {
     const response = await fetch("/api/me");
     const body = await response.json();
     showUser(body.user);
+    if (!body.user) {
+      showVisitorInvite();
+    }
   } catch {
     showUser(null);
   }
