@@ -52,7 +52,6 @@
       </svg>
       Calendar
     </button>
-    <input type="date" id="calendar-input" class="calendar-input" tabindex="-1" aria-hidden="true">
     <a class="menu-item menu-telegram" href="https://t.me/ogsportsafrica" target="_blank" rel="noopener">
       <svg class="menu-icon telegram-logo" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="12" fill="#229ED9"/>
@@ -220,6 +219,26 @@
     </div>
     <p class="copyright">&copy; <span id="year">2026</span> Football Predictions. All rights reserved.</p>
   </footer>
+  <dialog class="calendar-dialog" id="calendar-dialog" aria-labelledby="calendar-title">
+    <div class="calendar-head">
+      <button type="button" class="calendar-nav" id="calendar-prev" aria-label="Previous month">‹</button>
+      <h2 class="calendar-title" id="calendar-title" aria-live="polite"></h2>
+      <button type="button" class="calendar-nav" id="calendar-next" aria-label="Next month">›</button>
+    </div>
+    <div class="calendar-weekdays" aria-hidden="true">
+      <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+    </div>
+    <div class="calendar-grid" id="calendar-grid" role="grid"></div>
+    <div class="calendar-legend">
+      <span><i class="dot won"></i>More won</span>
+      <span><i class="dot lost"></i>More lost</span>
+      <span><i class="dot pending"></i>Pending</span>
+    </div>
+    <div class="calendar-actions">
+      <button type="button" class="outline-button" id="calendar-today">Today</button>
+      <button type="button" class="control-sign-out" id="calendar-close">Close</button>
+    </div>
+  </dialog>
   <dialog class="pay-dialog" id="pay-dialog" aria-labelledby="pay-title">
     <h2 id="pay-title">Buy plan</h2>
     <p class="pay-price" id="pay-price"></p>

@@ -12,7 +12,8 @@
     "button:not(.toggle-passcode), a.plan-button, a.admin-button, a.admin-submit, a.back-button, a.pay-whatsapp",
   );
 
-  buttons.forEach((button, index) => {
+  // Buttons inside pop-up windows (calendar, payment) appear instantly when opened.
+  [...buttons].filter((button) => !button.closest("dialog")).forEach((button, index) => {
     button.style.setProperty("--pop-delay", `${Math.min(index * STAGGER_S, MAX_DELAY_S)}s`);
     button.classList.add("pop-in");
     // Hand control back to the normal hover/press effects once it has popped.

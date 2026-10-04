@@ -591,3 +591,26 @@ describe("predictions", () => {
     assert.equal(badTier.status, 400);
   });
 });
+
+describe("results calendar", () => {
+  test("summarises each day of a month without revealing tips", async () => {
+    const admin = (await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } })).headers.get("set-cookie").split(";")[0];
+    await api("/api/admin/matches", {
+      method: "POST",
+      cookie: admin,
+      body: { date: "2026-09-12", matches: [
+        { tier: "free", home: "A", away: "B", tip: "1" },
+        { tier: "vip", home: "C", away: "D", tip: "2" },
+        { tier: "vvip", home: "E", away: "F", tip: "X" },
+      ] },
+    });
+    const { data: list } = await api("/api/admin/matches?date=2026-09-12", { cookie: admin });
+    await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: list.matches[0].id, result: "won" } });
+    await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: list.matches[1].id, result: "lost" } });
+
+    const { data } = await api("/api/matches/month?month=2026-09");
+    assert.deepEqual(data.days, [{ date: "2026-09-12", total: 3, won: 1, lost: 1 }]);
+    assert.equal(JSON.stringify(data).includes('"tip"'), false);
+    assert.equal((await api("/api/matches/month?month=bad")).status, 400);
+  });
+});

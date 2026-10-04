@@ -123,3 +123,27 @@ export async function resultStats() {
   );
   return { won: Number(row?.won || 0), lost: Number(row?.lost || 0) };
 }
+
+// Per-day totals for a month ("YYYY-MM"), used by the front page calendar.
+export async function monthSummary(month) {
+  if (!/^\d{4}-\d{2}$/.test(String(month || ""))) {
+    throw new HttpError(400, "Invalid month.");
+  }
+  const { rows } = await execute(
+    `SELECT date,
+            COUNT(*) AS total,
+            SUM(result = 'won') AS won,
+            SUM(result = 'lost') AS lost
+     FROM matches
+     WHERE date LIKE ?
+     GROUP BY date
+     ORDER BY date`,
+    [`${month}-%`],
+  );
+  return rows.map((row) => ({
+    date: row.date,
+    total: Number(row.total),
+    won: Number(row.won || 0),
+    lost: Number(row.lost || 0),
+  }));
+}

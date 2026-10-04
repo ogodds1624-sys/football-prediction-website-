@@ -2498,14 +2498,6 @@ button:not(:disabled):not(.toggle-passcode):active,
   border-color: #229ed9;
 }
 
-/* Kept in the page (not display:none) so the browser can open its picker */
-.calendar-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
 
 .day-custom[hidden] {
   display: none;
@@ -2953,4 +2945,181 @@ label {
   .admin-card h1 {
     font-size: 1.6rem;
   }
+}
+
+/* ---------- Results calendar ---------- */
+.calendar-dialog {
+  width: min(400px, calc(100vw - 1.5rem));
+  padding: 1.25rem 1rem 1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+
+.calendar-dialog::backdrop {
+  background: rgba(4, 8, 16, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.calendar-title {
+  margin: 0;
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.calendar-nav {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendar-nav:hover:not(:disabled),
+.calendar-nav:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.calendar-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+
+.calendar-weekdays span {
+  padding-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-cell {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 0.1rem;
+  aspect-ratio: 1 / 1.1;
+  min-width: 0;
+  padding: 0.3rem 0.1rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.calendar-cell.is-blank {
+  background: transparent;
+  cursor: default;
+}
+
+/* Calendar cells keep still on hover (no shared button lift) */
+.calendar-cell:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--accent);
+}
+
+.calendar-cell:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-cell.is-today {
+  border-color: rgba(61, 220, 132, 0.6);
+}
+
+.calendar-cell.is-selected {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.calendar-day {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.calendar-score {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+}
+
+.dot.won {
+  background: var(--accent);
+}
+
+.dot.lost {
+  background: #e5484d;
+}
+
+.dot.pending {
+  background: var(--muted);
+}
+
+.calendar-cell.is-selected .dot {
+  box-shadow: 0 0 0 2px var(--accent-ink);
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+  margin-top: 0.9rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.calendar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.calendar-actions button {
+  justify-content: center;
 }

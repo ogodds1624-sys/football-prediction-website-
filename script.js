@@ -7,7 +7,6 @@ const siteMenu = document.querySelector("#site-menu");
 const menuLinks = document.querySelectorAll("#site-menu a");
 const dayButtons = document.querySelectorAll(".day-button[data-day]");
 const customDayButton = document.querySelector("#day-custom");
-const calendarInput = document.querySelector("#calendar-input");
 
 // Signed-in account from the server: { email, plan, planExpiresAt } or null.
 let currentUser = null;
@@ -169,29 +168,127 @@ for (const button of dayButtons) {
   button.addEventListener("click", () => selectDay(Number(button.dataset.day)));
 }
 
-/* ---------- Calendar (menu) ---------- */
+/* ---------- Results calendar (menu) ---------- */
 
-function openCalendar() {
-  calendarInput.value = dateKey(selectedOffset);
+const calendarDialog = document.querySelector("#calendar-dialog");
+const calendarGrid = document.querySelector("#calendar-grid");
+const calendarTitle = document.querySelector("#calendar-title");
+// The month on screen, as its first day.
+let calendarMonth = new Date();
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function offsetOf(date) {
+  return Math.round((date - startOfToday()) / 86400000);
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+async function monthResults(date) {
   try {
-    calendarInput.showPicker();
+    const response = await fetch(`/api/matches/month?month=${monthKey(date)}`);
+    const { days } = await response.json();
+    return new Map(days.map((day) => [day.date, day]));
   } catch {
-    calendarInput.focus();
-    calendarInput.click();
+    return new Map();
   }
 }
 
-calendarInput.addEventListener("change", () => {
-  if (!calendarInput.value) {
-    return;
+async function renderCalendar() {
+  const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  calendarTitle.textContent = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const results = await monthResults(first);
+
+  // Weeks start on Monday; pad the first row with the previous month's days.
+  const lead = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < lead; i++) {
+    cells.push(Object.assign(document.createElement("span"), { className: "calendar-cell is-blank" }));
   }
-  const [year, month, day] = calendarInput.value.split("-").map(Number);
-  const picked = new Date(year, month - 1, day);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  selectDay(Math.round((picked - today) / 86400000));
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(first.getFullYear(), first.getMonth(), day);
+    const offset = offsetOf(date);
+    const key = dateKey(offset);
+    const summary = results.get(key);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "calendar-cell";
+    button.disabled = offset > 1;
+    button.classList.toggle("is-today", offset === 0);
+    button.classList.toggle("is-selected", offset === selectedOffset);
+
+    const number = document.createElement("span");
+    number.className = "calendar-day";
+    number.textContent = day;
+    button.append(number);
+
+    let label = date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    if (summary) {
+      const decided = summary.won + summary.lost;
+      const tone = !decided ? "pending" : summary.won >= summary.lost ? "won" : "lost";
+      const dot = document.createElement("i");
+      dot.className = `dot ${tone}`;
+      button.append(dot);
+      if (decided) {
+        const score = document.createElement("span");
+        score.className = "calendar-score";
+        score.textContent = `${summary.won}✓ ${summary.lost}✗`;
+        button.append(score);
+      }
+      label += `: ${summary.total} predictions, ${summary.won} won, ${summary.lost} lost`;
+    }
+    button.setAttribute("aria-label", label);
+    button.addEventListener("click", () => {
+      selectDay(offset);
+      calendarDialog.close();
+      document.querySelector("#free").scrollIntoView({ behavior: "smooth" });
+    });
+    cells.push(button);
+  }
+  calendarGrid.replaceChildren(...cells);
+
+  // Tomorrow is the latest day with predictions, so stop at its month.
+  const tomorrow = startOfToday();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const monthIndex = (date) => date.getFullYear() * 12 + date.getMonth();
+  document.querySelector("#calendar-next").disabled = monthIndex(first) >= monthIndex(tomorrow);
+}
+
+function openCalendar() {
+  const shown = new Date();
+  shown.setDate(shown.getDate() + selectedOffset);
+  calendarMonth = new Date(shown.getFullYear(), shown.getMonth(), 1);
   setMenuOpen(false);
+  calendarDialog.showModal();
+  renderCalendar();
+}
+
+function moveMonth(step) {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + step, 1);
+  renderCalendar();
+}
+
+document.querySelector("#calendar-prev").addEventListener("click", () => moveMonth(-1));
+document.querySelector("#calendar-next").addEventListener("click", () => moveMonth(1));
+document.querySelector("#calendar-today").addEventListener("click", () => {
+  selectDay(0);
+  calendarDialog.close();
   document.querySelector("#free").scrollIntoView({ behavior: "smooth" });
+});
+document.querySelector("#calendar-close").addEventListener("click", () => calendarDialog.close());
+// Tapping the dark area outside the calendar closes it.
+calendarDialog.addEventListener("click", (event) => {
+  if (event.target === calendarDialog) {
+    calendarDialog.close();
+  }
 });
 
 document.querySelector("#menu-calendar").addEventListener("click", openCalendar);

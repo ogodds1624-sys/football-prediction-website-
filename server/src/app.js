@@ -24,6 +24,7 @@ import {
   deleteMatch,
   matchesForDate,
   matchFrom,
+  monthSummary,
   publicMatch,
   resultStats,
   setResult,
@@ -207,6 +208,11 @@ export function createApp({ limitRequests = true } = {}) {
     const unlocked = unlockedTiers(plan);
     const matches = await matchesForDate(dateFrom(req.query.date));
     res.json({ plan, matches: matches.map((match) => publicMatch(match, unlocked)) });
+  });
+
+  // Which days of a month have predictions, with won/lost counts (no tips).
+  app.get("/api/matches/month", async (req, res) => {
+    res.json({ days: await monthSummary(req.query.month) });
   });
 
   /* ---------- Testimonials ---------- */
