@@ -651,48 +651,91 @@ button {
   color: var(--text);
 }
 
-.whatsapp-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 1rem;
-  color: var(--text);
-  text-decoration: none;
+/* Footer socials: logo-only tiles in brand colours */
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
-.whatsapp-icon {
+.social-link {
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3rem;
+  height: 3rem;
   border-radius: 14px;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.social-link svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.social-whatsapp {
   background: #25d366;
   box-shadow: 0 6px 22px rgba(37, 211, 102, 0.35);
 }
 
-.whatsapp-icon svg {
-  width: 2rem;
-  height: 2rem;
+.social-tiktok {
+  background: #000;
+  border: 1px solid var(--line);
+  box-shadow: inset -2px -2px 0 rgba(37, 244, 238, 0.55), inset 2px 2px 0 rgba(254, 44, 85, 0.55);
 }
 
-.whatsapp-text strong {
-  display: block;
-  font-size: 1.05rem;
+.social-instagram {
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+  box-shadow: 0 6px 22px rgba(214, 36, 159, 0.3);
 }
 
-.whatsapp-text span {
-  color: var(--muted);
-  font-size: 0.9rem;
+.social-x {
+  background: #000;
+  border: 1px solid var(--line);
 }
 
-.whatsapp-card:hover .whatsapp-icon,
-.whatsapp-card:focus-visible .whatsapp-icon {
-  filter: brightness(1.1);
+.social-link:hover,
+.social-link:focus-visible {
+  transform: translateY(-3px);
+  filter: brightness(1.12);
 }
 
-.whatsapp-card:focus-visible {
+.social-link:active {
+  transform: scale(0.94);
+}
+
+.social-link:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 4px;
-  border-radius: 14px;
+}
+
+/* Each icon bobs gently on its own beat. Uses `translate`, so the hover lift
+   (`transform`) still stacks on top. */
+.social-link {
+  animation: social-float 3s ease-in-out infinite;
+}
+
+.social-link:nth-child(2) { animation-delay: -0.75s; }
+.social-link:nth-child(3) { animation-delay: -1.5s; }
+.social-link:nth-child(4) { animation-delay: -2.25s; }
+
+@keyframes social-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-link {
+    transition: none;
+    animation: none;
+  }
 }
 
 .disclaimer {
@@ -2357,6 +2400,21 @@ button:not(:disabled):not(.toggle-passcode):active,
   border-bottom: 1px solid var(--line);
 }
 
+/* Lit up for a second when reached from the menu */
+.footer-mission {
+  border-radius: 14px;
+  outline: 2px solid transparent;
+  outline-offset: 14px;
+  transition:
+    outline-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.footer-mission.is-highlighted {
+  outline-color: var(--accent);
+  box-shadow: 0 0 0 14px rgba(61, 220, 132, 0.1), 0 0 40px 14px rgba(61, 220, 132, 0.2);
+}
+
 .footer-mission .footer-tagline {
   max-width: 40rem;
   margin-right: auto;
@@ -2525,6 +2583,138 @@ button:not(:disabled):not(.toggle-passcode):active,
 .site-menu .menu-item:hover .menu-icon,
 .site-menu .menu-item:focus-visible .menu-icon {
   transform: scale(1.18);
+}
+
+/* ---------- Smooth menu: panel slides, entries glide in, button morphs ---------- */
+/* The panel stays laid out while hidden so it can slide instead of popping. */
+.site-menu,
+.site-menu[hidden] {
+  display: flex;
+}
+
+.site-menu {
+  transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0s;
+}
+
+/* Pushed past its own shadow so no edge peeks out */
+.site-menu[hidden] {
+  transform: translateX(calc(-100% - 48px));
+  visibility: hidden;
+  transition:
+    transform 0.3s cubic-bezier(0.55, 0, 0.75, 0.2),
+    visibility 0s linear 0.3s;
+}
+
+/* Entries fade and glide in one after another when the menu opens */
+.site-menu > * {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 0.32s ease calc(0.08s + var(--i, 0) * 0.04s),
+    translate 0.4s cubic-bezier(0.22, 1, 0.36, 1) calc(0.08s + var(--i, 0) * 0.04s);
+}
+
+.site-menu[hidden] > * {
+  opacity: 0;
+  translate: -16px 0;
+  transition: opacity 0.15s ease, translate 0.15s ease;
+}
+
+.site-menu > :nth-child(2) { --i: 1; }
+.site-menu > :nth-child(3) { --i: 2; }
+.site-menu > :nth-child(4) { --i: 3; }
+.site-menu > :nth-child(5) { --i: 4; }
+.site-menu > :nth-child(6) { --i: 5; }
+.site-menu > :nth-child(7) { --i: 6; }
+.site-menu > :nth-child(8) { --i: 7; }
+.site-menu > :nth-child(n + 9) { --i: 8; }
+
+/* Entry hover: soft tint and a small nudge to the right */
+.site-menu .menu-item {
+  transition:
+    opacity 0.32s ease calc(0.08s + var(--i, 0) * 0.04s),
+    translate 0.4s cubic-bezier(0.22, 1, 0.36, 1) calc(0.08s + var(--i, 0) * 0.04s),
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease,
+    padding-left 0.25s ease;
+}
+
+.site-menu .menu-item:hover,
+.site-menu .menu-item:focus-visible {
+  padding-left: 1.1rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.site-menu .menu-item:active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.site-menu .menu-telegram:hover,
+.site-menu .menu-telegram:focus-visible {
+  background: #229ed9;
+}
+
+/* Menu button: soft hover, gentle press, bars morph into an X */
+.menu-toggle {
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    transform 0.15s ease;
+}
+
+.menu-toggle:hover,
+.menu-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.menu-toggle:active {
+  transform: scale(0.92);
+}
+
+/* Closing: straighten first, then spread apart */
+.menu-bars {
+  transition: background-color 0.1s ease 0.2s;
+}
+
+.menu-bars::before,
+.menu-bars::after {
+  transition:
+    top 0.2s ease 0.2s,
+    transform 0.2s ease;
+}
+
+/* Opening: come together first, then turn */
+.menu-toggle[aria-expanded="true"] .menu-bars {
+  transition: background-color 0.1s ease;
+}
+
+.menu-toggle[aria-expanded="true"] .menu-bars::before,
+.menu-toggle[aria-expanded="true"] .menu-bars::after {
+  transition:
+    top 0.2s ease,
+    transform 0.2s ease 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-menu,
+  .site-menu[hidden],
+  .site-menu > *,
+  .site-menu[hidden] > *,
+  .site-menu .menu-item,
+  .menu-toggle,
+  .menu-bars,
+  .menu-bars::before,
+  .menu-bars::after,
+  .menu-toggle[aria-expanded="true"] .menu-bars,
+  .menu-toggle[aria-expanded="true"] .menu-bars::before,
+  .menu-toggle[aria-expanded="true"] .menu-bars::after {
+    transition: none;
+  }
 }
 
 /* Home page tables: headings and team names in the middle */

@@ -811,6 +811,21 @@ for (const link of menuLinks) {
   link.addEventListener("click", () => setMenuOpen(false));
 }
 
+// "Our Mission" jumps straight to the footer and lights it up for a second.
+const missionBlock = document.querySelector("#mission");
+let missionGlowTimer;
+document.querySelector('#site-menu a[href="#mission"]').addEventListener("click", (event) => {
+  event.preventDefault();
+  history.replaceState(null, "", "#mission");
+  missionBlock.scrollIntoView({ behavior: "instant", block: "center" });
+  missionBlock.classList.remove("is-highlighted");
+  // Reflow so tapping again replays the glow.
+  void missionBlock.offsetWidth;
+  missionBlock.classList.add("is-highlighted");
+  clearTimeout(missionGlowTimer);
+  missionGlowTimer = setTimeout(() => missionBlock.classList.remove("is-highlighted"), 1000);
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && menuToggle.getAttribute("aria-expanded") === "true") {
     setMenuOpen(false);
