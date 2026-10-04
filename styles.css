@@ -582,10 +582,10 @@ button {
 
 .footer-name {
   margin: 0;
-  font-size: 1.6rem;
-  font-weight: 800;
-  font-style: italic;
-  letter-spacing: 0.02em;
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
   color: var(--text);
 }
 
@@ -594,10 +594,13 @@ button {
 }
 
 .footer-tagline {
-  margin: 0.85rem 0 0;
-  max-width: 26rem;
+  margin: 0.6rem 0 0;
+  max-width: 30rem;
   color: var(--muted);
-  line-height: 1.6;
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 300;
+  line-height: 1.7;
 }
 
 .footer-heading {
@@ -2334,4 +2337,27 @@ button:not(:disabled):not(.toggle-passcode):active,
 .row-action.accept:focus-visible {
   color: var(--accent-ink);
   background: var(--accent);
+}
+
+/* Footer: mission across the top, disclaimer in the first column */
+.footer-mission {
+  max-width: 720px;
+  margin: 0 auto 3.25rem;
+  padding-bottom: 2.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.footer-mission .footer-tagline {
+  max-width: 40rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.footer-disclaimer {
+  max-width: 26rem;
+  margin: 0 1.5rem 0 0;
+  padding: 0;
+  border: 0;
+  text-align: left;
 }
