@@ -3620,3 +3620,53 @@ label {
 .testimonials-block {
   margin-top: 0;
 }
+
+/* ---------- Control Room: Payment Gateway matches the other sections ---------- */
+.control-room .gateway-head h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.control-room .gateway-card {
+  padding: 1.1rem 1rem;
+  border-radius: 14px;
+}
+
+.control-room .gateway-card h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.control-room .rate-field label,
+.control-room .gateway-field label {
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.control-room .rate-row input,
+.control-room .gateway-field input,
+.control-room .account-row input {
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+}
+
+.control-room .gateway-save {
+  margin-top: 1.1rem;
+  padding: 0.65rem 1.1rem;
+  letter-spacing: normal;
+}
+
+.control-room .outline-button {
+  font-weight: 700;
+}
+
+/* Members form: the email gets its own full-width row on phones */
+@media (max-width: 600px) {
+  #member-form label:first-child {
+    grid-column: 1 / -1;
+  }
+}
