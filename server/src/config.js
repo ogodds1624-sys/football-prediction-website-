@@ -13,21 +13,27 @@ try {
   }
 }
 
-function required(name) {
-  const value = process.env[name];
-  if (!value) {
-    const fix = process.env.VERCEL
-      ? "Add it in Vercel > Project > Settings > Environment Variables, then redeploy."
-      : "Copy server/.env.example to server/.env and fill it in.";
-    throw new Error(`Missing environment variable ${name}. ${fix}`);
-  }
-  return value;
-}
-
 const onVercel = Boolean(process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
 
-// On Vercel the site address is known automatically; elsewhere APP_URL is required.
+// Setup problems are collected instead of thrown, so a missing setting never
+// takes the website down. The API reports them (see app.js) and the local
+// server refuses to start (see server.js).
+const problems = [];
+
+function required(name) {
+  const value = process.env[name];
+  if (!value) {
+    const fix = onVercel
+      ? "Add it in Vercel > Project > Settings > Environment Variables, then redeploy."
+      : "Copy server/.env.example to server/.env and fill it in.";
+    problems.push(`Missing environment variable ${name}. ${fix}`);
+  }
+  return value || "";
+}
+
+// Optional. Without it, payment return links use the address the request
+// arrived on (on Vercel: your .vercel.app address or custom domain).
 function appUrl() {
   if (process.env.APP_URL) {
     return process.env.APP_URL;
@@ -35,7 +41,7 @@ function appUrl() {
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
-  return required("APP_URL");
+  return "";
 }
 
 // Vercel has no lasting disk, so it must use Turso. Locally a SQLite file is used.
@@ -51,6 +57,7 @@ function databaseUrl() {
 
 export const config = {
   isProduction,
+  problems,
   port: Number(process.env.PORT || 3000),
   appUrl: appUrl().replace(/\/+$/, ""),
   sessionSecret: required("SESSION_SECRET"),
@@ -68,15 +75,19 @@ export const config = {
   },
 };
 
-if (config.sessionSecret.length < 32) {
-  throw new Error("SESSION_SECRET must be at least 32 characters long.");
+if (config.sessionSecret && config.sessionSecret.length < 32) {
+  problems.push("SESSION_SECRET must be at least 32 characters long.");
 }
 
 if (isProduction) {
-  if (!config.appUrl.startsWith("https://")) {
-    throw new Error("APP_URL must use https:// in production.");
+  if (config.appUrl && !config.appUrl.startsWith("https://")) {
+    problems.push("APP_URL must use https:// in production.");
   }
   if (config.paystack.secretKey.startsWith("sk_test_") || config.flutterwave.secretKey.includes("_TEST")) {
     console.warn("Warning: running in production with a TEST payment key.");
   }
+}
+
+for (const problem of problems) {
+  console.error(`Setup problem: ${problem}`);
 }

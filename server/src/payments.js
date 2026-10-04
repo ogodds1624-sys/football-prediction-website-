@@ -42,7 +42,8 @@ export function publicPayment(payment) {
 
 // Creates a pending payment and returns the provider's checkout URL.
 // The price comes from PLANS on the server, never from the request.
-export async function startPayment(user, providerName, planId) {
+// siteUrl is where the provider sends the user back to.
+export async function startPayment(user, providerName, planId, siteUrl) {
   const plan = getPlan(planId);
   if (!plan) {
     throw new HttpError(400, "Unknown plan.");
@@ -61,7 +62,7 @@ export async function startPayment(user, providerName, planId) {
       amount: plan.amount,
       currency: config.currency,
       reference,
-      callbackUrl: `${config.appUrl}/api/payments/callback/${provider.name}`,
+      callbackUrl: `${siteUrl}/api/payments/callback/${provider.name}`,
       metadata: { user_id: user.id, plan: plan.id },
     });
     return { reference, checkoutUrl };

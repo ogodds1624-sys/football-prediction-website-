@@ -49,6 +49,15 @@ export function createApp({ limitRequests = true } = {}) {
   // The site uses inline scripts and a CDN text reader, so the default CSP is off.
   app.use(helmet({ contentSecurityPolicy: false }));
 
+  // Missing settings: answer clearly instead of crashing. The pages still load.
+  app.use("/api", (req, res, next) => {
+    if (config.problems.length) {
+      res.status(503).json({ error: "Server setup incomplete.", problems: config.problems });
+      return;
+    }
+    next();
+  });
+
   // Webhooks need the raw body to check signatures, so they come before express.json().
   const rawJson = express.raw({ type: "application/json", limit: "100kb" });
   app.post("/api/webhooks/paystack", rawJson, webhookHandler("paystack"));
@@ -130,7 +139,8 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.post("/api/payments/initialize", requireUser, paymentLimiter, async (req, res) => {
-    const { checkoutUrl, reference } = await startPayment(req.user, req.body?.provider, req.body?.plan);
+    const siteUrl = config.appUrl || `${req.protocol}://${req.get("host")}`;
+    const { checkoutUrl, reference } = await startPayment(req.user, req.body?.provider, req.body?.plan, siteUrl);
     res.json({ checkoutUrl, reference });
   });
 
