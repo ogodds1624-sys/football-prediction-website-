@@ -38,10 +38,7 @@ let slipMatches = [];
 let scanning = false;
 let tesseractReady = null;
 
-const settingsForm = document.querySelector("#settings-form");
-const settingsMessage = document.querySelector("#settings-message");
 
-const currencyInput = document.querySelector("#s-currency");
 
 let data = loadData() || { matches: [], members: [], payments: [], settings: { whatsapp: "", currency: "GH₵" } };
 // Predictions for the selected day, loaded from the server (shared with the front page).
@@ -276,6 +273,7 @@ function renderSlipRows() {
       return row;
     }),
   );
+  labelCells(slipBody.closest("table"));
 }
 
 function setSlipMatches(matches) {
@@ -321,6 +319,17 @@ function actionButton(text, onClick, extraClass = "") {
   button.textContent = text;
   button.addEventListener("click", onClick);
   return button;
+}
+
+// Copies each column heading onto its cells, so phones can show rows as labelled cards.
+function labelCells(table) {
+  const headers = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+  for (const row of table.querySelectorAll("tbody tr")) {
+    [...row.children].forEach((cell, index) => {
+      cell.dataset.label = headers[index] || "";
+    });
+  }
+  return table;
 }
 
 function textCell(text) {
@@ -442,6 +451,7 @@ function tierSection(tier, matches) {
   const body = document.createElement("tbody");
   body.append(...matches.map(matchRow));
   table.append(head, body);
+  labelCells(table);
 
   const wrap = document.createElement("div");
   wrap.className = "table-wrap";
@@ -610,19 +620,11 @@ async function saveSingleMatch(tier) {
   return true;
 }
 
-/* ---------- Members and payments ---------- */
+/* ---------- Members ---------- */
 
 const memberForm = document.querySelector("#member-form");
 const memberMessage = document.querySelector("#member-message");
 const memberList = document.querySelector("#member-list");
-const memberNames = document.querySelector("#member-names");
-const paymentForm = document.querySelector("#payment-form");
-const paymentMessage = document.querySelector("#payment-message");
-const paymentList = document.querySelector("#payment-list");
-
-function money(amount) {
-  return `${data.settings.currency} ${Number(amount).toFixed(2)}`;
-}
 
 function isActive(member) {
   return !member.expires || member.expires >= dateKey(0);
@@ -649,6 +651,7 @@ function simpleTable(headers, rows, emptyText) {
   const body = document.createElement("tbody");
   body.append(...rows);
   table.append(head, body);
+  labelCells(table);
   const wrap = document.createElement("div");
   wrap.className = "table-wrap";
   wrap.append(table);
@@ -686,21 +689,6 @@ function memberRow(member) {
   return row;
 }
 
-function paymentRow(payment) {
-  const row = document.createElement("tr");
-  const actions = document.createElement("td");
-  actions.append(actionButton("Remove", () => removeRecord("payments", payment, `the payment from ${payment.name}`, paymentMessage), "danger"));
-  row.append(
-    textCell(payment.date),
-    textCell(payment.name),
-    textCell(tierLabel(payment.plan)),
-    textCell(payment.method),
-    textCell(money(payment.amount)),
-    actions,
-  );
-  return row;
-}
-
 function renderOverview() {
   const active = data.members.filter(isActive);
   const vip = active.filter((member) => member.plan === "vip").length;
@@ -718,18 +706,6 @@ function renderPeople() {
     simpleTable(["Name", "Phone", "Plan", "Plan ends", "Status", ""], members.map(memberRow), "No members added yet."),
   );
 
-  const payments = [...data.payments].sort((a, b) => b.date.localeCompare(a.date));
-  paymentList.replaceChildren(
-    simpleTable(["Date", "Member", "Plan", "Method", "Amount", ""], payments.map(paymentRow), "No payments recorded yet."),
-  );
-
-  memberNames.replaceChildren(
-    ...members.map((member) => {
-      const option = document.createElement("option");
-      option.value = member.name;
-      return option;
-    }),
-  );
   renderOverview();
 }
 
@@ -753,29 +729,6 @@ memberForm.addEventListener("submit", (event) => {
     return;
   }
   memberForm.reset();
-  renderPeople();
-});
-
-paymentForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const payment = {
-    id: newId(),
-    name: document.querySelector("#p-name").value.trim(),
-    plan: document.querySelector("#p-plan").value,
-    amount: Number(document.querySelector("#p-amount").value),
-    method: document.querySelector("#p-method").value,
-    date: dateKey(0),
-  };
-  if (!payment.name || !(payment.amount > 0)) {
-    showMessage(paymentMessage, "Enter the member's name and an amount.", true);
-    return;
-  }
-  data.payments.push(payment);
-  if (!persist(paymentMessage, `Recorded ${money(payment.amount)} from ${payment.name}.`)) {
-    data.payments.pop();
-    return;
-  }
-  paymentForm.reset();
   renderPeople();
 });
 
@@ -1056,6 +1009,36 @@ migrateButton.addEventListener("click", async () => {
   }
 });
 
+/* ---------- App navigation (bottom bar on phones, sidebar on desktop) ---------- */
+
+const navLinks = document.querySelectorAll(".app-nav-link");
+
+function setActiveNav(id) {
+  for (const link of navLinks) {
+    const active = link.hash === `#${id}`;
+    link.classList.toggle("is-active", active);
+    if (active) {
+      link.setAttribute("aria-current", "location");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  }
+}
+
+// A section counts as "current" when it crosses the middle of the screen.
+const sectionWatcher = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        setActiveNav(entry.target.id);
+      }
+    }
+  },
+  { rootMargin: "-45% 0px -50% 0px" },
+);
+document.querySelectorAll(".app-anchor").forEach((section) => sectionWatcher.observe(section));
+setActiveNav("today");
+
 /* ---------- Events ---------- */
 
 for (const button of dayButtons) {
@@ -1139,13 +1122,6 @@ cancelButton.addEventListener("click", () => {
   showMessage(formMessage, "");
 });
 
-settingsForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  data.settings.currency = currencyInput.value.trim() || "GH₵";
-  currencyInput.value = data.settings.currency;
-  persist(settingsMessage, "Settings saved.");
-  renderPeople();
-});
 
 document.querySelector("#control-sign-out").addEventListener("click", async () => {
   try {
@@ -1160,7 +1136,6 @@ document.querySelector("#control-sign-out").addEventListener("click", async () =
   }
 });
 
-currencyInput.value = data.settings.currency;
 resetForm();
 render();
 renderPeople();

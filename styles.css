@@ -2606,3 +2606,351 @@ button:not(:disabled):not(.toggle-passcode):active,
 .overview-grid {
   grid-template-columns: minmax(0, 420px);
 }
+
+/* =====================================================================
+   App-like Control Room & admin pages (iPhone, Android and desktop)
+   ===================================================================== */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* iPhone zooms in on inputs smaller than 16px; keep them at 16px on phones. */
+@media (max-width: 760px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Comfortable finger-sized targets on touch screens */
+@media (pointer: coarse) {
+  .control-room .control-primary,
+  .control-room .outline-button,
+  .control-room .row-action,
+  .control-room .day-button,
+  .control-room .control-sign-out,
+  .admin-submit {
+    min-height: 44px;
+  }
+
+  .control-room .round-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Gateway rates: never wider than a small phone */
+.rates-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+
+/* ---------- Control Room shell ---------- */
+.control-room {
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+.control-room .control-main {
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+/* Sticky top bar, like an app header */
+.control-room .control-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 -1rem;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0.75rem;
+  background: rgba(12, 20, 36, 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Sections land below the sticky bar when jumped to */
+.app-anchor {
+  scroll-margin-top: calc(5rem + env(safe-area-inset-top));
+}
+
+/* ---------- Section tabs ---------- */
+.app-nav {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  background: rgba(15, 24, 41, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.app-nav-brand {
+  display: none;
+  margin: 0 0 1.25rem;
+  padding: 0 0.75rem;
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: 1.9rem;
+  letter-spacing: 0.08em;
+}
+
+.app-nav-brand span {
+  color: var(--accent);
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 12px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.app-nav-link svg {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.app-nav-link:hover,
+.app-nav-link:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.app-nav-link.is-active {
+  color: var(--accent);
+}
+
+.app-nav-link.is-active svg {
+  transform: scale(1.12);
+}
+
+/* Phones and tablets: bottom tab bar */
+@media (max-width: 1023px) {
+  .app-nav {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    justify-content: space-around;
+    padding: 0.35rem max(0.5rem, env(safe-area-inset-right)) calc(0.35rem + env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+    border-top: 1px solid var(--line);
+  }
+
+  .app-nav-link {
+    flex: 1;
+    flex-direction: column;
+    gap: 0.2rem;
+    max-width: 6rem;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+  }
+
+  .app-nav-link.is-active {
+    background: rgba(61, 220, 132, 0.12);
+  }
+
+  /* Room for the tab bar at the bottom of the page */
+  .control-room .control-main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Desktop: sidebar */
+@media (min-width: 1024px) {
+  .app-nav {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 220px;
+    padding: 1.5rem 0.85rem;
+    border-right: 1px solid var(--line);
+  }
+
+  .app-nav-brand {
+    display: block;
+  }
+
+  .app-nav-link {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.95rem;
+  }
+
+  .app-nav-link:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .app-nav-link.is-active {
+    background: rgba(61, 220, 132, 0.12);
+  }
+
+  .control-room {
+    padding-left: 220px;
+  }
+}
+
+/* ---------- Phones: tables become cards ---------- */
+@media (max-width: 640px) {
+  .control-room .admin-table,
+  .control-room .slip-table {
+    min-width: 0;
+    background: transparent;
+    border: 0;
+  }
+
+  .control-room .admin-table thead,
+  .control-room .slip-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .control-room .admin-table tbody,
+  .control-room .slip-table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .control-room .admin-table tr,
+  .control-room .slip-table tr {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+
+  .control-room .admin-table td,
+  .control-room .slip-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.2rem 0;
+    text-align: right;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .control-room .admin-table td::before,
+  .control-room .slip-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  /* Cells without a heading (actions) fill the card width */
+  .control-room .admin-table td[data-label=""],
+  .control-room .admin-table td.row-actions,
+  .control-room .slip-table td[data-label=""] {
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .control-room .admin-table td[data-label=""]::before,
+  .control-room .slip-table td[data-label=""]::before {
+    content: none;
+  }
+
+  .control-room .slip-table td {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    gap: 0.3rem;
+  }
+
+  .control-room .table-wrap {
+    overflow: visible;
+  }
+
+  /* Header: compact single row, like an app bar */
+  .control-room .control-bar {
+    gap: 0.5rem;
+    padding-bottom: 0.6rem;
+  }
+
+  .control-room .control-bar .control-title {
+    font-size: 1.7rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .control-room .control-actions {
+    flex-shrink: 0;
+  }
+
+  .control-room .control-small {
+    min-height: 36px;
+    padding: 0.3rem 0.65rem;
+  }
+
+  /* Booking code: full-width box, buttons underneath */
+  .control-room #booking-form {
+    grid-template-columns: 1fr;
+  }
+
+  .control-room .gateway-card {
+    padding: 1.25rem 1rem;
+    border-radius: 18px;
+  }
+
+  .control-room .gateway-head h2 {
+    font-size: 1.5rem;
+  }
+
+  .control-room .control-day .match-days {
+    max-width: none;
+  }
+
+  .control-room .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .control-room .form-actions > * {
+    flex: 1 1 auto;
+  }
+}
+
+/* ---------- Admin passcode page: fits notched phones ---------- */
+.admin-page {
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+
+@media (max-width: 420px) {
+  .admin-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 20px;
+  }
+
+  .admin-card h1 {
+    font-size: 1.6rem;
+  }
+}

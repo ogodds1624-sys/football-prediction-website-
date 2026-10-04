@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1424">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OG Control">
   <title>Control Room - Football Predictions</title>
   <script>
     // Send anyone without an admin session back to the passcode screen.
@@ -20,6 +25,14 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="control-room">
+  <nav class="app-nav" aria-label="Control Room sections">
+    <p class="app-nav-brand">OG <span>Control</span></p>
+    <a class="app-nav-link" href="#today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg><span>Today</span></a>
+    <a class="app-nav-link" href="#matches"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7l3.5 2.5-1.3 4h-4.4l-1.3-4z"/></svg><span>Matches</span></a>
+    <a class="app-nav-link" href="#members"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg><span>Members</span></a>
+    <a class="app-nav-link" href="#reviews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>Reviews</span></a>
+    <a class="app-nav-link" href="#gateway"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span>Gateway</span></a>
+  </nav>
   <main class="control-main">
     <div class="control-bar">
       <h1 class="control-title">Control <span>Room</span></h1>
@@ -35,14 +48,14 @@
     </div>
 
     <section class="overview-grid" aria-label="Overview">
-      <a class="overview-card" href="#members-title">
+      <a class="overview-card" href="#members">
         <p class="overview-label">Total members</p>
         <p class="overview-value" id="ov-members">0</p>
         <p class="overview-detail" id="ov-members-detail">No members yet</p>
       </a>
     </section>
 
-    <div class="control-day">
+    <div class="control-day app-anchor" id="today">
       <div class="match-days" role="group" aria-label="Day to manage">
         <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
         <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
@@ -85,7 +98,7 @@
       </div>
     </section>
 
-    <section class="control-section" aria-labelledby="form-title">
+    <section class="control-section app-anchor" id="matches" aria-labelledby="form-title">
       <h2 id="form-title">Add match</h2>
       <form class="add-form" id="match-form" novalidate>
         <div class="tier-pick">
@@ -162,7 +175,7 @@
 
     <div id="tier-sections"></div>
 
-    <section class="control-section" aria-labelledby="members-title">
+    <section class="control-section app-anchor" id="members" aria-labelledby="members-title">
       <h2 id="members-title">Members</h2>
       <form class="match-form" id="member-form" novalidate>
         <label>Name
@@ -188,7 +201,7 @@
       <div id="member-list"></div>
     </section>
 
-    <section class="control-section" aria-labelledby="testimonials-admin-title">
+    <section class="control-section app-anchor" id="reviews" aria-labelledby="testimonials-admin-title">
       <div class="tier-heading">
         <h2 id="testimonials-admin-title">Testimonials</h2>
         <span class="gateway-status" id="pending-count" hidden></span>
@@ -237,7 +250,7 @@
       <div id="testimonial-list"></div>
     </section>
 
-    <section class="control-section" aria-labelledby="payments-title">
+    <section class="control-section app-anchor" id="gateway" aria-labelledby="payments-title">
       <div class="gateway-head">
         <h2 id="payments-title">Payment Gateway</h2>
         <button type="button" class="outline-button refresh-button" id="gateway-refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="refresh-icon"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>REFRESH</button>
@@ -344,52 +357,8 @@
         </form>
       </div>
 
-      <div class="gateway-card">
-        <h3>Payment records</h3>
-        <p class="form-hint gateway-note">Record each payment you receive so the overview totals stay up to date.</p>
-        <form class="match-form" id="payment-form" novalidate>
-          <label>Member name
-            <input id="p-name" maxlength="60" autocomplete="off" list="member-names">
-          </label>
-          <label>Plan
-            <select id="p-plan">
-              <option value="vip">VIP</option>
-              <option value="vvip">VVIP</option>
-            </select>
-          </label>
-          <label>Amount
-            <input id="p-amount" type="number" step="0.01" min="0" placeholder="e.g. 50">
-          </label>
-          <label>Method
-            <select id="p-method">
-              <option>Mobile Money</option>
-              <option>Card</option>
-              <option>Bank transfer</option>
-              <option>Cash</option>
-            </select>
-          </label>
-          <div class="form-actions">
-            <button type="submit" class="control-primary">Record payment</button>
-          </div>
-        </form>
-        <datalist id="member-names"></datalist>
-        <p class="form-message" id="payment-message" role="status"></p>
-        <div id="payment-list"></div>
-      </div>
     </section>
 
-    <section class="control-section" aria-labelledby="settings-title">
-      <h2 id="settings-title">Settings</h2>
-      <form class="match-form" id="settings-form">
-        <label>Currency symbol
-          <input id="s-currency" maxlength="5" placeholder="e.g. GH₵" autocomplete="off">
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Save settings</button>
-        </div>
-      </form>
-      <p class="form-message" id="settings-message" role="status"></p>
-    </section>
   </main>
   <script src="data.js"></script>
   <script src="slip-parser.js"></script>
