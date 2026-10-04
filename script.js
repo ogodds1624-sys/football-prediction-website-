@@ -1,4 +1,6 @@
 const signInButton = document.querySelector("#sign-in");
+const signOutButton = document.querySelector("#sign-out");
+const footerSignIn = document.querySelector("#footer-sign-in");
 const userLabel = document.querySelector("#user-label");
 const menuToggle = document.querySelector("#menu-toggle");
 const siteMenu = document.querySelector("#site-menu");
@@ -16,16 +18,15 @@ function setMenuOpen(open) {
 
 function showUser(user) {
   currentUser = user;
+  signInButton.hidden = Boolean(user);
+  signOutButton.hidden = !user;
+  footerSignIn.textContent = user ? "Sign out" : "Sign in";
+  userLabel.hidden = !user;
   if (!user) {
-    userLabel.hidden = true;
     userLabel.textContent = "";
-    signInButton.textContent = "Sign in";
     return;
   }
-
-  userLabel.hidden = false;
   userLabel.textContent = user.plan === "free" ? user.email : `${user.email} · ${user.plan.toUpperCase()}`;
-  signInButton.textContent = "Sign out";
 }
 
 const tierBodies = {
@@ -330,17 +331,20 @@ document.addEventListener("click", (event) => {
   setMenuOpen(false);
 });
 
-signInButton.addEventListener("click", async () => {
-  if (!currentUser) {
-    location.href = "account.html";
-    return;
-  }
+async function signOut() {
   try {
     await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   } finally {
     showUser(null);
+    hideBooking();
   }
+}
+
+signInButton.addEventListener("click", () => {
+  location.href = "account.html";
 });
+
+signOutButton.addEventListener("click", signOut);
 
 async function loadCurrentUser() {
   if (location.protocol === "file:") {
@@ -359,4 +363,10 @@ loadCurrentUser();
 
 document.querySelector("#year").textContent = new Date().getFullYear();
 
-document.querySelector("#footer-sign-in").addEventListener("click", () => signInButton.click());
+footerSignIn.addEventListener("click", () => {
+  if (currentUser) {
+    signOut();
+  } else {
+    location.href = "account.html";
+  }
+});
