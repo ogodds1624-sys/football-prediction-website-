@@ -244,63 +244,34 @@ h1 {
   }
 }
 
+/* Full intro text under the title, with breathing room, drifting slowly up and down */
 .lede {
-  margin: 0.75rem auto 0;
+  margin: 1.75rem auto 0.5rem;
   max-width: 40rem;
-  overflow: hidden;
+  padding: 0 1rem;
   color: var(--muted);
   font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
   font-size: 1.02rem;
   font-weight: 300;
   line-height: 1.6;
   letter-spacing: 0.02em;
-  white-space: nowrap;
-  /* Fade the text in and out at the edges */
-  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  text-align: center;
+  animation: lede-float 6s ease-in-out infinite;
 }
 
-/* Two copies side by side; moving left by half makes the loop seamless */
-.lede-track {
-  display: inline-flex;
-  animation: lede-scroll 60s linear infinite;
-}
-
-.lede:hover .lede-track {
-  animation-play-state: paused;
-}
-
-.lede-item {
-  padding-right: 3rem;
-}
-
-@keyframes lede-scroll {
-  from {
-    transform: translateX(0);
+@keyframes lede-float {
+  0%,
+  100% {
+    transform: translateY(0);
   }
-  to {
-    transform: translateX(-50%);
+  50% {
+    transform: translateY(-8px);
   }
 }
 
-/* People who turn off motion get the normal centred paragraph */
 @media (prefers-reduced-motion: reduce) {
   .lede {
-    white-space: normal;
-    text-align: center;
-    mask-image: none;
-  }
-
-  .lede-track {
-    display: inline;
     animation: none;
-  }
-
-  .lede-item {
-    padding-right: 0;
-  }
-
-  .lede-item[aria-hidden="true"] {
-    display: none;
   }
 }
 
@@ -762,7 +733,7 @@ button {
 
 @media (min-width: 720px) {
   .footer-grid {
-    grid-template-columns: 1.6fr 1fr 1fr 1.2fr;
+    grid-template-columns: repeat(3, 1fr);
     max-width: 960px;
   }
 }
@@ -2421,12 +2392,35 @@ button:not(:disabled):not(.toggle-passcode):active,
   margin-left: auto;
 }
 
+/* Disclaimer: its own centred block under Our Mission, same width and
+   divider, with the Links / Support / Follow us columns below it */
+.footer-brand {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 100%;
+  max-width: 720px;
+  margin-bottom: 1rem;
+  padding-bottom: 2.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Same heading as Our Mission, in warning red */
+.footer-disclaimer-title {
+  margin: 0;
+}
+
+.footer-disclaimer-title span {
+  color: #ff6b6b;
+  text-shadow: 0 0 18px rgba(255, 107, 107, 0.35);
+}
+
 .footer-disclaimer {
-  max-width: 26rem;
-  margin: 0 1.5rem 0 0;
+  max-width: 40rem;
+  margin: 0.6rem auto 0;
   padding: 0;
   border: 0;
-  text-align: left;
+  text-align: center;
 }
 
 /* ---------- Back button (all pages) ---------- */
