@@ -37,10 +37,20 @@ function arrangeTables(signedIn) {
   });
 }
 
+function showPlanTables(plan) {
+  const hideVip = plan === "vvip";
+  tableSections.vip.hidden = hideVip;
+  for (const link of document.querySelectorAll('a[href="#vip"]')) {
+    const target = link.closest(".footer-list li") || link;
+    target.hidden = hideVip;
+  }
+}
+
 function showUser(user) {
   const changed = (currentUser?.id ?? null) !== (user?.id ?? null) || currentUser?.plan !== user?.plan;
   currentUser = user;
   arrangeTables(Boolean(user));
+  showPlanTables(user?.plan);
   if (changed) {
     renderPredictions();
   }
@@ -145,7 +155,7 @@ function matchRow(match, tier) {
   meta.className = "match-meta";
   const odds = match.odds ? ` · Odds: ${match.odds}` : "";
   // The server only sends tips the viewer may see: free tips need an account,
-  // VIP/VVIP tips need a plan that covers them.
+  // and VIP and VVIP tips need that exact plan. A VVIP plan does not reveal VIP tips.
   const lockedText = tier === "free" ? "Tip hidden · register free to see it" : "Tip locked · buy the plan to unlock";
   meta.textContent = match.locked ? `${lockedText}${odds}` : `Tip: ${match.tip}${odds}`;
   info.append(meta);
@@ -224,6 +234,63 @@ async function renderPredictions() {
   for (const button of planButtons) {
     const total = totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
+  }
+  showOwnedBookingCodes();
+}
+
+let codeRequest = 0;
+
+function coversTier(tier) {
+  return currentUser?.plan === tier;
+}
+
+// A paid member sees the day's SportyBet code where Buy Plan used to be.
+async function showOwnedBookingCodes() {
+  const request = ++codeRequest;
+  const owned = [...planButtons].filter((button) => coversTier(button.dataset.tier));
+  for (const button of planButtons) {
+    const slot = document.querySelector(`#${button.dataset.tier}-code`);
+    const ownedTier = coversTier(button.dataset.tier);
+    button.hidden = ownedTier;
+    if (!ownedTier && slot) {
+      slot.hidden = true;
+    }
+  }
+  if (!owned.length) {
+    return;
+  }
+
+  let code = "";
+  let failed = false;
+  try {
+    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}`);
+    if (!response.ok) {
+      throw new Error("code");
+    }
+    code = (await response.json()).code || "";
+  } catch {
+    failed = true;
+  }
+  if (request !== codeRequest) {
+    return;
+  }
+  const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
+  for (const button of owned) {
+    const slot = document.querySelector(`#${button.dataset.tier}-code`);
+    const text = slot.querySelector(".booking-text");
+    const row = slot.querySelector(".booking-code-row");
+    slot.hidden = false;
+    if (failed) {
+      text.textContent = "Couldn't load the booking code. Refresh the page to try again.";
+      row.hidden = true;
+    } else if (code) {
+      text.textContent = `SportyBet booking code for ${dayName}:`;
+      slot.querySelector(".booking-code").textContent = code;
+      row.hidden = false;
+    } else {
+      text.textContent = `The booking code for ${dayName} isn't ready yet. Check back soon.`;
+      row.hidden = true;
+    }
   }
 }
 
@@ -543,6 +610,20 @@ bookingCopy.addEventListener("click", async () => {
     bookingCopy.textContent = "Copied!";
   } catch {
     bookingCopy.textContent = "Select and copy";
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".plan-code .booking-copy");
+  if (!button) {
+    return;
+  }
+  const code = button.parentElement.querySelector(".booking-code").textContent;
+  try {
+    await navigator.clipboard.writeText(code);
+    button.textContent = "Copied!";
+  } catch {
+    button.textContent = "Select and copy";
   }
 });
 

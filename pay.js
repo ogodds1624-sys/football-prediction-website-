@@ -14,13 +14,18 @@ const RECEIPT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "applica
 const MAX_RECEIPT_BYTES = 4_000_000;
 
 const confirmDialog = document.querySelector("#pay-confirm");
-const WAITING_TEXT = "We've received your screenshot. It stays here until we accept or reject the payment, even if you refresh this page.";
+const confirmTitle = document.querySelector("#pay-confirm-title");
+const confirmCopy = document.querySelector("#pay-confirm-copy");
+const confirmLoader = document.querySelector("#pay-loader");
+const confirmClose = document.querySelector("#pay-confirm-close");
+const WAITING_TEXT = "This keeps going until we accept or reject your payment.";
 
 let accounts = [];
 let selected = 0;
 let amountText = "";
 let sending = false;
 let sent = false;
+let watchTimer = 0;
 
 function showProblem(message) {
   loading.hidden = true;
@@ -105,6 +110,18 @@ function readReceipt(file) {
   });
 }
 
+function startWatch() {
+  if (watchTimer) {
+    return;
+  }
+  watchTimer = window.setInterval(checkDecision, 4000);
+}
+
+function stopWatch() {
+  window.clearInterval(watchTimer);
+  watchTimer = 0;
+}
+
 function showWaiting() {
   sent = true;
   sending = false;
@@ -113,9 +130,50 @@ function showWaiting() {
   const done = document.querySelector("#pay-done");
   done.textContent = WAITING_TEXT;
   done.hidden = false;
-  document.querySelector("#pay-confirm-copy").textContent = WAITING_TEXT;
+  confirmTitle.textContent = "Waiting for confirmation";
+  confirmCopy.textContent = WAITING_TEXT;
+  confirmLoader.hidden = false;
+  confirmClose.hidden = true;
   if (!confirmDialog.open) {
     confirmDialog.showModal();
+  }
+  startWatch();
+}
+
+function showFormAgain(message) {
+  stopWatch();
+  sent = false;
+  sending = false;
+  form.hidden = false;
+  submitButton.disabled = false;
+  fileInput.value = "";
+  document.querySelector("#pay-file-label").textContent = "Upload payment receipt";
+  document.querySelector("#pay-file-hint").textContent = "Image or PDF · required to confirm transfer";
+  document.querySelector("#pay-done").hidden = true;
+  errorText.textContent = message;
+  if (confirmDialog.open) {
+    confirmDialog.close();
+  }
+}
+
+async function checkDecision() {
+  try {
+    const response = await fetch(`/api/payments/manual?plan=${encodeURIComponent(planId)}`);
+    if (!response.ok) {
+      return;
+    }
+    const { payment } = await response.json();
+    if (!payment || payment.status === "pending") {
+      return;
+    }
+    stopWatch();
+    if (payment.status === "rejected") {
+      showFormAgain("That payment was rejected. You can send another receipt.");
+      return;
+    }
+    location.replace("index.html");
+  } catch {
+    // Keep the loading animation until the next check.
   }
 }
 
@@ -142,7 +200,7 @@ async function loadPage() {
 
   let me;
   let options;
-  let pending = false;
+  let paymentStatus = "";
   try {
     const [meResponse, optionsResponse, statusResponse] = await Promise.all([
       fetch("/api/me"),
@@ -156,7 +214,7 @@ async function loadPage() {
     options = await optionsResponse.json();
     if (statusResponse.ok) {
       const status = await statusResponse.json();
-      pending = status.payment?.status === "pending";
+      paymentStatus = status.payment?.status || "";
     }
   } catch {
     showProblem("Couldn't load the payment details. Check your connection and try again.");
@@ -175,8 +233,12 @@ async function loadPage() {
     showProblem("Payments are opening soon. Please check back shortly.");
     return;
   }
+  if (paymentStatus === "confirmed") {
+    location.replace("index.html");
+    return;
+  }
   fillSheet(plan, options.currency);
-  if (pending) {
+  if (paymentStatus === "pending") {
     showWaiting();
   }
 }
@@ -204,8 +266,10 @@ fileInput.addEventListener("change", () => {
   errorText.textContent = "";
 });
 
-confirmDialog.querySelector("#pay-confirm-close").addEventListener("click", () => {
-  confirmDialog.close();
+confirmDialog.addEventListener("cancel", (event) => {
+  if (!confirmLoader.hidden) {
+    event.preventDefault();
+  }
 });
 
 form.addEventListener("submit", async (event) => {

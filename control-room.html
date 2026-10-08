@@ -53,15 +53,7 @@
       <button type="button" class="control-primary" id="migrate-button">Publish them to the website</button>
     </div>
 
-    <section class="overview-grid" aria-label="Overview">
-      <a class="overview-card" href="#members">
-        <p class="overview-label">Total members</p>
-        <p class="overview-value" id="ov-members">0</p>
-        <p class="overview-detail" id="ov-members-detail">No members yet</p>
-      </a>
-    </section>
-
-    <div class="control-day app-anchor" id="today">
+    <div class="control-day" id="today">
       <div class="match-days" role="group" aria-label="Day to manage">
         <button type="button" class="day-button" data-day="-1" aria-pressed="false">Yesterday</button>
         <button type="button" class="day-button" data-day="0" aria-pressed="true">Today</button>
@@ -69,6 +61,16 @@
       </div>
       <p class="control-date" id="control-date"></p>
     </div>
+
+    <div class="control-stage">
+      <div class="control-panel" data-panel="today">
+    <section class="overview-grid" aria-label="Overview">
+      <a class="overview-card" href="#members">
+        <p class="overview-label">Total members</p>
+        <p class="overview-value" id="ov-members">0</p>
+        <p class="overview-detail" id="ov-members-detail">No members yet</p>
+      </a>
+    </section>
 
     <section class="control-section" aria-labelledby="booking-title">
       <h2 id="booking-title" class="booking-heading">
@@ -108,8 +110,10 @@
         <p class="stat-value" id="stat-vvip">0</p>
       </div>
     </section>
+      </div>
 
-    <section class="control-section app-anchor" id="matches" aria-labelledby="form-title">
+      <div class="control-panel" data-panel="matches" hidden>
+    <section class="control-section" id="matches" aria-labelledby="form-title">
       <h2 id="form-title">Add match</h2>
       <form class="add-form" id="match-form" novalidate>
         <!-- Table choice with the SportyBet screenshot upload right beside it -->
@@ -188,8 +192,10 @@
     </section>
 
     <div id="tier-sections"></div>
+      </div>
 
-    <section class="control-section app-anchor" id="members" aria-labelledby="members-title">
+      <div class="control-panel" data-panel="members" hidden>
+    <section class="control-section" id="members" aria-labelledby="members-title">
       <h2 id="members-title">Members</h2>
       <p class="form-hint">Everyone who has created an account, most recent visit first.</p>
       <p class="form-message" id="member-message" role="status"></p>
@@ -199,6 +205,7 @@
           <thead>
             <tr>
               <th scope="col">Member name</th>
+              <th scope="col">Email</th>
               <th scope="col">Plan</th>
               <th scope="col">Amount paid</th>
               <th scope="col">Action</th>
@@ -209,8 +216,10 @@
       </div>
       <p class="form-message" id="manual-payment-message" role="status"></p>
     </section>
+      </div>
 
-    <section class="control-section app-anchor" id="gateway" aria-labelledby="payments-title">
+      <div class="control-panel" data-panel="gateway" hidden>
+    <section class="control-section" id="gateway" aria-labelledby="payments-title">
       <div class="gateway-head">
         <h2 id="payments-title">Payment Gateway</h2>
         <button type="button" class="outline-button refresh-button" id="gateway-refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="refresh-icon"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Refresh</button>
@@ -336,7 +345,10 @@
       <p class="form-message" id="plan-prices-message" role="status"></p>
     </section>
 
-    <section class="control-section app-anchor" id="reviews" aria-labelledby="testimonials-admin-title">
+      </div>
+
+      <div class="control-panel" data-panel="reviews" hidden>
+    <section class="control-section" id="reviews" aria-labelledby="testimonials-admin-title">
       <div class="tier-heading">
         <h2 id="testimonials-admin-title">Testimonials</h2>
         <span class="gateway-status" id="pending-count" hidden></span>
@@ -384,7 +396,8 @@
       <h3 class="subsection-title">Shown on the website</h3>
       <div id="testimonial-list"></div>
     </section>
-
+      </div>
+    </div>
 
   </main>
   <script src="data.js"></script>

@@ -137,6 +137,7 @@ function startEdit(match) {
   showMessage(formMessage, "");
   updateFormLock();
   updateSubmitLabel();
+  showPanel("matches");
   form.scrollIntoView({ behavior: "smooth", block: "center" });
   fields.home.focus({ preventScroll: true });
 }
@@ -983,9 +984,12 @@ migrateButton.addEventListener("click", async () => {
   }
 });
 
-/* ---------- App navigation (bottom bar on phones, sidebar on desktop) ---------- */
+/* ---------- App navigation (one section at a time, no page scroll) ---------- */
 
 const navLinks = document.querySelectorAll(".app-nav-link");
+const panels = ["today", "matches", "reviews", "members", "gateway"];
+const dayBar = document.querySelector("#today");
+const controlStage = document.querySelector(".control-stage");
 
 function setActiveNav(id) {
   for (const link of navLinks) {
@@ -999,19 +1003,33 @@ function setActiveNav(id) {
   }
 }
 
-// A section counts as "current" when it crosses the middle of the screen.
-const sectionWatcher = new IntersectionObserver(
-  (entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        setActiveNav(entry.target.id);
-      }
-    }
-  },
-  { rootMargin: "-45% 0px -50% 0px" },
-);
-document.querySelectorAll(".app-anchor").forEach((section) => sectionWatcher.observe(section));
-setActiveNav("today");
+function showPanel(id) {
+  const panel = panels.includes(id) ? id : "today";
+  for (const el of document.querySelectorAll(".control-panel")) {
+    el.hidden = el.dataset.panel !== panel;
+  }
+  dayBar.hidden = panel !== "today" && panel !== "matches";
+  setActiveNav(panel);
+  controlStage.scrollTop = 0;
+  if (location.hash !== `#${panel}`) {
+    history.replaceState(null, "", `#${panel}`);
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href^='#']");
+  if (!link) {
+    return;
+  }
+  const id = link.getAttribute("href").slice(1);
+  if (!panels.includes(id)) {
+    return;
+  }
+  event.preventDefault();
+  showPanel(id);
+});
+
+showPanel(location.hash.slice(1));
 
 /* ---------- Events ---------- */
 
@@ -1147,18 +1165,28 @@ showMigrateBanner();
 function manualPaymentRow(payment) {
   const row = document.createElement("tr");
   const actions = document.createElement("td");
+  actions.className = "row-actions";
   const receipt = document.createElement("a");
   receipt.className = "row-action";
   receipt.href = `/api/admin/manual-payments/${payment.id}/receipt`;
   receipt.target = "_blank";
   receipt.rel = "noopener";
   receipt.textContent = "Receipt";
-  actions.append(
-    receipt,
-    actionButton("Approve", () => decidePayment(payment, "approve")),
-    actionButton("Reject", () => decidePayment(payment, "reject"), "danger"),
-  );
+  actions.append(receipt);
+  if (payment.status === "pending") {
+    actions.append(
+      actionButton("Approve", () => decidePayment(payment, "approve")),
+      actionButton("Reject", () => decidePayment(payment, "reject"), "danger"),
+    );
+  } else {
+    const status = document.createElement("span");
+    status.className = "payment-status";
+    status.dataset.status = payment.status;
+    status.textContent = payment.status === "confirmed" ? "Approved" : "Rejected";
+    actions.append(status);
+  }
   row.append(
+    textCell(payment.name || "—"),
     textCell(payment.email),
     textCell(String(payment.plan).toUpperCase()),
     textCell(`${payment.currency} ${Number(payment.amount).toFixed(2)}`),
@@ -1170,7 +1198,7 @@ function manualPaymentRow(payment) {
 function emptyManualRow(text) {
   const row = document.createElement("tr");
   const cell = document.createElement("td");
-  cell.colSpan = 4;
+  cell.colSpan = 5;
   cell.textContent = text;
   row.append(cell);
   return row;
@@ -1185,6 +1213,7 @@ async function loadManualPayments() {
   try {
     const { payments } = await adminFetch("/api/admin/manual-payments");
     body.replaceChildren(...(payments.length ? payments.map(manualPaymentRow) : [emptyManualRow("No payments sent yet.")]));
+    labelCells(body.closest("table"));
   } catch (error) {
     body.replaceChildren(emptyManualRow("Couldn't load payments."));
     showMessage(message, error.message, true);

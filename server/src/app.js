@@ -464,11 +464,13 @@ export function createApp({ limitRequests = true } = {}) {
     res.json({
       payments: rows.map((payment) => ({
         id: Number(payment.id),
+        name: payment.name || "",
         email: payment.email,
         plan: payment.plan,
         amount: payment.amount / 100,
         currency: payment.currency,
         network: payment.network,
+        status: payment.status,
         createdAt: payment.created_at,
       })),
     });

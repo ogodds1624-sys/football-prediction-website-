@@ -49,12 +49,13 @@ export function matchFrom(body) {
 
 // Which tables a viewer may see tips for. Visitors who aren't signed in
 // (plan null) see teams and odds only; a free account unlocks free tips.
+// VIP and VVIP each unlock only their own table. A VVIP plan does not reveal VIP tips.
 export function unlockedTiers(plan) {
   if (!plan) {
     return new Set();
   }
   if (plan === "vvip") {
-    return new Set(["free", "vip", "vvip"]);
+    return new Set(["free", "vvip"]);
   }
   if (plan === "vip") {
     return new Set(["free", "vip"]);

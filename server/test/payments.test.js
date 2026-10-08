@@ -599,14 +599,17 @@ describe("predictions", () => {
     assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, vvip: null });
   });
 
-  test("VIP members unlock VIP, VVIP members unlock both", async () => {
+  test("VIP members unlock VIP only, VVIP members unlock VVIP only", async () => {
     const vip = await memberWithPlan("vip");
     const vipView = await api(`/api/matches?date=${DATE}`, { cookie: vip.cookie });
     assert.deepEqual(tipsByTier(vipView.data.matches), { free: "Over 1.5", vip: "Home win", vvip: null });
 
     const vvip = await memberWithPlan("vvip");
     const vvipView = await api(`/api/matches?date=${DATE}`, { cookie: vvip.cookie });
-    assert.deepEqual(tipsByTier(vvipView.data.matches), { free: "Over 1.5", vip: "Home win", vvip: "GG" });
+    assert.deepEqual(tipsByTier(vvipView.data.matches), { free: "Over 1.5", vip: null, vvip: "GG" });
+    const vipMatch = vvipView.data.matches.find((match) => match.tier === "vip");
+    assert.equal(vipMatch.locked, true);
+    assert.equal(vipMatch.image, "");
   });
 
   test("admin can update, set results and delete; members cannot", async () => {
@@ -894,6 +897,12 @@ describe("manual plan payment", () => {
     assert.equal(me.data.user.plan, "vip");
     const decided = await api("/api/payments/manual?plan=vip", { cookie });
     assert.equal(decided.data.payment.status, "confirmed");
+    const kept = await api("/api/admin/manual-payments", { cookie: admin });
+    const row = kept.data.payments.find((item) => item.id === payment.id);
+    assert.equal(row.status, "confirmed");
+    assert.equal(row.name, user.name);
+    assert.equal(row.email, user.email);
+    assert.equal(row.amount, 50);
   });
 
   test("rejecting a payment leaves the plan unchanged and allows another receipt", async () => {
@@ -921,7 +930,11 @@ describe("manual plan payment", () => {
     const me = await api("/api/me", { cookie });
     assert.equal(me.data.user.plan, "free");
     const waiting = await api("/api/admin/manual-payments", { cookie: admin });
-    assert.equal(waiting.data.payments.some((item) => item.email === user.email), false);
+    const row = waiting.data.payments.find((item) => item.id === payment.id);
+    assert.equal(row.status, "rejected");
+    assert.equal(row.name, user.name);
+    assert.equal(row.email, user.email);
+    assert.equal(row.amount, 100);
 
     const resent = await api("/api/payments/manual", {
       method: "POST",
