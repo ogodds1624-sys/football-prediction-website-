@@ -37,6 +37,7 @@ import {
   confirmPayment,
   findPayment,
   listManualPayments,
+  manualPaymentStatus,
   manualReceipt,
   publicPayment,
   startPayment,
@@ -450,6 +451,12 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/payments/manual", requireUser, paymentLimiter, async (req, res) => {
     const payment = await submitManualPayment(req.user, req.body);
     res.status(201).json(payment);
+  });
+
+  // Whether this member already has a receipt waiting for this plan.
+  app.get("/api/payments/manual", requireUser, async (req, res) => {
+    const payment = await manualPaymentStatus(req.user.id, String(req.query.plan || ""));
+    res.json({ payment });
   });
 
   app.get("/api/admin/manual-payments", requireAdmin, async (req, res) => {

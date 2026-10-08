@@ -866,6 +866,14 @@ describe("manual plan payment", () => {
     });
     assert.equal(again.status, 409);
 
+    const waiting = await api("/api/payments/manual?plan=vip", { cookie });
+    assert.equal(waiting.status, 200);
+    assert.equal(waiting.data.payment.status, "pending");
+    assert.equal(waiting.data.payment.plan, "vip");
+    const stranger = await newUser();
+    const hidden = await api("/api/payments/manual?plan=vip", { cookie: stranger.cookie });
+    assert.equal(hidden.data.payment, null);
+
     const list = await api("/api/admin/manual-payments", { cookie: admin });
     const payment = list.data.payments.find((item) => item.email === user.email);
     assert.equal(payment.plan, "vip");
@@ -884,6 +892,8 @@ describe("manual plan payment", () => {
 
     const me = await api("/api/me", { cookie });
     assert.equal(me.data.user.plan, "vip");
+    const decided = await api("/api/payments/manual?plan=vip", { cookie });
+    assert.equal(decided.data.payment.status, "confirmed");
   });
 
   test("rejecting a payment leaves the plan unchanged and allows another receipt", async () => {
@@ -903,6 +913,8 @@ describe("manual plan payment", () => {
 
     const rejected = await api(`/api/admin/manual-payments/${payment.id}/reject`, { method: "POST", cookie: admin, body: {} });
     assert.equal(rejected.status, 200);
+    const decided = await api("/api/payments/manual?plan=vvip", { cookie });
+    assert.equal(decided.data.payment.status, "rejected");
     const again = await api(`/api/admin/manual-payments/${payment.id}/reject`, { method: "POST", cookie: admin, body: {} });
     assert.equal(again.status, 404);
 

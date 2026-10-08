@@ -13,9 +13,14 @@ const copyLabel = document.querySelector("#pay-copy-label");
 const RECEIPT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const MAX_RECEIPT_BYTES = 4_000_000;
 
+const confirmDialog = document.querySelector("#pay-confirm");
+const WAITING_TEXT = "We've received your screenshot. It stays here until we accept or reject the payment, even if you refresh this page.";
+
 let accounts = [];
 let selected = 0;
 let amountText = "";
+let sending = false;
+let sent = false;
 
 function showProblem(message) {
   loading.hidden = true;
@@ -100,6 +105,20 @@ function readReceipt(file) {
   });
 }
 
+function showWaiting() {
+  sent = true;
+  sending = false;
+  form.hidden = true;
+  submitButton.disabled = true;
+  const done = document.querySelector("#pay-done");
+  done.textContent = WAITING_TEXT;
+  done.hidden = false;
+  document.querySelector("#pay-confirm-copy").textContent = WAITING_TEXT;
+  if (!confirmDialog.open) {
+    confirmDialog.showModal();
+  }
+}
+
 function fillSheet(plan, currency) {
   amountText = money(currency, plan.amount);
   document.querySelector("#pay-heading").textContent = `${plan.name} plan fee`;
@@ -123,16 +142,22 @@ async function loadPage() {
 
   let me;
   let options;
+  let pending = false;
   try {
-    const [meResponse, optionsResponse] = await Promise.all([
+    const [meResponse, optionsResponse, statusResponse] = await Promise.all([
       fetch("/api/me"),
       fetch("/api/payments/options"),
+      fetch(`/api/payments/manual?plan=${planId}`),
     ]);
     me = await meResponse.json();
     if (!optionsResponse.ok) {
       throw new Error("options unavailable");
     }
     options = await optionsResponse.json();
+    if (statusResponse.ok) {
+      const status = await statusResponse.json();
+      pending = status.payment?.status === "pending";
+    }
   } catch {
     showProblem("Couldn't load the payment details. Check your connection and try again.");
     return;
@@ -151,6 +176,9 @@ async function loadPage() {
     return;
   }
   fillSheet(plan, options.currency);
+  if (pending) {
+    showWaiting();
+  }
 }
 
 copyButton.addEventListener("click", async () => {
@@ -176,10 +204,18 @@ fileInput.addEventListener("change", () => {
   errorText.textContent = "";
 });
 
+confirmDialog.querySelector("#pay-confirm-close").addEventListener("click", () => {
+  confirmDialog.close();
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (sending || sent) {
+    return;
+  }
   errorText.textContent = "";
   const account = accounts[selected];
+  sending = true;
   submitButton.disabled = true;
   try {
     const receipt = await readReceipt(fileInput.files[0]);
@@ -197,15 +233,13 @@ form.addEventListener("submit", async (event) => {
     if (!response.ok && response.status !== 409) {
       throw new Error(body.error || "Couldn't send your receipt. Please try again.");
     }
-    form.hidden = true;
-    const done = document.querySelector("#pay-done");
-    done.hidden = false;
-    if (response.status === 409) {
-      done.textContent = body.error || "You already sent a receipt for this plan. We'll confirm it soon.";
-    }
+    showWaiting();
   } catch (error) {
     errorText.textContent = error.message;
-    submitButton.disabled = false;
+    sending = false;
+    if (!sent) {
+      submitButton.disabled = false;
+    }
   }
 });
 

@@ -87,9 +87,14 @@
         <p class="fee-error" id="pay-error" role="alert"></p>
         <button type="submit" class="fee-send" id="pay-submit">I've sent the money <span aria-hidden="true">→</span></button>
       </form>
-      <p class="fee-done" id="pay-done" hidden>We've received your receipt. Your plan activates once the payment is confirmed.</p>
+      <p class="fee-done" id="pay-done" hidden>We've received your screenshot. It stays here until we accept or reject the payment, even if you refresh this page.</p>
     </article>
   </main>
+  <dialog class="pay-dialog" id="pay-confirm" aria-labelledby="pay-confirm-title">
+    <h2 id="pay-confirm-title">Receipt received</h2>
+    <p class="fee-confirm-copy" id="pay-confirm-copy">We've received your screenshot. It stays here until we accept or reject the payment, even if you refresh this page.</p>
+    <button type="button" class="fee-send" id="pay-confirm-close">OK</button>
+  </dialog>
   <script src="pay.js"></script>
 </body>
 </html>

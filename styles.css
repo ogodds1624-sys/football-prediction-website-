@@ -1762,6 +1762,12 @@ button {
   font-size: 1.4rem;
 }
 
+.fee-confirm-copy {
+  margin: 0.85rem 0 1.25rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .pay-price {
   margin: 0.4rem 0 1.25rem;
   color: var(--muted);
@@ -4107,11 +4113,6 @@ label {
 }
 
 /* ---------- Buy plan page ---------- */
-body.pay-page {
-  background: #070806;
-  color: #f4f1e6;
-}
-
 .pay-main {
   width: min(440px, calc(100% - 1.5rem));
   margin: 0 auto;
@@ -4125,17 +4126,17 @@ body.pay-page {
 .pay-loading,
 .pay-empty {
   margin: 1.5rem 0 0;
-  color: #b7b09a;
+  color: var(--muted);
   line-height: 1.5;
 }
 
 .pay-sheet {
   margin-top: 1rem;
   padding: 1.35rem 1.05rem 1.1rem;
-  background: linear-gradient(180deg, #171b11 0%, #0c0e09 100%);
-  border: 1px solid rgba(214, 176, 74, 0.48);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 28px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
 }
 
 .pay-sheet h1 {
@@ -4158,8 +4159,8 @@ body.pay-page {
   place-items: center;
   width: 3rem;
   height: 3rem;
-  color: #e6c15a;
-  border: 1px solid rgba(214, 176, 74, 0.55);
+  color: var(--accent);
+  border: 1px solid rgba(61, 220, 132, 0.45);
   border-radius: 14px;
 }
 
@@ -4177,7 +4178,7 @@ body.pay-page {
 
 .fee-copy {
   margin: 0.2rem 0 0;
-  color: #b7b09a;
+  color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -4186,13 +4187,13 @@ body.pay-page {
   position: relative;
   margin: 1rem 0;
   padding: 0.8rem 3rem 0.9rem 1rem;
-  border: 1px solid rgba(214, 176, 74, 0.55);
+  border: 1px solid rgba(61, 220, 132, 0.45);
   border-radius: 18px;
 }
 
 .fee-label {
   margin: 0;
-  color: #9a927c;
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -4201,7 +4202,7 @@ body.pay-page {
 
 .fee-sum {
   margin: 0.15rem 0 0;
-  color: #f0c14b;
+  color: var(--accent);
   font-size: 2rem;
   font-weight: 800;
 }
@@ -4210,7 +4211,7 @@ body.pay-page {
   position: absolute;
   top: 0.9rem;
   right: 0.9rem;
-  color: #e6c15a;
+  color: var(--accent);
 }
 
 .fee-picker {
@@ -4226,9 +4227,9 @@ body.pay-page {
 
 .fee-pick {
   padding: 0.35rem 0.7rem;
-  color: #f0c14b;
+  color: var(--accent);
   background: transparent;
-  border: 1px solid rgba(214, 176, 74, 0.4);
+  border: 1px solid rgba(61, 220, 132, 0.4);
   border-radius: 999px;
   font: inherit;
   font-size: 0.78rem;
@@ -4236,14 +4237,14 @@ body.pay-page {
 }
 
 .fee-pick[aria-pressed="true"] {
-  color: #1c1606;
-  background: #f0c14b;
-  border-color: #f0c14b;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .fee-details {
   margin: 0;
-  border: 1px solid rgba(214, 176, 74, 0.28);
+  border: 1px solid var(--line);
   border-radius: 18px;
   overflow: hidden;
 }
@@ -4254,7 +4255,7 @@ body.pay-page {
   align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 0.95rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
 }
 
 .fee-details > div:first-child {
@@ -4263,7 +4264,7 @@ body.pay-page {
 
 .fee-details dt {
   margin: 0;
-  color: #9a927c;
+  color: var(--muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -4289,9 +4290,9 @@ body.pay-page {
   gap: 0.25rem;
   margin: 0;
   padding: 0.28rem 0.55rem;
-  color: #f0c14b;
+  color: var(--accent);
   background: transparent;
-  border: 1px solid rgba(214, 176, 74, 0.7);
+  border: 1px solid rgba(61, 220, 132, 0.7);
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 800;
@@ -4317,13 +4318,13 @@ body.pay-page {
   grid-template-columns: auto 1fr;
   gap: 0.7rem;
   align-items: start;
-  color: #ddd6c4;
+  color: var(--text);
   font-size: 0.95rem;
   line-height: 1.4;
 }
 
 .fee-steps strong {
-  color: #f0c14b;
+  color: var(--accent);
 }
 
 .fee-num {
@@ -4331,8 +4332,8 @@ body.pay-page {
   place-items: center;
   width: 1.55rem;
   height: 1.55rem;
-  color: #f0c14b;
-  border: 1px solid rgba(214, 176, 74, 0.7);
+  color: var(--accent);
+  border: 1px solid rgba(61, 220, 132, 0.7);
   border-radius: 50%;
   font-size: 0.8rem;
   font-weight: 800;
@@ -4343,7 +4344,7 @@ body.pay-page {
   align-items: center;
   gap: 0.75rem;
   padding: 0.9rem 1rem;
-  border: 1px dashed rgba(214, 176, 74, 0.7);
+  border: 1px dashed rgba(61, 220, 132, 0.7);
   border-radius: 16px;
   cursor: pointer;
 }
@@ -4358,17 +4359,17 @@ body.pay-page {
 
 .fee-upload strong {
   display: block;
-  color: #f0c14b;
+  color: var(--accent);
   font-size: 0.98rem;
 }
 
 .fee-upload small {
-  color: #9a927c;
+  color: var(--muted);
 }
 
 .fee-arrow {
   margin-left: auto;
-  color: #f0c14b;
+  color: var(--accent);
   font-size: 1.25rem;
 }
 
@@ -4387,9 +4388,9 @@ body.pay-page {
   gap: 0.4rem;
   margin-top: 0.75rem;
   padding: 0.95rem 1rem;
-  color: #f0c14b;
-  background: #14180f;
-  border: 1px solid rgba(214, 176, 74, 0.75);
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 16px;
   font: inherit;
   font-weight: 800;
@@ -4405,9 +4406,9 @@ body.pay-page {
 .fee-done {
   margin: 0.9rem 0 0;
   padding: 0.9rem 1rem;
-  color: #f4f1e6;
-  background: rgba(240, 193, 75, 0.08);
-  border: 1px solid rgba(214, 176, 74, 0.45);
+  color: var(--text);
+  background: rgba(61, 220, 132, 0.1);
+  border: 1px solid rgba(61, 220, 132, 0.45);
   border-radius: 16px;
   line-height: 1.45;
 }

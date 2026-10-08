@@ -180,6 +180,32 @@ export async function submitManualPayment(user, input) {
   }
 }
 
+// The member's latest receipt for one plan, without the file itself.
+// A pending receipt wins over an older decision so the page can keep showing it.
+export async function manualPaymentStatus(userId, planId) {
+  if (!getPlan(planId)) {
+    return null;
+  }
+  const row = await one(
+    `SELECT id, plan, amount, currency, status
+     FROM manual_payments
+     WHERE user_id = ? AND plan = ?
+     ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC
+     LIMIT 1`,
+    [userId, planId],
+  );
+  if (!row) {
+    return null;
+  }
+  return {
+    id: Number(row.id),
+    plan: row.plan,
+    amount: Number(row.amount) / 100,
+    currency: row.currency,
+    status: row.status,
+  };
+}
+
 export function listManualPayments() {
   return execute(
     `SELECT manual_payments.id, users.email, manual_payments.plan, manual_payments.amount,
