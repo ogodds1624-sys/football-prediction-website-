@@ -428,6 +428,12 @@ function tierSection(tier, matches) {
     totalText.textContent = `Total odds ${total.toFixed(2)}`;
     heading.append(totalText);
   }
+  if (dayCodes[tier.id]) {
+    const codeText = document.createElement("p");
+    codeText.className = "tier-total";
+    codeText.textContent = `Booking code ${dayCodes[tier.id]}`;
+    heading.append(codeText);
+  }
   section.append(heading);
 
   if (!matches.length) {
@@ -470,6 +476,7 @@ function renderStats() {
 }
 
 let matchesRequest = 0;
+let dayCodes = {};
 
 async function render() {
   const request = ++matchesRequest;
@@ -477,12 +484,16 @@ async function render() {
   dateText.textContent = dateLabel(selectedOffset);
   loadBookingCode();
   try {
-    const body = await adminFetch(`/api/admin/matches?date=${date}`);
+    const [body, codesBody] = await Promise.all([
+      adminFetch(`/api/admin/matches?date=${date}`),
+      adminFetch(`/api/admin/booking-code?date=${date}`),
+    ]);
     // Ignore the answer if the day was switched while it was loading.
     if (request !== matchesRequest) {
       return;
     }
     serverMatches = body.matches;
+    dayCodes = codesBody.codes || {};
   } catch (error) {
     showMessage(formMessage, error.message, true);
     return;
@@ -493,75 +504,56 @@ async function render() {
   renderStats();
 }
 
-/* ---------- SportyBet booking code (stored on the server) ---------- */
+/* ---------- SportyBet booking code, saved with the match ---------- */
 
-const bookingForm = document.querySelector("#booking-form");
 const bookingInput = document.querySelector("#b-code");
-const bookingMessage = document.querySelector("#booking-message");
-
-function adminSessionEnded() {
-  showMessage(bookingMessage, "Your admin sign-in has expired. Sign out and sign in again to manage booking codes.", true);
-}
+const BOOKING_CODE_PATTERN = /^[A-Za-z0-9]{4,20}$/;
 
 async function loadBookingCode() {
+  const tier = fields.tier.value;
   const date = dateKey(selectedOffset);
-  bookingInput.value = "";
-  showMessage(bookingMessage, "");
+  if (!tier) {
+    bookingInput.value = "";
+    return;
+  }
   try {
-    const response = await fetch(`/api/admin/booking-code?date=${date}`);
+    const response = await fetch(`/api/admin/booking-code?date=${date}&tier=${tier}`);
     if (response.status === 401) {
-      adminSessionEnded();
+      showMessage(formMessage, "Your admin sign-in has expired. Sign out and sign in again.", true);
       return;
     }
     const body = await response.json();
-    // Ignore the answer if the admin switched day while it was loading.
-    if (date === dateKey(selectedOffset)) {
+    if (date === dateKey(selectedOffset) && tier === fields.tier.value) {
       bookingInput.value = body.code || "";
     }
   } catch {
-    showMessage(bookingMessage, "Couldn't load the booking code. Check your connection.", true);
+    showMessage(formMessage, "Couldn't load the booking code. Check your connection.", true);
   }
 }
 
-async function saveBookingCode(code) {
-  const date = dateKey(selectedOffset);
-  try {
-    const response = await fetch("/api/admin/booking-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, code }),
-    });
-    if (response.status === 401) {
-      adminSessionEnded();
-      return;
-    }
-    const body = await response.json();
-    if (!response.ok) {
-      showMessage(bookingMessage, body.error || "Couldn't save the code.", true);
-      return;
-    }
-    bookingInput.value = body.code || "";
-    showMessage(bookingMessage, body.code ? `Saved ${body.code} for ${dateLabel(selectedOffset)}.` : "Booking code removed.");
-  } catch {
-    showMessage(bookingMessage, "Couldn't reach the server. Try again.", true);
-  }
-}
-
-bookingForm.addEventListener("submit", (event) => {
-  event.preventDefault();
+// A typed code is stored for this table and day. A blank field leaves the saved code alone.
+async function saveBookingCode(tier) {
   const code = bookingInput.value.trim();
   if (!code) {
-    showMessage(bookingMessage, "Type the booking code first.", true);
-    return;
+    return "";
   }
-  saveBookingCode(code);
-});
-
-document.querySelector("#b-clear").addEventListener("click", () => {
-  if (window.confirm(`Remove the booking code for ${dateLabel(selectedOffset)}?`)) {
-    saveBookingCode("");
+  if (!BOOKING_CODE_PATTERN.test(code)) {
+    throw new Error("Booking codes are 4 to 20 letters and numbers.");
   }
-});
+  const response = await fetch("/api/admin/booking-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date: dateKey(selectedOffset), tier, code }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    throw new Error("Your admin sign-in has expired. Sign out and sign in again.");
+  }
+  if (!response.ok) {
+    throw new Error(body.error || "Couldn't save the booking code.");
+  }
+  return body.code || "";
+}
 
 /* ---------- Saving ---------- */
 
@@ -581,13 +573,15 @@ async function addSlipMatches(tier) {
     odds: formatOdds(match.odds),
   }));
   try {
+    const code = await saveBookingCode(tier);
     await postJson("/api/admin/matches", { date: dateKey(selectedOffset), matches });
+    const count = matches.length;
+    const withCode = code ? ` with booking code ${code}` : "";
+    showMessage(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}${withCode}. They're now on the front page.`);
   } catch (error) {
     showMessage(formMessage, error.message, true);
     return false;
   }
-  const count = matches.length;
-  showMessage(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}. They're now on the front page.`);
   return true;
 }
 
@@ -606,12 +600,14 @@ async function saveSingleMatch(tier) {
   }
 
   try {
+    const code = await saveBookingCode(tier);
+    const withCode = code ? ` with booking code ${code}` : "";
     if (editingId) {
       await postJson("/api/admin/matches/update", { id: editingId, ...values });
-      showMessage(formMessage, `Updated ${values.home} vs ${values.away}.`);
+      showMessage(formMessage, `Updated ${values.home} vs ${values.away}${withCode}.`);
     } else {
       await postJson("/api/admin/matches", { date: dateKey(selectedOffset), ...values });
-      showMessage(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}. It's now on the front page.`);
+      showMessage(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}${withCode}. It's now on the front page.`);
     }
   } catch (error) {
     showMessage(formMessage, error.message, true);
@@ -678,12 +674,29 @@ function planCell(plan) {
   return cell;
 }
 
+function amountCell(member) {
+  const cell = document.createElement("td");
+  const payments = member.payments || [];
+  if (!payments.length) {
+    cell.textContent = "–";
+    return cell;
+  }
+  for (const payment of payments) {
+    const line = document.createElement("span");
+    line.className = "paid-amount";
+    line.textContent = `${String(payment.plan).toUpperCase()} ${payment.currency} ${Number(payment.amount).toFixed(2)}`;
+    cell.append(line);
+  }
+  return cell;
+}
+
 function memberRow(member) {
   const row = document.createElement("tr");
   row.append(
     textCell(member.name || "–"),
     textCell(member.email),
     planCell(member.plan),
+    amountCell(member),
     textCell(visitLabel(member.joinedAt)),
     // Accounts that haven't been back since signing up count their sign-up as the visit.
     textCell(visitLabel(member.lastSeenAt || member.joinedAt)),
@@ -700,7 +713,7 @@ async function loadMembers() {
       ? `Active today: VIP ${totals.vip} · VVIP ${totals.vvip}`
       : "No accounts yet";
     memberList.replaceChildren(
-      simpleTable(["Name", "Email", "Plan", "Joined", "Last visit"], members.map(memberRow), "No accounts yet.", "members-table"),
+      simpleTable(["Name", "Email", "Plan", "Amount paid", "Joined", "Last visit"], members.map(memberRow), "No accounts yet.", "members-table"),
     );
   } catch (error) {
     showMessage(memberMessage, error.message, true);
@@ -1048,6 +1061,7 @@ for (const button of dayButtons) {
 fields.tier.addEventListener("change", () => {
   updateFormLock();
   showMessage(formMessage, "");
+  loadBookingCode();
 });
 
 form.addEventListener("submit", async (event) => {
@@ -1212,8 +1226,12 @@ async function loadManualPayments() {
   }
   try {
     const { payments } = await adminFetch("/api/admin/manual-payments");
-    body.replaceChildren(...(payments.length ? payments.map(manualPaymentRow) : [emptyManualRow("No payments sent yet.")]));
+    const waiting = payments.filter((payment) => payment.status !== "confirmed");
+    body.replaceChildren(...(waiting.length ? waiting.map(manualPaymentRow) : [emptyManualRow("No payments waiting.")]));
     labelCells(body.closest("table"));
+    for (const cell of body.querySelectorAll("td[colspan]")) {
+      cell.dataset.label = "";
+    }
   } catch (error) {
     body.replaceChildren(emptyManualRow("Couldn't load payments."));
     showMessage(message, error.message, true);
@@ -1239,6 +1257,9 @@ async function decidePayment(payment, decision) {
         : `Rejected the payment from ${payment.email}.`,
     );
     await loadManualPayments();
+    if (approving) {
+      await loadMembers();
+    }
   } catch (error) {
     showMessage(message, error.message, true);
   }

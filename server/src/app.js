@@ -76,9 +76,24 @@ function reviewFrom(body) {
   return review;
 }
 
-async function bookingCodeFor(date) {
-  const row = await one("SELECT code FROM booking_codes WHERE date = ?", [date]);
+const BOOKING_TIERS = new Set(["free", "vip", "vvip", "recovery"]);
+
+function bookingTier(value, fallback = "") {
+  const tier = String(value || fallback);
+  if (!BOOKING_TIERS.has(tier)) {
+    throw new HttpError(400, "Choose a table for this booking code.");
+  }
+  return tier;
+}
+
+async function bookingCodeFor(date, tier) {
+  const row = await one("SELECT code FROM booking_codes WHERE date = ? AND tier = ?", [date, tier]);
   return row ? row.code : null;
+}
+
+async function bookingCodesFor(date) {
+  const { rows } = await execute("SELECT tier, code FROM booking_codes WHERE date = ?", [date]);
+  return Object.fromEntries(rows.map((row) => [row.tier, row.code]));
 }
 
 const findUserByEmail = (email) => one("SELECT * FROM users WHERE email = ?", [email]);
@@ -231,7 +246,8 @@ export function createApp({ limitRequests = true } = {}) {
 
   // Signed-in users only, so the code never appears in the public page.
   app.get("/api/booking-code", requireUser, async (req, res) => {
-    res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
+    const tier = bookingTier(req.query.tier, "free");
+    res.json({ code: await bookingCodeFor(dateFrom(req.query.date), tier) });
   });
 
   /* ---------- Predictions ---------- */
@@ -391,27 +407,33 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/booking-code", requireAdmin, async (req, res) => {
-    res.json({ code: await bookingCodeFor(dateFrom(req.query.date)) });
+    const date = dateFrom(req.query.date);
+    if (req.query.tier) {
+      res.json({ code: await bookingCodeFor(date, bookingTier(req.query.tier)) });
+      return;
+    }
+    res.json({ codes: await bookingCodesFor(date) });
   });
 
-  // An empty code removes the day's booking code.
+  // An empty code removes that table's code for the day. A missing tier keeps the old free-table default.
   app.post("/api/admin/booking-code", requireAdmin, async (req, res) => {
     const date = dateFrom(req.body?.date);
+    const tier = bookingTier(req.body?.tier, "free");
     const code = String(req.body?.code || "").trim().toUpperCase();
     if (!code) {
-      await execute("DELETE FROM booking_codes WHERE date = ?", [date]);
-      res.json({ code: null });
+      await execute("DELETE FROM booking_codes WHERE date = ? AND tier = ?", [date, tier]);
+      res.json({ code: null, tier });
       return;
     }
     if (!BOOKING_CODE_PATTERN.test(code)) {
       throw new HttpError(400, "Booking codes are 4 to 20 letters and numbers.");
     }
     await execute(
-      `INSERT INTO booking_codes (date, code) VALUES (?, ?)
-       ON CONFLICT(date) DO UPDATE SET code = excluded.code, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-      [date, code],
+      `INSERT INTO booking_codes (date, tier, code) VALUES (?, ?, ?)
+       ON CONFLICT(date, tier) DO UPDATE SET code = excluded.code, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      [date, tier, code],
     );
-    res.json({ code });
+    res.json({ code, tier });
   });
 
   /* ---------- Payments ---------- */

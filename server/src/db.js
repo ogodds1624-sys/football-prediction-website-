@@ -74,11 +74,13 @@ const SCHEMA = [
     message    TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
-  // SportyBet booking code for the free predictions, one per day (YYYY-MM-DD).
+  // SportyBet booking code for one table on one day. Adding a match saves the code with that table.
   `CREATE TABLE IF NOT EXISTS booking_codes (
-    date       TEXT PRIMARY KEY,
+    date       TEXT NOT NULL,
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
     code       TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (date, tier)
   )`,
   // Receipt a member uploads after sending a manual transfer.
   `CREATE TABLE IF NOT EXISTS manual_payments (
@@ -244,6 +246,36 @@ async function allowRecoveryTier() {
   });
 }
 
+// Older databases stored one code per day. Copy it onto every public table
+// so a code saved before this change still shows with those matches.
+async function bookingCodesByTier() {
+  const { rows } = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'booking_codes'", []);
+  const sql = rows[0]?.sql || "";
+  if (!sql || /\btier\b/i.test(sql)) {
+    return;
+  }
+  const rebuild = [
+    `CREATE TABLE booking_codes_new (
+      date       TEXT NOT NULL,
+      tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+      code       TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      PRIMARY KEY (date, tier)
+    )`,
+    `INSERT INTO booking_codes_new (date, tier, code, updated_at)
+     SELECT date, 'free', code, updated_at FROM booking_codes
+     UNION ALL
+     SELECT date, 'vip', code, updated_at FROM booking_codes
+     UNION ALL
+     SELECT date, 'vvip', code, updated_at FROM booking_codes`,
+    "DROP TABLE booking_codes",
+    "ALTER TABLE booking_codes_new RENAME TO booking_codes",
+  ];
+  for (const statement of rebuild) {
+    await backend.execute(statement, []);
+  }
+}
+
 async function migrate() {
   for (const statement of MIGRATIONS) {
     try {
@@ -255,6 +287,7 @@ async function migrate() {
     }
   }
   await allowRecoveryTier();
+  await bookingCodesByTier();
   // The first version of this table could only store "confirmed". Rebuild it
   // once so an admin can also reject a payment.
   const defined = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_payments'");

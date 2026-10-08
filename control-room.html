@@ -72,30 +72,6 @@
       </a>
     </section>
 
-    <section class="control-section" aria-labelledby="booking-title">
-      <h2 id="booking-title" class="booking-heading">
-        <span class="booking-heading-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z"/>
-            <path d="M14 6v12" stroke-dasharray="2 2.2"/>
-          </svg>
-        </span>
-        <span class="booking-heading-text">SportyBet <span>booking code</span></span>
-        <span class="booking-heading-tag">Free predictions</span>
-      </h2>
-      <form class="match-form" id="booking-form" novalidate>
-        <label>Booking code for the selected day
-          <input id="b-code" maxlength="20" autocomplete="off" placeholder="e.g. BC7K9Q" class="booking-input">
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Save code</button>
-          <button type="button" class="control-sign-out" id="b-clear">Remove</button>
-        </div>
-      </form>
-      <p class="form-hint">Only signed-in members can see this code on the website.</p>
-      <p class="form-message" id="booking-message" role="status"></p>
-    </section>
-
     <section class="stat-grid" aria-label="Summary for the selected day">
       <div class="stat">
         <p class="stat-label">Free matches</p>
@@ -180,6 +156,13 @@
                 <tbody id="slip-body"></tbody>
               </table>
             </div>
+          </div>
+
+          <div class="match-form booking-with-match">
+            <label>SportyBet booking code
+              <input id="b-code" maxlength="20" autocomplete="off" placeholder="e.g. BC7K9Q" class="booking-input">
+            </label>
+            <p class="form-hint">Saved with this match for the table you chose. Members of that table see the code.</p>
           </div>
 
           <div class="form-actions">

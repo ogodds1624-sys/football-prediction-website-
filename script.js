@@ -239,6 +239,7 @@ async function renderPredictions() {
 }
 
 let codeRequest = 0;
+const DAY_NAMES = { "-1": "yesterday", 0: "today", 1: "tomorrow" };
 
 function coversTier(tier) {
   return currentUser?.plan === tier;
@@ -263,7 +264,7 @@ async function showOwnedBookingCodes() {
   let code = "";
   let failed = false;
   try {
-    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}`);
+    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}&tier=${owned[0].dataset.tier}`);
     if (!response.ok) {
       throw new Error("code");
     }
@@ -533,85 +534,6 @@ calendarDialog.addEventListener("click", (event) => {
 
 document.querySelector("#menu-calendar").addEventListener("click", openCalendar);
 customDayButton.addEventListener("click", openCalendar);
-
-/* ---------- SportyBet booking code (free predictions) ---------- */
-
-const bookingButton = document.querySelector("#booking-button");
-const bookingPanel = document.querySelector("#booking-panel");
-const bookingText = document.querySelector("#booking-text");
-const bookingCodeRow = document.querySelector("#booking-code-row");
-const bookingCode = document.querySelector("#booking-code");
-const bookingCopy = document.querySelector("#booking-copy");
-
-const DAY_NAMES = { "-1": "yesterday", 0: "today", 1: "tomorrow" };
-
-function showBooking({ text, code = null }) {
-  bookingPanel.hidden = false;
-  bookingButton.setAttribute("aria-expanded", "true");
-  bookingText.textContent = text;
-  bookingCodeRow.hidden = !code;
-  bookingCode.textContent = code || "";
-  bookingCopy.textContent = "Copy";
-}
-
-function hideBooking() {
-  bookingPanel.hidden = true;
-  bookingButton.setAttribute("aria-expanded", "false");
-}
-
-// Visitors go straight to registration, then come back here with the code opened.
-function sendToRegister() {
-  location.href = `account.html?mode=register&next=${encodeURIComponent("index.html?booking=1")}`;
-}
-
-// The code is only sent by the server to signed-in users.
-async function revealBookingCode() {
-  const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
-  if (!currentUser) {
-    sendToRegister();
-    return;
-  }
-
-  bookingButton.disabled = true;
-  try {
-    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}`);
-    if (response.status === 401) {
-      showUser(null);
-      sendToRegister();
-      return;
-    }
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(body.error);
-    }
-    if (body.code) {
-      showBooking({ text: `SportyBet booking code for ${dayName}'s free predictions:`, code: body.code });
-    } else {
-      showBooking({ text: `The booking code for ${dayName} isn't ready yet. Check back soon.` });
-    }
-  } catch {
-    showBooking({ text: "Couldn't load the booking code. Check your connection and try again." });
-  } finally {
-    bookingButton.disabled = false;
-  }
-}
-
-bookingButton.addEventListener("click", () => {
-  if (!bookingPanel.hidden) {
-    hideBooking();
-    return;
-  }
-  revealBookingCode();
-});
-
-bookingCopy.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(bookingCode.textContent);
-    bookingCopy.textContent = "Copied!";
-  } catch {
-    bookingCopy.textContent = "Select and copy";
-  }
-});
 
 document.addEventListener("click", async (event) => {
   const button = event.target.closest(".plan-code .booking-copy");
@@ -1030,15 +952,7 @@ async function loadCurrentUser() {
 }
 
 loadCurrentUser().then(() => {
-  // Back from registering via the booking code button: open the code for them.
   const params = new URLSearchParams(location.search);
-  if (params.get("booking") === "1") {
-    history.replaceState(null, "", location.pathname);
-    if (currentUser) {
-      bookingButton.scrollIntoView({ behavior: "smooth", block: "center" });
-      revealBookingCode();
-    }
-  }
   if (params.get("recovery") === "1") {
     history.replaceState(null, "", location.pathname);
     if (currentUser) {

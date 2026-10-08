@@ -145,6 +145,23 @@ export async function listMembers() {
     `SELECT id, name, email, plan, plan_expires_at, created_at, last_seen_at
      FROM users ORDER BY COALESCE(last_seen_at, created_at) DESC, id DESC LIMIT 500`,
   );
+  const paid = await execute(
+    `SELECT user_id, plan, amount, currency
+     FROM manual_payments
+     WHERE status = 'confirmed'
+     ORDER BY id DESC`,
+  );
+  const paymentsByUser = new Map();
+  for (const payment of paid.rows) {
+    const userId = Number(payment.user_id);
+    const list = paymentsByUser.get(userId) || [];
+    list.push({
+      plan: payment.plan,
+      amount: payment.amount / 100,
+      currency: payment.currency,
+    });
+    paymentsByUser.set(userId, list);
+  }
   return rows.map((user) => ({
     id: user.id,
     name: user.name || "",
@@ -152,6 +169,7 @@ export async function listMembers() {
     plan: user.plan !== "free" && user.plan_expires_at > now ? user.plan : "free",
     joinedAt: user.created_at,
     lastSeenAt: user.last_seen_at || null,
+    payments: paymentsByUser.get(Number(user.id)) || [],
   }));
 }
 

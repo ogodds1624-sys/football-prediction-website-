@@ -351,6 +351,7 @@ describe("members list", () => {
     const member = data.members.find((entry) => entry.email === user.email);
     assert.equal(member.name, "Kwame Mensah");
     assert.equal(member.plan, "free");
+    assert.deepEqual(member.payments, []);
     assert.ok(member.joinedAt);
     assert.ok(member.lastSeenAt, "visiting the site records a last visit");
     assert.equal(data.members[0].email, user.email, "most recent visitor comes first");
@@ -404,6 +405,22 @@ describe("booking codes", () => {
     const { cookie } = await newUser();
     const result = await api("/api/booking-code?date=2026-10-07", { cookie });
     assert.equal(result.data.code, null);
+  });
+
+  test("a code belongs to the table it was saved with", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-08", tier: "vip", code: "VIPCODE1" } });
+    await api("/api/admin/booking-code", { method: "POST", cookie: admin, body: { date: "2026-10-08", tier: "vvip", code: "VVIPCODE1" } });
+    const { cookie } = await newUser();
+    const vip = await api("/api/booking-code?date=2026-10-08&tier=vip", { cookie });
+    const vvip = await api("/api/booking-code?date=2026-10-08&tier=vvip", { cookie });
+    const free = await api("/api/booking-code?date=2026-10-08&tier=free", { cookie });
+    assert.equal(vip.data.code, "VIPCODE1");
+    assert.equal(vvip.data.code, "VVIPCODE1");
+    assert.equal(free.data.code, null);
+    const listed = await api("/api/admin/booking-code?date=2026-10-08", { cookie: admin });
+    assert.equal(listed.data.codes.vip, "VIPCODE1");
+    assert.equal(listed.data.codes.vvip, "VVIPCODE1");
   });
 });
 
@@ -898,11 +915,12 @@ describe("manual plan payment", () => {
     const decided = await api("/api/payments/manual?plan=vip", { cookie });
     assert.equal(decided.data.payment.status, "confirmed");
     const kept = await api("/api/admin/manual-payments", { cookie: admin });
-    const row = kept.data.payments.find((item) => item.id === payment.id);
-    assert.equal(row.status, "confirmed");
-    assert.equal(row.name, user.name);
-    assert.equal(row.email, user.email);
-    assert.equal(row.amount, 50);
+    assert.equal(kept.data.payments.some((item) => item.id === payment.id), false);
+    const members = await api("/api/admin/members", { cookie: admin });
+    const member = members.data.members.find((entry) => entry.email === user.email);
+    assert.equal(member.name, user.name);
+    assert.equal(member.plan, "vip");
+    assert.deepEqual(member.payments, [{ plan: "vip", amount: 50, currency: "GHS" }]);
   });
 
   test("rejecting a payment leaves the plan unchanged and allows another receipt", async () => {
