@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pay for your plan</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="pay-page">
+  <main class="pay-main">
+    <a class="back-button pay-back" href="index.html"><span class="back-arrow" aria-hidden="true">←</span> Back</a>
+
+    <p class="pay-loading" id="pay-loading">Loading payment details…</p>
+    <p class="pay-empty" id="pay-empty" hidden></p>
+
+    <article class="pay-sheet" id="pay-sheet" hidden>
+      <h1 id="pay-heading">Plan fee</h1>
+      <div class="fee-intro">
+        <div class="fee-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="2.5" width="10" height="19" rx="2.2"/>
+            <path d="M11 18.5h2"/>
+          </svg>
+        </div>
+        <div>
+          <p class="fee-kicker" id="pay-plan">Plan</p>
+          <p class="fee-copy" id="pay-copy">One-time payment. Your plan activates once we confirm the transfer.</p>
+        </div>
+      </div>
+
+      <div class="fee-amount">
+        <p class="fee-label">Amount to send</p>
+        <p class="fee-sum" id="pay-amount"></p>
+        <span class="fee-shield" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3.2l7 2.4v6.2c0 4.2-2.8 7.2-7 8.9-4.2-1.7-7-4.7-7-8.9V5.6z"/>
+            <path d="M9 12.1l2 2 4-4.2"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="fee-picker" id="pay-picker" role="group" aria-label="Choose an account" hidden></div>
+
+      <dl class="fee-details">
+        <div>
+          <dt>Network</dt>
+          <dd id="pay-network"></dd>
+        </div>
+        <div>
+          <dt>Send to</dt>
+          <dd class="fee-sendto">
+            <span id="pay-number"></span>
+            <button type="button" class="fee-copy-btn" id="pay-copy-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <rect x="8" y="8" width="11" height="12" rx="2"/>
+                <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <span id="pay-copy-label">Copy</span>
+            </button>
+          </dd>
+        </div>
+        <div>
+          <dt>Account name</dt>
+          <dd id="pay-name"></dd>
+        </div>
+        <div>
+          <dt>Amount</dt>
+          <dd id="pay-amount-row"></dd>
+        </div>
+      </dl>
+
+      <ol class="fee-steps">
+        <li><span class="fee-num">1</span><span>Send <strong id="pay-step-amount"></strong> using the details above.</span></li>
+        <li><span class="fee-num">2</span><span>Upload a screenshot or receipt of the transfer.</span></li>
+        <li><span class="fee-num">3</span><span>We'll update this page once your payment is confirmed.</span></li>
+      </ol>
+
+      <form id="pay-form">
+        <label class="fee-upload">
+          <input type="file" id="pay-file" accept="image/jpeg,image/png,image/webp,application/pdf">
+          <span>
+            <strong id="pay-file-label">Upload payment receipt</strong>
+            <small id="pay-file-hint">Image or PDF · required to confirm transfer</small>
+          </span>
+          <span class="fee-arrow" aria-hidden="true">→</span>
+        </label>
+        <p class="fee-error" id="pay-error" role="alert"></p>
+        <button type="submit" class="fee-send" id="pay-submit">I've sent the money <span aria-hidden="true">→</span></button>
+      </form>
+      <p class="fee-done" id="pay-done" hidden>We've received your receipt. Your plan activates once the payment is confirmed.</p>
+    </article>
+  </main>
+  <script src="pay.js"></script>
+</body>
+</html>
