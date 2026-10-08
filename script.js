@@ -597,8 +597,16 @@ async function openPayment(plan) {
   payDialog.showModal();
 }
 
-for (const button of planButtons) {
-  button.addEventListener("click", () => openPayment(button.dataset.tier));
+for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
+  button.addEventListener("click", () => {
+    const plan = button.dataset.tier;
+    const next = `pay.html?plan=${plan}`;
+    if (!currentUser) {
+      location.href = `account.html?mode=register&next=${encodeURIComponent(next)}`;
+      return;
+    }
+    location.href = next;
+  });
 }
 
 document.querySelector("#pay-close").addEventListener("click", () => payDialog.close());

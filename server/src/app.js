@@ -19,8 +19,18 @@ import { config } from "./config.js";
 import { execute, one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
 import { getGateway, publicCheckout, saveCheckout, saveRates } from "./gateway.js";
-import { confirmPayment, findPayment, publicPayment, startPayment } from "./payments.js";
-import { PLANS } from "./plans.js";
+import {
+  confirmManualPayment,
+  rejectManualPayment,
+  confirmPayment,
+  findPayment,
+  listManualPayments,
+  manualReceipt,
+  publicPayment,
+  startPayment,
+  submitManualPayment,
+} from "./payments.js";
+import { PLANS, publicPlanPrices, savePlanPrices } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -371,18 +381,76 @@ export function createApp({ limitRequests = true } = {}) {
 
   // Public: plan prices, online providers and the manual checkout details.
   app.get("/api/payments/options", async (req, res) => {
+    const prices = await publicPlanPrices();
     res.json({
       currency: config.currency,
       providers: enabledProviders(),
-      plans: Object.values(PLANS).map((plan) => ({ id: plan.id, name: plan.name, amount: plan.amount / 100, days: plan.days })),
+      plans: Object.values(PLANS).map((plan) => ({
+        id: plan.id,
+        name: plan.name,
+        amount: prices[plan.id],
+        days: plan.days,
+      })),
       checkout: await publicCheckout(),
     });
+  });
+
+  app.get("/api/admin/plans", requireAdmin, async (req, res) => {
+    res.json({ currency: config.currency, plans: await publicPlanPrices() });
+  });
+
+  app.post("/api/admin/plans", requireAdmin, async (req, res) => {
+    const plans = await savePlanPrices(req.body);
+    res.json({ currency: config.currency, plans });
   });
 
   app.post("/api/payments/initialize", requireUser, paymentLimiter, async (req, res) => {
     const siteUrl = config.appUrl || `${req.protocol}://${req.get("host")}`;
     const { checkoutUrl, reference } = await startPayment(req.user, req.body?.provider, req.body?.plan, siteUrl);
     res.json({ checkoutUrl, reference });
+  });
+
+  // A member has sent the transfer and uploaded the receipt.
+  app.post("/api/payments/manual", requireUser, paymentLimiter, async (req, res) => {
+    const payment = await submitManualPayment(req.user, req.body);
+    res.status(201).json(payment);
+  });
+
+  app.get("/api/admin/manual-payments", requireAdmin, async (req, res) => {
+    const { rows } = await listManualPayments();
+    res.json({
+      payments: rows.map((payment) => ({
+        id: Number(payment.id),
+        email: payment.email,
+        plan: payment.plan,
+        amount: payment.amount / 100,
+        currency: payment.currency,
+        network: payment.network,
+        createdAt: payment.created_at,
+      })),
+    });
+  });
+
+  app.get("/api/admin/manual-payments/:id/receipt", requireAdmin, async (req, res) => {
+    const receipt = await manualReceipt(Number(req.params.id));
+    if (!receipt) {
+      res.status(404).json({ error: "Receipt not found." });
+      return;
+    }
+    res.set("Content-Type", receipt.type);
+    res.set("Content-Disposition", "inline");
+    res.set("Cache-Control", "private, no-store");
+    res.send(receipt.bytes);
+  });
+
+  app.post("/api/admin/manual-payments/:id/confirm", requireAdmin, async (req, res) => {
+    await confirmManualPayment(Number(req.params.id));
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/manual-payments/:id/reject", requireAdmin, async (req, res) => {
+    await rejectManualPayment(Number(req.params.id));
+    res.json({ ok: true });
   });
 
   // The provider redirects the user here after checkout. We verify, then show the result page.
@@ -444,7 +512,7 @@ export function createApp({ limitRequests = true } = {}) {
       return;
     }
     if (error.type === "entity.too.large") {
-      res.status(413).json({ error: "The submitted data is too large. Reduce the prediction images and try again." });
+      res.status(413).json({ error: "The submitted data is too large. Try a smaller file." });
       return;
     }
     console.error(error);

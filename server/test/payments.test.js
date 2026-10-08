@@ -570,3 +570,148 @@ describe("member reviews", () => {
     assert.equal(result.status, 401);
   });
 });
+
+describe("plan prices", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(result.status, 200);
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("only the admin can change VIP and VVIP prices", async () => {
+    const admin = await adminCookie();
+    try {
+      const before = await api("/api/payments/options");
+      assert.deepEqual(before.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 50], ["vvip", 100]]);
+
+      const { cookie } = await newUser();
+      const asMember = await api("/api/admin/plans", { method: "POST", cookie, body: { vip: 1, vvip: 2 } });
+      assert.equal(asMember.status, 401);
+
+      const bad = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "0", vvip: "80" } });
+      assert.equal(bad.status, 400);
+
+      const saved = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "75.50", vvip: "120" } });
+      assert.equal(saved.status, 200);
+      assert.deepEqual(saved.data.plans, { vip: 75.5, vvip: 120 });
+
+      const after = await api("/api/payments/options");
+      assert.deepEqual(after.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 75.5], ["vvip", 120]]);
+
+      await api("/api/admin/gateway/checkout", {
+        method: "POST",
+        cookie: admin,
+        body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "OG" }] } } },
+      });
+      const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      const buyer = await newUser();
+      const sent = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: buyer.cookie,
+        body: { plan: "vvip", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(sent.status, 201);
+      const list = await api("/api/admin/manual-payments", { cookie: admin });
+      const payment = list.data.payments.find((item) => item.email === buyer.user.email);
+      assert.equal(payment.amount, 120);
+    } finally {
+      await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "50", vvip: "100" } });
+    }
+  });
+});
+
+describe("manual plan payment", () => {
+  const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(result.status, 200);
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("a receipt for a real account activates the plan when confirmed", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        methods: {
+          momo: { enabled: true, accounts: [{ network: "Telecel Cash", number: "0500000000", name: "OG Sports" }] },
+        },
+      },
+    });
+
+    const { cookie, user } = await newUser();
+    const denied = await api("/api/payments/manual", {
+      method: "POST",
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(denied.status, 401);
+
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+
+    const again = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(again.status, 409);
+
+    const list = await api("/api/admin/manual-payments", { cookie: admin });
+    const payment = list.data.payments.find((item) => item.email === user.email);
+    assert.equal(payment.plan, "vip");
+    assert.equal(payment.amount, 50);
+    assert.equal(payment.network, "Telecel Cash");
+
+    const proof = await api(`/api/admin/manual-payments/${payment.id}/receipt`, { cookie: admin });
+    assert.equal(proof.status, 200);
+    assert.equal(proof.headers.get("content-type"), "image/png");
+
+    const asMember = await api(`/api/admin/manual-payments/${payment.id}/confirm`, { method: "POST", cookie, body: {} });
+    assert.equal(asMember.status, 401);
+
+    const confirmed = await api(`/api/admin/manual-payments/${payment.id}/confirm`, { method: "POST", cookie: admin, body: {} });
+    assert.equal(confirmed.status, 200);
+
+    const me = await api("/api/me", { cookie });
+    assert.equal(me.data.user.plan, "vip");
+  });
+
+  test("rejecting a payment leaves the plan unchanged and allows another receipt", async () => {
+    const admin = await adminCookie();
+    const { cookie, user } = await newUser();
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vvip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+
+    const list = await api("/api/admin/manual-payments", { cookie: admin });
+    const payment = list.data.payments.find((item) => item.email === user.email);
+    const asMember = await api(`/api/admin/manual-payments/${payment.id}/reject`, { method: "POST", cookie, body: {} });
+    assert.equal(asMember.status, 401);
+
+    const rejected = await api(`/api/admin/manual-payments/${payment.id}/reject`, { method: "POST", cookie: admin, body: {} });
+    assert.equal(rejected.status, 200);
+    const again = await api(`/api/admin/manual-payments/${payment.id}/reject`, { method: "POST", cookie: admin, body: {} });
+    assert.equal(again.status, 404);
+
+    const me = await api("/api/me", { cookie });
+    assert.equal(me.data.user.plan, "free");
+    const waiting = await api("/api/admin/manual-payments", { cookie: admin });
+    assert.equal(waiting.data.payments.some((item) => item.email === user.email), false);
+
+    const resent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vvip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(resent.status, 201);
+  });
+});

@@ -1140,10 +1140,37 @@ document.querySelector("#control-sign-out").addEventListener("click", async () =
   }
 });
 
+const planPricesForm = document.querySelector("#plan-prices-form");
+const planPricesMessage = document.querySelector("#plan-prices-message");
+
+async function loadPlanPrices() {
+  const { currency, plans } = await adminFetch("/api/admin/plans");
+  document.querySelector("#price-currency").textContent = currency;
+  document.querySelector("#price-vip").value = plans.vip;
+  document.querySelector("#price-vvip").value = plans.vvip;
+}
+
+planPricesForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  planPricesMessage.textContent = "";
+  try {
+    const { plans } = await postJson("/api/admin/plans", {
+      vip: document.querySelector("#price-vip").value,
+      vvip: document.querySelector("#price-vvip").value,
+    });
+    document.querySelector("#price-vip").value = plans.vip;
+    document.querySelector("#price-vvip").value = plans.vvip;
+    showMessage(planPricesMessage, "Prices saved. Buy Plan now shows these amounts.");
+  } catch (error) {
+    showMessage(planPricesMessage, error.message, true);
+  }
+});
+
 currencyInput.value = data.settings.currency;
 resetForm();
 renderPeople();
 loadGateway();
+loadPlanPrices().catch((error) => showMessage(planPricesMessage, error.message, true));
 loadTestimonials();
 
 async function loadPredictions() {
@@ -1169,4 +1196,76 @@ async function loadPredictions() {
   render();
 }
 
+function manualPaymentRow(payment) {
+  const row = document.createElement("tr");
+  const actions = document.createElement("td");
+  const receipt = document.createElement("a");
+  receipt.className = "row-action";
+  receipt.href = `/api/admin/manual-payments/${payment.id}/receipt`;
+  receipt.target = "_blank";
+  receipt.rel = "noopener";
+  receipt.textContent = "Receipt";
+  actions.append(
+    receipt,
+    actionButton("Approve", () => decidePayment(payment, "approve")),
+    actionButton("Reject", () => decidePayment(payment, "reject"), "danger"),
+  );
+  row.append(
+    textCell(payment.email),
+    textCell(String(payment.plan).toUpperCase()),
+    textCell(`${payment.currency} ${Number(payment.amount).toFixed(2)}`),
+    actions,
+  );
+  return row;
+}
+
+function emptyManualRow(text) {
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = 4;
+  cell.textContent = text;
+  row.append(cell);
+  return row;
+}
+
+async function loadManualPayments() {
+  const body = document.querySelector("#payment-table-body");
+  const message = document.querySelector("#manual-payment-message");
+  if (!body) {
+    return;
+  }
+  try {
+    const { payments } = await adminFetch("/api/admin/manual-payments");
+    body.replaceChildren(...(payments.length ? payments.map(manualPaymentRow) : [emptyManualRow("No payments sent yet.")]));
+  } catch (error) {
+    body.replaceChildren(emptyManualRow("Couldn't load payments."));
+    showMessage(message, error.message, true);
+  }
+}
+
+async function decidePayment(payment, decision) {
+  const message = document.querySelector("#manual-payment-message");
+  const approving = decision === "approve";
+  const plan = String(payment.plan).toUpperCase();
+  const question = approving
+    ? `Approve the ${plan} payment from ${payment.email}? Their plan will become active.`
+    : `Reject the ${plan} payment from ${payment.email}? Their plan will not change.`;
+  if (!window.confirm(question)) {
+    return;
+  }
+  try {
+    await postJson(`/api/admin/manual-payments/${payment.id}/${approving ? "confirm" : "reject"}`, {});
+    showMessage(
+      message,
+      approving
+        ? `Approved ${payment.email}. Their ${plan} plan is now active.`
+        : `Rejected the payment from ${payment.email}.`,
+    );
+    await loadManualPayments();
+  } catch (error) {
+    showMessage(message, error.message, true);
+  }
+}
+
 loadPredictions();
+loadManualPayments();

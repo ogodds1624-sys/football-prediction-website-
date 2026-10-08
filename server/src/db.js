@@ -58,6 +58,24 @@ const SCHEMA = [
     data_json  TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
+  // Receipt a member uploads after sending a manual transfer.
+  `CREATE TABLE IF NOT EXISTS manual_payments (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id        INTEGER NOT NULL REFERENCES users(id),
+    plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+    amount         INTEGER NOT NULL CHECK (amount > 0),
+    currency       TEXT NOT NULL,
+    method_id      TEXT NOT NULL,
+    network        TEXT NOT NULL,
+    account_number TEXT NOT NULL,
+    account_name   TEXT NOT NULL DEFAULT '',
+    receipt_data   TEXT NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+    created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS manual_payments_one_pending
+    ON manual_payments(user_id, plan) WHERE status = 'pending'`,
 ];
 
 function createTursoBackend() {
@@ -174,6 +192,40 @@ async function migrate() {
       if (!/duplicate column/i.test(error.message)) {
         throw error;
       }
+    }
+  }
+  // The first version of this table could only store "confirmed". Rebuild it
+  // once so an admin can also reject a payment.
+  const defined = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_payments'");
+  const sql = defined.rows[0]?.sql || "";
+  if (sql && !sql.includes("'rejected'")) {
+    const rebuild = [
+      `CREATE TABLE manual_payments_new (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id        INTEGER NOT NULL REFERENCES users(id),
+        plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+        amount         INTEGER NOT NULL CHECK (amount > 0),
+        currency       TEXT NOT NULL,
+        method_id      TEXT NOT NULL,
+        network        TEXT NOT NULL,
+        account_number TEXT NOT NULL,
+        account_name   TEXT NOT NULL DEFAULT '',
+        receipt_data   TEXT NOT NULL,
+        status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+        created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      )`,
+      `INSERT INTO manual_payments_new
+        (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at)
+       SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at
+       FROM manual_payments`,
+      "DROP TABLE manual_payments",
+      "ALTER TABLE manual_payments_new RENAME TO manual_payments",
+      `CREATE UNIQUE INDEX IF NOT EXISTS manual_payments_one_pending
+        ON manual_payments(user_id, plan) WHERE status = 'pending'`,
+    ];
+    for (const statement of rebuild) {
+      await backend.execute(statement, []);
     }
   }
 }

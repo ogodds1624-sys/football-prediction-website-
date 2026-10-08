@@ -2,7 +2,8 @@ import crypto from "node:crypto";
 import { config } from "./config.js";
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
-import { getPlan } from "./plans.js";
+import { publicCheckout } from "./gateway.js";
+import { getPlan, getPricedPlan } from "./plans.js";
 import { getProvider } from "./providers/index.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -44,7 +45,7 @@ export function publicPayment(payment) {
 // The price comes from PLANS on the server, never from the request.
 // siteUrl is where the provider sends the user back to.
 export async function startPayment(user, providerName, planId, siteUrl) {
-  const plan = getPlan(planId);
+  const plan = await getPricedPlan(planId);
   if (!plan) {
     throw new HttpError(400, "Unknown plan.");
   }
@@ -130,4 +131,104 @@ export async function confirmPayment(reference) {
     }
   });
   return findPayment(reference);
+}
+
+const RECEIPT_PATTERN = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/;
+const MAX_RECEIPT_BYTES = 4_000_000;
+
+// Stores a receipt for a transfer to one of the admin's switched-on accounts.
+// The price and account come from the server, never from the amount in the file.
+export async function submitManualPayment(user, input) {
+  const plan = await getPricedPlan(input?.plan);
+  if (!plan) {
+    throw new HttpError(400, "Unknown plan.");
+  }
+  const checkout = await publicCheckout();
+  const method = checkout.methods.find((item) => item.id === input?.methodId);
+  const account = method?.accounts[Number(input?.accountIndex)];
+  if (!account?.number) {
+    throw new HttpError(400, "Choose a payment account.");
+  }
+
+  const match = String(input?.receipt || "").match(RECEIPT_PATTERN);
+  if (!match) {
+    throw new HttpError(400, "Upload a JPEG, PNG, WebP or PDF receipt.");
+  }
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > MAX_RECEIPT_BYTES) {
+    throw new HttpError(400, "The receipt must be under 4 MB.");
+  }
+  const receipt = `data:${match[1]};base64,${bytes.toString("base64")}`;
+  const network = account.network || account.bank || method.label;
+
+  try {
+    const { rows } = await execute(
+      `INSERT INTO manual_payments
+        (user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`,
+      [user.id, plan.id, plan.amount, config.currency, method.id, network, account.number, account.name || "", receipt],
+    );
+    return { id: Number(rows[0].id) };
+  } catch (error) {
+    if (/UNIQUE constraint failed/i.test(error.message)) {
+      throw new HttpError(409, "You already sent a receipt for this plan. We'll confirm it soon.");
+    }
+    throw error;
+  }
+}
+
+export function listManualPayments() {
+  return execute(
+    `SELECT manual_payments.id, users.email, manual_payments.plan, manual_payments.amount,
+            manual_payments.currency, manual_payments.network, manual_payments.status, manual_payments.created_at
+     FROM manual_payments
+     JOIN users ON users.id = manual_payments.user_id
+     WHERE manual_payments.status = 'pending'
+     ORDER BY manual_payments.id DESC`,
+  );
+}
+
+export async function manualReceipt(id) {
+  const row = await one("SELECT receipt_data FROM manual_payments WHERE id = ?", [id]);
+  const match = row ? String(row.receipt_data).match(RECEIPT_PATTERN) : null;
+  if (!match) {
+    return null;
+  }
+  return { type: match[1], bytes: Buffer.from(match[2], "base64") };
+}
+
+async function pendingManualPayment(id) {
+  const payment = await one("SELECT id, user_id, plan, status FROM manual_payments WHERE id = ?", [id]);
+  if (!payment || payment.status !== "pending") {
+    throw new HttpError(404, "That payment is no longer waiting.");
+  }
+  return payment;
+}
+
+// Approves a manual transfer and activates the member's plan.
+export async function confirmManualPayment(id) {
+  const payment = await pendingManualPayment(id);
+  const plan = getPlan(payment.plan);
+  await transaction(async (tx) => {
+    const { rowsAffected } = await tx.execute(
+      `UPDATE manual_payments SET status = 'confirmed', updated_at = ${NOW} WHERE id = ? AND status = 'pending'`,
+      [payment.id],
+    );
+    if (rowsAffected) {
+      await upgradeUser(tx, payment.user_id, plan);
+    }
+  });
+}
+
+// Turns down a transfer. The member's plan stays as it is, and they can send a new receipt.
+export async function rejectManualPayment(id) {
+  const payment = await pendingManualPayment(id);
+  const { rowsAffected } = await execute(
+    `UPDATE manual_payments SET status = 'rejected', updated_at = ${NOW} WHERE id = ? AND status = 'pending'`,
+    [payment.id],
+  );
+  if (!rowsAffected) {
+    throw new HttpError(404, "That payment is no longer waiting.");
+  }
 }
