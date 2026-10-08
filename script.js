@@ -970,10 +970,18 @@ loadCurrentUser().then(() => {
   }
 });
 
-// Footer WhatsApp card uses the support number saved in the Control Room.
+// Footer WhatsApp card and the support chat share the checkout details from the Control Room.
+let supportInfo = { plans: [], currency: "GHS", whatsapp: "", email: "" };
+
 loadOptions()
-  .then(({ checkout }) => {
-    const link = whatsappLink(checkout.whatsapp, "Hello, I have a question about your predictions.");
+  .then((options) => {
+    supportInfo = {
+      plans: options.plans || [],
+      currency: options.currency || "GHS",
+      whatsapp: options.checkout?.whatsapp || "",
+      email: options.checkout?.email || "",
+    };
+    const link = whatsappLink(supportInfo.whatsapp, "Hello, I have a question about your predictions.");
     if (link) {
       footerWhatsapp.href = link;
     }
@@ -987,5 +995,164 @@ footerSignIn.addEventListener("click", () => {
     signOut();
   } else {
     location.href = "account.html";
+  }
+});
+
+/* ---------- Support chat: automatic replies on the front page ---------- */
+
+const helpPanel = document.querySelector("#help-panel");
+const helpOpen = document.querySelector("#help-open");
+const helpLog = document.querySelector("#help-log");
+const helpInput = document.querySelector("#help-input");
+let helpBusy = false;
+let helpGreeted = false;
+
+function moneyAmount(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function planPriceText() {
+  if (!supportInfo.plans.length) {
+    return "The price for each plan is shown on its Buy Plan button.";
+  }
+  return supportInfo.plans
+    .map((plan) => {
+      const days = Number(plan.days) === 1 ? "1 day" : `${plan.days} days`;
+      return `${plan.name} is ${supportInfo.currency} ${moneyAmount(plan.amount)} for ${days}`;
+    })
+    .join(". ") + ".";
+}
+
+function whatsappAnswer() {
+  const link = whatsappLink(supportInfo.whatsapp, "Hello, I need help with my predictions account.");
+  if (link) {
+    return { text: "You can message us on WhatsApp and a person will get back to you.", link: { href: link, label: "Open WhatsApp" } };
+  }
+  if (supportInfo.email) {
+    return { text: `WhatsApp is not set up yet. Email ${supportInfo.email} and we will reply.` };
+  }
+  return { text: "WhatsApp support is not set up yet. Ask me here about predictions, payments, booking codes, or recovery tickets." };
+}
+
+function supportReply(raw) {
+  const text = raw.toLowerCase();
+  const asks = (pattern) => pattern.test(text);
+  if (asks(/\b(whatsapp|human|agent|someone|person|call)\b/)) {
+    return whatsappAnswer();
+  }
+  if (asks(/\b(book|booking|sporty)\b/)) {
+    return { text: "The SportyBet booking code shows only for the plan you have, in place of Buy Plan, for the day you are viewing. VIP members see the VIP code. VVIP members see the VVIP code. If the code is not ready, that space says so. The free table does not have a booking-code button." };
+  }
+  if (asks(/\brecovery\b/)) {
+    return { text: "Open Recovery ticket in the menu. It is for a VIP or VVIP ticket that lost, and it stays available for 2 days after that loss. A winning ticket does not qualify. Sign in with the account that bought the plan." };
+  }
+  if (asks(/\b(pay|payment|receipt|momo|confirm|rejected|approved|spinner)\b/)) {
+    return { text: "Sign in, open VIP or VVIP, and press Buy Plan. Pay with the details shown, upload your receipt, and tap I've sent the money once. A spinner stays on the page until we accept or reject the receipt, including after a refresh. If we reject it, you can send another receipt. When we accept it, you come back here and Buy Plan for that plan becomes the booking code." };
+  }
+  if (asks(/\b(price|prices|cost|how much|fee)\b/)) {
+    return { text: `${planPriceText()} A plan lasts for that day only. The buyer does not type a price.` };
+  }
+  if (asks(/\b(differ|versus|vs|which plan|only see|unlock)\b/) || (asks(/\bvip\b/) && asks(/\bvvip\b/))) {
+    return { text: "VIP and VVIP are separate tables. A VIP plan unlocks free tips and VIP tips only. A VVIP plan unlocks free tips and VVIP tips only, not the VIP table. Each booking code belongs to its own table." };
+  }
+  if (asks(/\b(buy|purchase|subscribe|upgrade)\b/) || asks(/\bplan\b/)) {
+    return { text: `Create an account and sign in, then press Buy Plan under VIP or VVIP. ${planPriceText()} After the receipt is accepted, that plan's Buy Plan button becomes the booking code.` };
+  }
+  if (asks(/\b(sign in|signin|sign up|signup|register|account|password|log in|login)\b/)) {
+    return { text: "Use Sign in at the top of the page to open your account or create one. Your name appears in the header after you sign in." };
+  }
+  if (asks(/\b(predict|tip|free|odds|fixture|today|tomorrow)/)) {
+    return { text: "Free predictions are open to everyone. Use Yesterday, Today, or Tomorrow to change the day. VIP and VVIP stay locked until that plan is active for today. A VIP member does not see VVIP tips, and a VVIP member does not see VIP tips." };
+  }
+  if (asks(/\b(gambl|responsib|addict|18)\b/)) {
+    return { text: "Betting is for adults, and winnings are never guaranteed. Only stake money you can afford to lose. If betting is hurting your money or your life, stop and seek professional help." };
+  }
+  if (asks(/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\b/) && text.trim().split(/\s+/).length <= 4) {
+    return { text: "Hello. I reply automatically. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets." };
+  }
+  return { text: "I can help with predictions, buying VIP or VVIP, payment confirmation, booking codes, and recovery tickets. Ask about one of those, or choose WhatsApp support if you need a person." };
+}
+
+function addHelpBubble(role, text, link) {
+  const item = document.createElement("div");
+  item.className = `help-bubble help-${role}`;
+  const paragraph = document.createElement("p");
+  paragraph.textContent = text;
+  item.append(paragraph);
+  if (link) {
+    const anchor = document.createElement("a");
+    anchor.href = link.href;
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    anchor.textContent = link.label;
+    item.append(anchor);
+  }
+  helpLog.append(item);
+  helpLog.scrollTop = helpLog.scrollHeight;
+}
+
+function greetHelp() {
+  if (helpGreeted) {
+    return;
+  }
+  helpGreeted = true;
+  addHelpBubble("bot", "Hello. I reply automatically. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets.");
+}
+
+function setHelpOpen(open) {
+  helpPanel.hidden = !open;
+  helpOpen.setAttribute("aria-expanded", String(open));
+  if (open) {
+    setMenuOpen(false);
+    greetHelp();
+    helpInput.focus();
+  }
+}
+
+function sendHelp(raw) {
+  const text = String(raw || "").trim().slice(0, 400);
+  if (!text || helpBusy) {
+    return;
+  }
+  helpBusy = true;
+  setHelpOpen(true);
+  addHelpBubble("user", text);
+  helpInput.value = "";
+  const pending = document.createElement("p");
+  pending.className = "help-typing";
+  pending.textContent = "Replying…";
+  helpLog.append(pending);
+  helpLog.scrollTop = helpLog.scrollHeight;
+  window.setTimeout(() => {
+    pending.remove();
+    const answer = supportReply(text);
+    addHelpBubble("bot", answer.text, answer.link);
+    helpBusy = false;
+  }, 400);
+}
+
+helpOpen.addEventListener("click", () => setHelpOpen(helpPanel.hidden));
+document.querySelector("#help-close").addEventListener("click", () => setHelpOpen(false));
+document.querySelector("#menu-help").addEventListener("click", () => setHelpOpen(true));
+document.querySelector("#help-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendHelp(helpInput.value);
+});
+
+document.addEventListener("click", (event) => {
+  const ask = event.target.closest("[data-help-ask]");
+  if (!ask) {
+    return;
+  }
+  sendHelp(ask.dataset.helpAsk);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !helpPanel.hidden) {
+    setHelpOpen(false);
   }
 });

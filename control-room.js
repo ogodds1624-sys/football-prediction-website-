@@ -620,6 +620,34 @@ async function saveSingleMatch(tier) {
 
 const memberMessage = document.querySelector("#member-message");
 const memberList = document.querySelector("#member-list");
+const memberQuery = document.querySelector("#member-query");
+let loadedMembers = [];
+let membersLoaded = false;
+
+function memberSearchText(member) {
+  const payments = (member.payments || []).map((payment) => `${payment.plan} ${payment.currency} ${payment.amount}`);
+  return [member.name, member.email, member.plan, ...payments].join(" ").toLowerCase();
+}
+
+function membersMatching(query) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) {
+    return loadedMembers;
+  }
+  return loadedMembers.filter((member) => {
+    const text = memberSearchText(member);
+    return words.every((word) => text.includes(word));
+  });
+}
+
+function showMembers() {
+  const query = memberQuery.value;
+  const shown = membersMatching(query);
+  const empty = query.trim() ? "No members match that search." : "No accounts yet.";
+  memberList.replaceChildren(
+    simpleTable(["Name", "Email", "Plan", "Amount paid", "Joined", "Last visit"], shown.map(memberRow), empty, "members-table"),
+  );
+}
 
 function simpleTable(headers, rows, emptyText, className = "admin-table") {
   if (!rows.length) {
@@ -712,13 +740,23 @@ async function loadMembers() {
     document.querySelector("#ov-members-detail").textContent = totals.users
       ? `Active today: VIP ${totals.vip} · VVIP ${totals.vvip}`
       : "No accounts yet";
-    memberList.replaceChildren(
-      simpleTable(["Name", "Email", "Plan", "Amount paid", "Joined", "Last visit"], members.map(memberRow), "No accounts yet.", "members-table"),
-    );
+    loadedMembers = members;
+    membersLoaded = true;
+    showMembers();
   } catch (error) {
     showMessage(memberMessage, error.message, true);
   }
 }
+
+document.querySelector("#member-search").addEventListener("submit", (event) => {
+  event.preventDefault();
+});
+
+memberQuery.addEventListener("input", () => {
+  if (membersLoaded) {
+    showMembers();
+  }
+});
 
 /* ---------- Payment gateway (stored on the server) ---------- */
 

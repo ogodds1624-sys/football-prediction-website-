@@ -181,6 +181,11 @@
     <section class="control-section" id="members" aria-labelledby="members-title">
       <h2 id="members-title">Members</h2>
       <p class="form-hint">Everyone who has created an account, most recent visit first.</p>
+      <form class="match-form member-search" id="member-search" role="search">
+        <label>Search members
+          <input id="member-query" type="search" maxlength="80" autocomplete="off" placeholder="Name, email, or plan" enterkeyhint="search">
+        </label>
+      </form>
       <p class="form-message" id="member-message" role="status"></p>
       <div id="member-list"></div>
       <div class="table-wrap">

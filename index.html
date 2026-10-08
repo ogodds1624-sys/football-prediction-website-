@@ -64,6 +64,14 @@
       </svg>
       Calendar
     </button>
+    <button type="button" class="menu-item" id="menu-help">
+      <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M9.2 9.1a2.8 2.8 0 1 1 3.5 2.7c-.6.3-1 1-1 1.6V14.2"/>
+        <circle cx="12" cy="17.2" r="0.8" fill="currentColor" stroke="none"/>
+      </svg>
+      Help
+    </button>
     <a class="menu-item" href="#mission">
       <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>
@@ -224,10 +232,10 @@
       </nav>
       <div>
         <h2 class="footer-heading">SUPPORT</h2>
-        <ul class="footer-list plain">
-          <li>Prediction help</li>
-          <li>Payment confirmation</li>
-          <li>WhatsApp support</li>
+        <ul class="footer-list">
+          <li><button type="button" data-help-ask="How do the predictions work?">Prediction help</button></li>
+          <li><button type="button" data-help-ask="How do I confirm a payment?">Payment confirmation</button></li>
+          <li><button type="button" data-help-ask="How do I reach you on WhatsApp?">WhatsApp support</button></li>
         </ul>
       </div>
       <div>
@@ -304,6 +312,29 @@
     <p class="admin-error" id="pay-error" role="alert"></p>
     <button type="button" class="control-sign-out pay-close" id="pay-close">Cancel</button>
   </dialog>
+  <div class="help-widget">
+    <section class="help-panel" id="help-panel" hidden aria-labelledby="help-title">
+      <div class="help-head">
+        <div>
+          <h2 id="help-title">Support</h2>
+          <p>Automatic replies</p>
+        </div>
+        <button type="button" class="help-close" id="help-close" aria-label="Close support chat">×</button>
+      </div>
+      <div class="help-log" id="help-log" role="log" aria-live="polite"></div>
+      <div class="help-suggestions">
+        <button type="button" data-help-ask="How do the predictions work?">Predictions</button>
+        <button type="button" data-help-ask="How do I confirm a payment?">Payment</button>
+        <button type="button" data-help-ask="Where is the booking code?">Booking code</button>
+      </div>
+      <form class="help-form" id="help-form">
+        <label class="visually-hidden" for="help-input">Message support</label>
+        <input id="help-input" maxlength="400" autocomplete="off" placeholder="Type a question" enterkeyhint="send">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <button type="button" class="help-open" id="help-open" aria-expanded="false" aria-controls="help-panel">Help</button>
+  </div>
   <script src="data.js"></script>
   <script src="script.js"></script>
   <script src="ui.js"></script>
