@@ -199,72 +199,6 @@
       <p class="form-message" id="manual-payment-message" role="status"></p>
     </section>
 
-    <section class="control-section" aria-labelledby="testimonials-admin-title">
-      <div class="tier-heading">
-        <h2 id="testimonials-admin-title">Testimonials</h2>
-        <span class="gateway-status" id="pending-count" hidden></span>
-      </div>
-      <h3 class="subsection-title">Waiting for approval</h3>
-      <p class="form-hint">Reviews sent by members from the website. Accept to show them under the VVIP table straight away, or reject to delete them.</p>
-      <div id="pending-list"></div>
-
-      <h3 class="subsection-title">Add a review yourself</h3>
-      <p class="form-hint">For real feedback members send you directly (e.g. on WhatsApp). It is shown straight away.</p>
-      <form class="match-form" id="testimonial-form" novalidate>
-        <label>Member name
-          <input id="t-name" maxlength="40" autocomplete="off" placeholder="As the member wants it shown">
-        </label>
-        <label>Location
-          <input id="t-location" maxlength="40" autocomplete="off" list="t-locations" placeholder="e.g. Accra, Ghana">
-        </label>
-        <label>Rating
-          <select id="t-rating">
-            <option value="5">★★★★★ 5 stars</option>
-            <option value="4">★★★★☆ 4 stars</option>
-            <option value="3">★★★☆☆ 3 stars</option>
-            <option value="2">★★☆☆☆ 2 stars</option>
-            <option value="1">★☆☆☆☆ 1 star</option>
-          </select>
-        </label>
-        <label class="testimonial-message-field">Their message
-          <textarea id="t-message" maxlength="280" rows="3" placeholder="Paste what the member said"></textarea>
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Add testimonial</button>
-        </div>
-      </form>
-      <datalist id="t-locations">
-        <option value="Accra, Ghana"></option>
-        <option value="Kumasi, Ghana"></option>
-        <option value="Takoradi, Ghana"></option>
-        <option value="Tamale, Ghana"></option>
-        <option value="Lagos, Nigeria"></option>
-        <option value="Abuja, Nigeria"></option>
-        <option value="Port Harcourt, Nigeria"></option>
-        <option value="Ibadan, Nigeria"></option>
-      </datalist>
-      <p class="form-message" id="testimonial-message-status" role="status"></p>
-      <h3 class="subsection-title">Shown on the website</h3>
-      <div id="testimonial-list"></div>
-    </section>
-
-    <section class="control-section" aria-labelledby="plan-prices-title">
-      <h2 id="plan-prices-title">Plan prices</h2>
-      <p class="form-hint">Amounts are in <span id="price-currency">GHS</span>. Members see these when they tap Buy Plan, and a buyer cannot change the price.</p>
-      <form class="match-form" id="plan-prices-form" novalidate>
-        <label>VIP price
-          <input id="price-vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
-        </label>
-        <label>VVIP price
-          <input id="price-vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="control-primary">Save prices</button>
-        </div>
-      </form>
-      <p class="form-message" id="plan-prices-message" role="status"></p>
-    </section>
-
     <section class="control-section" aria-labelledby="payments-title">
       <div class="gateway-head">
         <h2 id="payments-title">Payment Gateway</h2>
@@ -404,6 +338,72 @@
         <p class="form-message" id="payment-message" role="status"></p>
         <div id="payment-list"></div>
       </div>
+    </section>
+
+    <section class="control-section" aria-labelledby="plan-prices-title">
+      <h2 id="plan-prices-title">Plan prices</h2>
+      <p class="form-hint">Amounts are in <span id="price-currency">GHS</span>. Members see these when they tap Buy Plan, and a buyer cannot change the price.</p>
+      <form class="match-form" id="plan-prices-form" novalidate>
+        <label>VIP price
+          <input id="price-vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
+        <label>VVIP price
+          <input id="price-vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Save prices</button>
+        </div>
+      </form>
+      <p class="form-message" id="plan-prices-message" role="status"></p>
+    </section>
+
+    <section class="control-section" aria-labelledby="testimonials-admin-title">
+      <div class="tier-heading">
+        <h2 id="testimonials-admin-title">Testimonials</h2>
+        <span class="gateway-status" id="pending-count" hidden></span>
+      </div>
+      <h3 class="subsection-title">Waiting for approval</h3>
+      <p class="form-hint">Reviews sent by members from the website. Accept to show them under the VVIP table straight away, or reject to delete them.</p>
+      <div id="pending-list"></div>
+
+      <h3 class="subsection-title">Add a review yourself</h3>
+      <p class="form-hint">For real feedback members send you directly (e.g. on WhatsApp). It is shown straight away.</p>
+      <form class="match-form" id="testimonial-form" novalidate>
+        <label>Member name
+          <input id="t-name" maxlength="40" autocomplete="off" placeholder="As the member wants it shown">
+        </label>
+        <label>Location
+          <input id="t-location" maxlength="40" autocomplete="off" list="t-locations" placeholder="e.g. Accra, Ghana">
+        </label>
+        <label>Rating
+          <select id="t-rating">
+            <option value="5">★★★★★ 5 stars</option>
+            <option value="4">★★★★☆ 4 stars</option>
+            <option value="3">★★★☆☆ 3 stars</option>
+            <option value="2">★★☆☆☆ 2 stars</option>
+            <option value="1">★☆☆☆☆ 1 star</option>
+          </select>
+        </label>
+        <label class="testimonial-message-field">Their message
+          <textarea id="t-message" maxlength="280" rows="3" placeholder="Paste what the member said"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Add testimonial</button>
+        </div>
+      </form>
+      <datalist id="t-locations">
+        <option value="Accra, Ghana"></option>
+        <option value="Kumasi, Ghana"></option>
+        <option value="Takoradi, Ghana"></option>
+        <option value="Tamale, Ghana"></option>
+        <option value="Lagos, Nigeria"></option>
+        <option value="Abuja, Nigeria"></option>
+        <option value="Port Harcourt, Nigeria"></option>
+        <option value="Ibadan, Nigeria"></option>
+      </datalist>
+      <p class="form-message" id="testimonial-message-status" role="status"></p>
+      <h3 class="subsection-title">Shown on the website</h3>
+      <div id="testimonial-list"></div>
     </section>
 
     <section class="control-section" aria-labelledby="settings-title">
