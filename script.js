@@ -1101,6 +1101,7 @@ function greetHelp() {
 function setHelpOpen(open) {
   helpPanel.hidden = !open;
   helpOpen.setAttribute("aria-expanded", String(open));
+  document.body.classList.toggle("chat-open", open);
   if (open) {
     setMenuOpen(false);
     greetHelp();
@@ -1132,7 +1133,7 @@ function sendHelp(raw) {
 }
 
 helpOpen.addEventListener("click", () => setHelpOpen(helpPanel.hidden));
-document.querySelector("#help-close").addEventListener("click", () => setHelpOpen(false));
+document.querySelector("#help-back").addEventListener("click", () => setHelpOpen(false));
 document.querySelector("#menu-help").addEventListener("click", () => setHelpOpen(true));
 document.querySelector("#help-form").addEventListener("submit", (event) => {
   event.preventDefault();

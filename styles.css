@@ -4671,8 +4671,8 @@ html:has(body.control-room) {
 
 .help-open:hover,
 .help-open:focus-visible,
-.help-close:hover,
-.help-close:focus-visible,
+.help-back:hover,
+.help-back:focus-visible,
 .help-form button:hover,
 .help-form button:focus-visible,
 .help-suggestions button:hover,
@@ -4682,19 +4682,29 @@ html:has(body.control-room) {
   outline-offset: 2px;
 }
 
+body.chat-open {
+  overflow: hidden;
+}
+
+.help-panel:not([hidden]) + .help-open {
+  display: none;
+}
+
 .help-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  width: min(23rem, calc(100vw - 1.5rem));
-  height: min(30rem, calc(100dvh - 8.5rem));
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   overflow: hidden;
   color: var(--text);
-  background:
-    linear-gradient(180deg, rgba(61, 220, 132, 0.08), transparent 4.5rem),
-    var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+  background: var(--bg);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .help-panel[hidden] {
@@ -4705,7 +4715,28 @@ html:has(body.control-room) {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.85rem 0.9rem 0.75rem;
+  padding: calc(0.65rem + env(safe-area-inset-top)) 0.85rem 0.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.help-back {
+  display: grid;
+  place-items: center;
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: #fff;
+  background: #10192b;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.help-back svg {
+  width: 1.6rem;
+  height: 1.6rem;
 }
 
 .help-avatar {
@@ -4742,20 +4773,6 @@ html:has(body.control-room) {
   height: 0.45rem;
   background: var(--accent);
   border-radius: 50%;
-}
-
-.help-close {
-  width: 2rem;
-  height: 2rem;
-  margin-left: auto;
-  color: var(--text);
-  background: #10192b;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font: inherit;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
 }
 
 .help-log {
@@ -4859,7 +4876,7 @@ html:has(body.control-room) {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  margin: 0 0.7rem 0.7rem;
+  margin: 0 0.85rem calc(0.75rem + env(safe-area-inset-bottom));
   padding: 0.3rem 0.3rem 0.3rem 0.85rem;
   background: var(--bg);
   border: 1px solid var(--line);
