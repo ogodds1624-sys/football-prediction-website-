@@ -134,7 +134,6 @@ const tierBodies = {
 };
 // Only the VIP/VVIP buttons; other buttons share the .plan-button look.
 const planButtons = document.querySelectorAll(".plan-button[data-tier]");
-const footerWhatsapp = document.querySelector("#footer-whatsapp");
 
 let selectedOffset = 0;
 
@@ -970,7 +969,7 @@ loadCurrentUser().then(() => {
   }
 });
 
-// Footer WhatsApp card and the support chat share the checkout details from the Control Room.
+// The support chat uses the WhatsApp number saved in the Control Room. The footer icon stays on 233597559382.
 let supportInfo = { plans: [], currency: "GHS", whatsapp: "", email: "" };
 
 loadOptions()
@@ -981,10 +980,6 @@ loadOptions()
       whatsapp: options.checkout?.whatsapp || "",
       email: options.checkout?.email || "",
     };
-    const link = whatsappLink(supportInfo.whatsapp, "Hello, I have a question about your predictions.");
-    if (link) {
-      footerWhatsapp.href = link;
-    }
   })
   .catch(() => {});
 
@@ -998,7 +993,7 @@ footerSignIn.addEventListener("click", () => {
   }
 });
 
-/* ---------- Support chat: automatic replies on the front page ---------- */
+/* ---------- Front-page chat ---------- */
 
 const helpPanel = document.querySelector("#help-panel");
 const helpOpen = document.querySelector("#help-open");
@@ -1028,7 +1023,7 @@ function planPriceText() {
 }
 
 function whatsappAnswer() {
-  const link = whatsappLink(supportInfo.whatsapp, "Hello, I need help with my predictions account.");
+  const link = whatsappLink(supportInfo.whatsapp, "Hello, I have a question about my predictions account.");
   if (link) {
     return { text: "You can message us on WhatsApp and a person will get back to you.", link: { href: link, label: "Open WhatsApp" } };
   }
@@ -1072,9 +1067,9 @@ function supportReply(raw) {
     return { text: "Betting is for adults, and winnings are never guaranteed. Only stake money you can afford to lose. If betting is hurting your money or your life, stop and seek professional help." };
   }
   if (asks(/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\b/) && text.trim().split(/\s+/).length <= 4) {
-    return { text: "Hello. I reply automatically. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets." };
+    return { text: "Hello. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets." };
   }
-  return { text: "I can help with predictions, buying VIP or VVIP, payment confirmation, booking codes, and recovery tickets. Ask about one of those, or choose WhatsApp support if you need a person." };
+  return { text: "Ask me about predictions, buying VIP or VVIP, payment confirmation, booking codes, or recovery tickets. You can also message us on WhatsApp." };
 }
 
 function addHelpBubble(role, text, link) {
@@ -1100,7 +1095,7 @@ function greetHelp() {
     return;
   }
   helpGreeted = true;
-  addHelpBubble("bot", "Hello. I reply automatically. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets.");
+  addHelpBubble("bot", "Hello. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets.");
 }
 
 function setHelpOpen(open) {
@@ -1124,7 +1119,8 @@ function sendHelp(raw) {
   helpInput.value = "";
   const pending = document.createElement("p");
   pending.className = "help-typing";
-  pending.textContent = "Replying…";
+  pending.setAttribute("aria-label", "Replying");
+  pending.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
   helpLog.append(pending);
   helpLog.scrollTop = helpLog.scrollHeight;
   window.setTimeout(() => {

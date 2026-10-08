@@ -4638,7 +4638,7 @@ html:has(body.control-room) {
   }
 }
 
-/* Front-page support chat. Automatic replies, no live agent. */
+/* Front-page chat. */
 .help-widget {
   position: fixed;
   right: 1rem;
@@ -4650,15 +4650,23 @@ html:has(body.control-room) {
 }
 
 .help-open {
-  padding: 0.75rem 1.15rem;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
   color: var(--accent-ink);
   background: var(--accent);
   border: 0;
-  border-radius: 999px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-  font: inherit;
-  font-weight: 800;
+  border-radius: 50%;
+  box-shadow: 0 12px 30px rgba(6, 40, 22, 0.45);
   cursor: pointer;
+}
+
+.help-open svg,
+.help-form button svg {
+  width: 1.45rem;
+  height: 1.45rem;
 }
 
 .help-open:hover,
@@ -4677,14 +4685,16 @@ html:has(body.control-room) {
 .help-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  width: min(22rem, calc(100vw - 2rem));
-  height: min(32rem, calc(100dvh - 7rem));
+  width: min(23rem, calc(100vw - 1.5rem));
+  height: min(30rem, calc(100dvh - 8.5rem));
   overflow: hidden;
   color: var(--text);
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(61, 220, 132, 0.08), transparent 4.5rem),
+    var(--surface);
   border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+  border-radius: 22px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
 }
 
 .help-panel[hidden] {
@@ -4694,10 +4704,22 @@ html:has(body.control-room) {
 .help-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 0.9rem;
-  border-bottom: 1px solid var(--line);
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem 0.75rem;
+}
+
+.help-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .help-head h2 {
@@ -4706,16 +4728,28 @@ html:has(body.control-room) {
 }
 
 .help-head p {
-  margin: 0.15rem 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.1rem 0 0;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.help-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--accent);
+  border-radius: 50%;
 }
 
 .help-close {
   width: 2rem;
   height: 2rem;
+  margin-left: auto;
   color: var(--text);
-  background: transparent;
+  background: #10192b;
   border: 1px solid var(--line);
   border-radius: 999px;
   font: inherit;
@@ -4756,20 +4790,47 @@ html:has(body.control-room) {
   align-self: flex-end;
   color: var(--accent-ink);
   background: var(--accent);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 5px;
 }
 
 .help-bot {
   align-self: flex-start;
   background: #10192b;
   border: 1px solid var(--line);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 5px;
 }
 
 .help-typing {
+  display: flex;
+  gap: 0.28rem;
+  align-self: flex-start;
+  width: fit-content;
   margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  background: #10192b;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.help-typing span {
+  width: 0.38rem;
+  height: 0.38rem;
+  background: var(--muted);
+  border-radius: 50%;
+  animation: help-dot 1s infinite ease-in-out;
+}
+
+.help-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.help-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes help-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
 }
 
 .help-suggestions {
@@ -4796,31 +4857,37 @@ html:has(body.control-room) {
 
 .help-form {
   display: flex;
+  align-items: center;
   gap: 0.45rem;
-  padding: 0.75rem;
-  border-top: 1px solid var(--line);
+  margin: 0 0.7rem 0.7rem;
+  padding: 0.3rem 0.3rem 0.3rem 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
 
 .help-form input {
   flex: 1;
   min-width: 0;
-  padding: 0.6rem 0.7rem;
+  padding: 0.45rem 0;
   color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: transparent;
+  border: 0;
   font: inherit;
 }
 
 .help-form input:focus {
-  border-color: var(--accent);
   outline: none;
 }
 
 .help-form button {
-  padding: 0.6rem 0.85rem;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
   color: var(--accent-ink);
   background: var(--accent);
   border: 0;
-  font-weight: 800;
+  border-radius: 50%;
 }
