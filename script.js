@@ -40,6 +40,10 @@ const planButtons = document.querySelectorAll(".plan-button");
 const footerWhatsapp = document.querySelector("#footer-whatsapp");
 
 let selectedOffset = 0;
+let predictionData = { matches: [], oddsTotals: {} };
+let predictionsLoaded = false;
+let predictionError = "";
+let predictionRequest = 0;
 
 function matchRow(match, tier) {
   const row = document.createElement("tr");
@@ -89,34 +93,64 @@ function matchRow(match, tier) {
   return row;
 }
 
-function emptyRow() {
+function emptyRow(message = "No predictions for this day yet.") {
   const row = document.createElement("tr");
   const cell = document.createElement("td");
   cell.className = "empty-row";
-  cell.textContent = "No predictions for this day yet.";
+  cell.textContent = message;
   row.append(cell);
   return row;
 }
 
 function renderPredictions() {
-  const data = loadData();
-
-  // Keep the placeholder rows until the admin has saved something.
-  if (!data) {
+  if (!predictionsLoaded) {
     return;
   }
 
   const date = dateKey(selectedOffset);
   for (const tier of TIERS) {
-    const matches = matchesFor(data, date, tier.id);
-    const rows = matches.length ? matches.map((match) => matchRow(match, tier.id)) : [emptyRow()];
+    const matches = matchesFor(predictionData, date, tier.id);
+    const rows = matches.length
+      ? matches.map((match) => matchRow(match, tier.id))
+      : [emptyRow(predictionError || undefined)];
     tierBodies[tier.id].replaceChildren(...rows);
   }
 
   for (const button of planButtons) {
-    const total = totalOdds(matchesFor(data, date, button.dataset.tier));
+    const total = predictionData.oddsTotals[`${date}:${button.dataset.tier}`]
+      ?? totalOdds(matchesFor(predictionData, date, button.dataset.tier));
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
   }
+}
+
+async function loadPredictions() {
+  const request = ++predictionRequest;
+  try {
+    const response = await fetch("/api/predictions", { cache: "no-store" });
+    const body = await response.json();
+    if (
+      !response.ok ||
+      !Array.isArray(body.matches) ||
+      !body.oddsTotals ||
+      typeof body.oddsTotals !== "object" ||
+      Array.isArray(body.oddsTotals)
+    ) {
+      throw new Error(body.error || "The predictions response was invalid.");
+    }
+    if (request !== predictionRequest) {
+      return;
+    }
+    predictionData = { matches: body.matches, oddsTotals: body.oddsTotals };
+    predictionError = "";
+  } catch (error) {
+    console.error("Couldn't load predictions:", error);
+    if (request !== predictionRequest) {
+      return;
+    }
+    predictionError = predictionsLoaded ? "" : "Predictions are temporarily unavailable. Please try again later.";
+  }
+  predictionsLoaded = true;
+  renderPredictions();
 }
 
 // Shows the predictions for a day, as an offset from today (0 = today).
@@ -569,13 +603,14 @@ for (const button of planButtons) {
 
 document.querySelector("#pay-close").addEventListener("click", () => payDialog.close());
 
-window.addEventListener("storage", (event) => {
-  if (event.key === DATA_KEY) {
-    renderPredictions();
+window.addEventListener("focus", loadPredictions);
+window.setInterval(() => {
+  if (document.visibilityState === "visible") {
+    loadPredictions();
   }
-});
+}, 60_000);
 
-renderPredictions();
+loadPredictions();
 
 menuToggle.addEventListener("click", () => {
   setMenuOpen(menuToggle.getAttribute("aria-expanded") !== "true");

@@ -53,6 +53,11 @@ const SCHEMA = [
     code       TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS predictions (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    data_json  TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
 ];
 
 function createTursoBackend() {

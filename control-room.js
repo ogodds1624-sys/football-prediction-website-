@@ -46,6 +46,7 @@ const currencyInput = document.querySelector("#s-currency");
 let data = loadData() || { matches: [], members: [], payments: [], settings: { whatsapp: "", currency: "GH₵" } };
 let selectedOffset = 0;
 let editingId = null;
+let predictionSaveQueue = Promise.resolve();
 
 function showMessage(messageEl, text, isError = false) {
   messageEl.textContent = text;
@@ -59,6 +60,27 @@ function persist(messageEl, successText) {
   }
   showMessage(messageEl, "Couldn't save. Storage is full or blocked. Try removing some pictures.", true);
   return false;
+}
+
+function persistMatches(messageEl, successText) {
+  const matches = data.matches.map((match) => ({ ...match }));
+  const saving = predictionSaveQueue.then(async () => {
+    try {
+      await adminFetch("/api/admin/predictions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matches }),
+      });
+      saveData(data);
+      showMessage(messageEl, successText);
+      return true;
+    } catch (error) {
+      showMessage(messageEl, error.message, true);
+      return false;
+    }
+  });
+  predictionSaveQueue = saving.then(() => {}, () => {});
+  return saving;
 }
 
 function newId() {
@@ -337,23 +359,33 @@ function resultSelect(match) {
     select.append(option);
   }
   select.value = match.result || "pending";
-  select.addEventListener("change", () => {
+  select.addEventListener("change", async () => {
+    const previousResult = match.result || "pending";
     match.result = select.value;
-    persist(formMessage, `Result saved for ${match.home} vs ${match.away}.`);
-    renderStats();
+    if (await persistMatches(formMessage, `Result saved for ${match.home} vs ${match.away}.`)) {
+      renderStats();
+    } else {
+      match.result = previousResult;
+      select.value = previousResult;
+    }
   });
   return select;
 }
 
-function deleteMatch(match) {
+async function deleteMatch(match) {
   if (!window.confirm(`Delete ${match.home} vs ${match.away}?`)) {
     return;
   }
+  const previousMatches = data.matches;
   data.matches = data.matches.filter((other) => other.id !== match.id);
+  if (!await persistMatches(formMessage, "Match deleted.")) {
+    data.matches = previousMatches;
+    render();
+    return;
+  }
   if (editingId === match.id) {
     resetForm();
   }
-  persist(formMessage, "Match deleted.");
   render();
 }
 
@@ -528,7 +560,7 @@ document.querySelector("#b-clear").addEventListener("click", () => {
 
 /* ---------- Saving ---------- */
 
-function addSlipMatches(tier) {
+async function addSlipMatches(tier) {
   const incomplete = slipMatches.findIndex((match) => !match.home.trim() || !match.away.trim() || !match.tip.trim());
   if (incomplete !== -1) {
     showMessage(formMessage, `Row ${incomplete + 1} is missing a team or the tip. Fill it in or remove the row.`, true);
@@ -550,14 +582,14 @@ function addSlipMatches(tier) {
   }));
   data.matches.push(...added);
   const count = added.length;
-  if (!persist(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}. They're now on the front page.`)) {
+  if (!await persistMatches(formMessage, `Added ${count} match${count === 1 ? "" : "es"} to ${tierLabel(tier)}. They're now on the front page.`)) {
     data.matches.splice(-count, count);
     return false;
   }
   return true;
 }
 
-function saveSingleMatch(tier) {
+async function saveSingleMatch(tier) {
   const values = {
     tier,
     home: fields.home.value.trim(),
@@ -575,7 +607,7 @@ function saveSingleMatch(tier) {
   if (editedMatch) {
     const previous = { ...editedMatch };
     Object.assign(editedMatch, values);
-    if (!persist(formMessage, `Updated ${values.home} vs ${values.away}.`)) {
+    if (!await persistMatches(formMessage, `Updated ${values.home} vs ${values.away}.`)) {
       Object.assign(editedMatch, previous);
       return false;
     }
@@ -583,7 +615,7 @@ function saveSingleMatch(tier) {
   }
 
   data.matches.push({ id: newId(), date: dateKey(selectedOffset), result: "pending", ...values });
-  if (!persist(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}. It's now on the front page.`)) {
+  if (!await persistMatches(formMessage, `Added ${values.home} vs ${values.away} to ${tierLabel(tier)}. It's now on the front page.`)) {
     data.matches.pop();
     return false;
   }
@@ -1019,7 +1051,7 @@ fields.tier.addEventListener("change", () => {
   showMessage(formMessage, "");
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const tier = fields.tier.value;
   if (!tier) {
@@ -1031,7 +1063,13 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  const saved = !editingId && slipMatches.length ? addSlipMatches(tier) : saveSingleMatch(tier);
+  submitButton.disabled = true;
+  let saved;
+  try {
+    saved = !editingId && slipMatches.length ? await addSlipMatches(tier) : await saveSingleMatch(tier);
+  } finally {
+    updateSubmitLabel();
+  }
   if (!saved) {
     return;
   }
@@ -1104,7 +1142,31 @@ document.querySelector("#control-sign-out").addEventListener("click", async () =
 
 currencyInput.value = data.settings.currency;
 resetForm();
-render();
 renderPeople();
 loadGateway();
 loadTestimonials();
+
+async function loadPredictions() {
+  try {
+    const response = await adminFetch("/api/admin/predictions");
+    if (response.matches === null) {
+      const legacyMatches = loadData()?.matches || [];
+      data.matches = legacyMatches;
+      if (legacyMatches.length) {
+        await adminFetch("/api/admin/predictions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matches: legacyMatches }),
+        });
+      }
+    } else {
+      data.matches = response.matches;
+    }
+  } catch (error) {
+    data.matches = [];
+    showMessage(formMessage, `Couldn't load predictions: ${error.message}`, true);
+  }
+  render();
+}
+
+loadPredictions();

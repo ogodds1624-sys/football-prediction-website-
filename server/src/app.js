@@ -26,6 +26,8 @@ import { enabledProviders, getProvider } from "./providers/index.js";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const BOOKING_CODE_PATTERN = /^[A-Z0-9]{4,20}$/;
+const PREDICTION_TIERS = new Set(["free", "vip", "vvip"]);
+const PREDICTION_RESULTS = new Set(["pending", "won", "lost"]);
 
 function dateFrom(value) {
   const date = String(value || "");
@@ -33,6 +35,40 @@ function dateFrom(value) {
     throw new HttpError(400, "Invalid date.");
   }
   return date;
+}
+
+function predictionsFrom(body) {
+  if (!Array.isArray(body?.matches) || body.matches.length > 500) {
+    throw new HttpError(400, "Predictions must be a list of at most 500 matches.");
+  }
+
+  return body.matches.map((match) => {
+    const prediction = {
+      id: String(match?.id || "").trim().slice(0, 80),
+      date: String(match?.date || ""),
+      tier: String(match?.tier || ""),
+      home: String(match?.home || "").trim().slice(0, 60),
+      away: String(match?.away || "").trim().slice(0, 60),
+      tip: String(match?.tip || "").trim().slice(0, 120),
+      odds: String(match?.odds || "").slice(0, 20),
+      result: String(match?.result || "pending"),
+      image: String(match?.image || ""),
+    };
+    if (
+      !prediction.id ||
+      !DATE_PATTERN.test(prediction.date) ||
+      !PREDICTION_TIERS.has(prediction.tier) ||
+      !prediction.home ||
+      !prediction.away ||
+      !prediction.tip ||
+      !PREDICTION_RESULTS.has(prediction.result) ||
+      !/^(?:|[1-9]\d{0,2}(?:\.\d{1,2})?)$/.test(prediction.odds) ||
+      (prediction.image && (!/^data:image\/(?:jpeg|png|webp);base64,/.test(prediction.image) || prediction.image.length > 5_000_000))
+    ) {
+      throw new HttpError(400, "One or more predictions have invalid details.");
+    }
+    return prediction;
+  });
 }
 
 // Shared checks for reviews from members and from the admin.
@@ -109,7 +145,7 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/webhooks/paystack", rawJson, webhookHandler("paystack"));
   app.post("/api/webhooks/flutterwave", rawJson, webhookHandler("flutterwave"));
 
-  app.use(express.json({ limit: "20kb" }));
+  app.use(express.json({ limit: "10mb" }));
   app.use(loadUser);
 
   // Browsers cannot send cross-site JSON without a CORS preflight (which we
@@ -187,6 +223,30 @@ export function createApp({ limitRequests = true } = {}) {
 
   /* ---------- Testimonials ---------- */
 
+  app.get("/api/predictions", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const row = await one("SELECT data_json FROM predictions WHERE id = 1");
+    const matches = row ? JSON.parse(row.data_json).matches : [];
+    const oddsTotals = {};
+    for (const match of matches) {
+      const odds = Number(match.odds);
+      if (odds > 0) {
+        const key = `${match.date}:${match.tier}`;
+        oddsTotals[key] = (oddsTotals[key] || 1) * odds;
+      }
+    }
+    res.json({
+      matches: matches.map((match) => {
+        if (match.tier === "free") {
+          return match;
+        }
+        const { tip, odds, image, ...lockedMatch } = match;
+        return { ...lockedMatch, tip: "", odds: "", image: "" };
+      }),
+      oddsTotals,
+    });
+  });
+
   // Only reviews the admin has accepted are public.
   app.get("/api/testimonials", async (req, res) => {
     const { rows } = await execute(
@@ -225,6 +285,22 @@ export function createApp({ limitRequests = true } = {}) {
   app.post("/api/admin/logout", (req, res) => {
     endAdminSession(res);
     res.json({ ok: true });
+  });
+
+  app.get("/api/admin/predictions", requireAdmin, async (req, res) => {
+    const row = await one("SELECT data_json FROM predictions WHERE id = 1");
+    res.json({ matches: row ? JSON.parse(row.data_json).matches : null });
+  });
+
+  app.put("/api/admin/predictions", requireAdmin, async (req, res) => {
+    const matches = predictionsFrom(req.body);
+    const dataJson = JSON.stringify({ matches });
+    await execute(
+      `INSERT INTO predictions (id, data_json) VALUES (1, ?)
+       ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      [dataJson],
+    );
+    res.json({ matches });
   });
 
   app.get("/api/admin/testimonials", requireAdmin, async (req, res) => {
@@ -367,6 +443,10 @@ export function createApp({ limitRequests = true } = {}) {
       res.status(400).json({ error: "Invalid JSON." });
       return;
     }
+    if (error.type === "entity.too.large") {
+      res.status(413).json({ error: "The submitted data is too large. Reduce the prediction images and try again." });
+      return;
+    }
     console.error(error);
     if (error instanceof ProviderError) {
       res.status(502).json({ error: "The payment could not be started. Please try again in a moment." });
@@ -377,4 +457,3 @@ export function createApp({ limitRequests = true } = {}) {
 
   return app;
 }
-

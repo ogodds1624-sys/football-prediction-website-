@@ -1,6 +1,6 @@
 # Football Predictions – payments server
 
-Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
+Accounts, shared Control Room predictions, and VIP/VVIP payments through **Paystack** and **Flutterwave**.
 Runs on **Vercel** (database: **Turso**) or on your own computer (database: a local SQLite file).
 
 ```
@@ -155,12 +155,20 @@ The server answers `200` once a webhook is handled. If verification fails becaus
 | POST | `/api/auth/login` | `{ email, password }` |
 | POST | `/api/auth/logout` | |
 | GET | `/api/me` | current user and active plan |
+| GET | `/api/predictions` | published matches and combined odds; paid tips remain private |
+| GET | `/api/admin/predictions` | admin-only: read all published matches |
+| PUT | `/api/admin/predictions` | admin-only: save `{ matches: [...] }`; updates appear on the front page |
 | GET | `/api/payments/options` | enabled providers, plan prices |
 | POST | `/api/payments/initialize` | `{ provider: "paystack" \| "flutterwave", plan: "vip" \| "vvip" }` → `{ checkoutUrl, reference }` |
 | GET | `/api/payments/callback/:provider` | where the provider redirects the user |
 | GET | `/api/payments/:reference` | the signed-in user's payment status (re-verifies if pending) |
 | POST | `/api/webhooks/paystack` | signed by Paystack |
 | POST | `/api/webhooks/flutterwave` | carries `verif-hash` |
+
+The Control Room stores predictions in the shared database rather than browser
+storage, so its match, result, and deletion changes are visible to all visitors.
+Legacy matches saved in a browser are imported when the Control Room first loads
+and the shared database has no prediction set yet.
 
 ## 7. Deploy on Vercel with Turso
 

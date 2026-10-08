@@ -104,6 +104,12 @@ async function newUser() {
   return { cookie, user: result.data.user };
 }
 
+async function adminCookie() {
+  const result = await api("/api/admin/login", { method: "POST", body: { passcode: process.env.ADMIN_PASSCODE } });
+  assert.equal(result.status, 200);
+  return result.headers.get("set-cookie").split(";")[0];
+}
+
 async function startCheckout(cookie, provider, plan, extra = {}) {
   const result = await api("/api/payments/initialize", { method: "POST", cookie, body: { provider, plan, ...extra } });
   assert.equal(result.status, 200, JSON.stringify(result.data));
@@ -115,6 +121,66 @@ function paystackSignature(body) {
 }
 
 /* ---------- Tests ---------- */
+
+describe("shared predictions", () => {
+  test("publishes Control Room changes to the public front page", async () => {
+    const denied = await api("/api/admin/predictions", {
+      method: "PUT",
+      body: { matches: [] },
+    });
+    assert.equal(denied.status, 401);
+
+    const cookie = await adminCookie();
+    const match = {
+      id: "match-1",
+      date: "2026-10-04",
+      tier: "free",
+      home: "Home",
+      away: "Away",
+      tip: "Home win",
+      odds: "1.85",
+      result: "pending",
+      image: "",
+    };
+    const paidMatch = {
+      id: "match-2",
+      date: "2026-10-04",
+      tier: "vip",
+      home: "Paid home",
+      away: "Paid away",
+      tip: "Secret tip",
+      odds: "2.25",
+      result: "pending",
+      image: "data:image/jpeg;base64,c2VjcmV0",
+    };
+    const saved = await api("/api/admin/predictions", {
+      method: "PUT",
+      cookie,
+      body: { matches: [match, paidMatch] },
+    });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.data.matches, [match, paidMatch]);
+
+    const publicResponse = await api("/api/predictions");
+    assert.deepEqual(publicResponse.data.matches, [
+      match,
+      { ...paidMatch, tip: "", odds: "", image: "" },
+    ]);
+    assert.deepEqual(publicResponse.data.oddsTotals, {
+      "2026-10-04:free": 1.85,
+      "2026-10-04:vip": 2.25,
+    });
+
+    const invalid = await api("/api/admin/predictions", {
+      method: "PUT",
+      cookie,
+      body: { matches: [{ ...match, tier: "secret" }] },
+    });
+    assert.equal(invalid.status, 400);
+    const unchanged = await api("/api/predictions");
+    assert.deepEqual(unchanged.data.matches, publicResponse.data.matches);
+  });
+});
 
 describe("accounts", () => {
   test("register, read session, log in again", async () => {
