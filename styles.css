@@ -4598,6 +4598,26 @@ html:has(body.control-room) {
   height: 0.9rem;
 }
 
+.fee-bank-note {
+  margin: 0.9rem 0 0;
+  padding: 0.85rem 0.95rem;
+  color: #f3d48a;
+  background: rgba(230, 193, 90, 0.12);
+  border: 1px solid rgba(230, 193, 90, 0.55);
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.fee-bank-note[hidden] {
+  display: none;
+}
+
+.fee-bank-note strong {
+  color: #ffe08a;
+}
+
 .fee-steps {
   display: grid;
   gap: 0.75rem;

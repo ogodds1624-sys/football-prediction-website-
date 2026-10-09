@@ -186,7 +186,7 @@ async function checkDecision() {
   }
 }
 
-function fillSheet(plan, currency, amount) {
+function fillSheet(plan, currency, amount, country) {
   amountText = money(currency, amount);
   document.querySelector("#pay-heading").textContent = `${plan.name} plan fee`;
   document.querySelector("#pay-plan").textContent = plan.name;
@@ -194,6 +194,7 @@ function fillSheet(plan, currency, amount) {
   document.querySelector("#pay-amount").textContent = amountText;
   document.querySelector("#pay-amount-row").textContent = amountText;
   document.querySelector("#pay-step-amount").textContent = amountText;
+  document.querySelector("#pay-bank-note").hidden = country !== "nigeria";
   document.title = `Pay for ${plan.name}`;
   renderPicker();
   showAccount(0);
@@ -256,7 +257,7 @@ async function loadPage() {
     return;
   }
   const payingUsdt = accounts.every((account) => account.methodId === "usdt");
-  fillSheet(plan, payingUsdt ? "USDT" : options.currency, payingUsdt ? plan.usdtAmount : plan.amount);
+  fillSheet(plan, payingUsdt ? "USDT" : options.currency, payingUsdt ? plan.usdtAmount : plan.amount, me.user.country);
   if (paymentStatus === "pending") {
     showWaiting();
   }
