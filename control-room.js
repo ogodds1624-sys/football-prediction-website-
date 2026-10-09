@@ -116,7 +116,7 @@ function resetForm({ keepTier = false } = {}) {
   setSlipMatches([]);
   slipStatus.textContent = "";
   formTitle.textContent = "Add match";
-  imageLabel.textContent = "SportyBet slip screenshot (reads the matches for you)";
+  imageLabel.textContent = "SportyBet slip screenshot (auto-fills teams, tips and odds for review)";
   cancelButton.hidden = true;
   updateFormLock();
   updateSubmitLabel();
@@ -297,8 +297,8 @@ async function scanSlip(file) {
     const text = await readSlipText(file);
     const found = parseSlip(text);
     if (found.length) {
-      setSlipMatches(found.map((match) => ({ ...match, tip: "", odds: formatOdds(match.odds) })));
-      slipStatus.textContent = `Found ${found.length} match${found.length === 1 ? "" : "es"}. Type the tip for each one, then press Add.`;
+      setSlipMatches(found.map((match) => ({ ...match, odds: formatOdds(match.odds) })));
+      slipStatus.textContent = `Found ${found.length} match${found.length === 1 ? "" : "es"}. Review the teams, auto-filled tips and odds, fill any missing tips, then press Add.`;
       slipBody.querySelector(".tip-input")?.focus();
     } else {
       setPendingImage(await shrinkImage(file));

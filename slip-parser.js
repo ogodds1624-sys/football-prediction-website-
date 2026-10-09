@@ -1,5 +1,5 @@
-// Turns the OCR text of a SportyBet booking slip screenshot into matches (teams and odds).
-// Tips are typed in by the admin. OCR is imperfect, so the control room always shows the result for review.
+// Reads teams, selections and odds from booking slip OCR text.
+// OCR is imperfect, so the control room always shows the result for review.
 
 const SLIP_JUNK = /booking code|total odds|stake|potential|bonus|bet ?slip|place bet|cash ?out|max win|sportybet|share|accept odds|ticket|load code|real ?sport|^((single|multiple|system|multi)\s*)+$|^\d+\s*(games?|selections?|events?)$/i;
 const SLIP_ODDS = /(?:@\s*)?\b(\d{1,3}\.\d{2})(?!\d)/g;
@@ -8,6 +8,31 @@ const SLIP_TIME = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b(?:mon
 const SLIP_MARKET = /handicap|over\s*\/\s*under|double chance|1x2|both teams|correct score|half|total|draw no bet|^(home|away|draw|over|under|yes|no|gg|ng)$/i;
 const SLIP_VS = /^(.+?)\s+(?:vs\.?|v\.?)\s+(.+)$/i;
 const SLIP_DASH = /^(.+?)\s+[-–—]\s+(.+)$/;
+
+function slipTip(line) {
+  const text = line
+    .replace(/^[^\p{L}\d]+/u, "")
+    .replace(/^[xX]\s+(?=(?:over|under|home|away|draw|yes|no)\b)/i, "")
+    .trim();
+  const goals = text.match(/^(over|under)\s+(\d+(?:[.,]\d{1,2})?)\b/i);
+  if (goals) {
+    const direction = goals[1].toLowerCase();
+    return `${direction === "over" ? "Over" : "Under"} ${Number(goals[2].replace(",", "."))}`;
+  }
+  const selection = text.match(/^(home\s+or\s+draw|draw\s+or\s+away|home\s+or\s+away|home|away|draw|yes|no)\b(.*)$/i);
+  if (!selection) {
+    return "";
+  }
+  // A selection can share a line with its odds or market, but not a team name.
+  const suffix = selection[2]
+    .replace(SLIP_ODDS, "")
+    .replace(/1x2|double chance|both teams to score|draw no bet/gi, "")
+    .replace(/[^\p{L}\d]/gu, "");
+  if (suffix) {
+    return "";
+  }
+  return selection[1].toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()).replace(/\s+/g, " ");
+}
 
 function cleanSlipText(text) {
   return text
@@ -25,7 +50,8 @@ function isTeamName(text) {
 }
 
 function lastOdds(text) {
-  const found = [...text.matchAll(SLIP_ODDS)].map((match) => match[1]);
+  const withoutGoalLine = text.replace(/\b(?:over|under)\s+\d+(?:[.,]\d{1,2})?\b/gi, "");
+  const found = [...withoutGoalLine.matchAll(SLIP_ODDS)].map((match) => match[1]);
   const valid = found.filter((value) => Number(value) >= 1.01);
   return valid.length ? valid[valid.length - 1] : "";
 }
@@ -67,8 +93,10 @@ function parseSlip(text) {
   }
 
   // SportyBet usually prints the pick and odds above the teams; other slips put them below.
-  const firstOddsIndex = lines.findIndex((line, index) => !matchIndexes.includes(index) && lastOdds(line));
-  const detailsAbove = firstOddsIndex !== -1 && firstOddsIndex < matchIndexes[0];
+  const firstDetailIndex = lines.findIndex(
+    (line, index) => !matchIndexes.includes(index) && (slipTip(line) || lastOdds(line)),
+  );
+  const detailsAbove = firstDetailIndex !== -1 && firstDetailIndex < matchIndexes[0];
 
   const results = [];
   const seen = new Set();
@@ -87,6 +115,7 @@ function parseSlip(text) {
     results.push({
       home: teams[i].home,
       away: teams[i].away,
+      tip: details.map(slipTip).find(Boolean) || "",
       odds: teams[i].odds || detailOdds[detailOdds.length - 1] || "",
     });
   });
