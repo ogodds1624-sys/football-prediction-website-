@@ -248,6 +248,11 @@ header > .user-chip {
   background: rgba(230, 193, 90, 0.12);
 }
 
+.user-plan.plan-boom {
+  color: #ffb020;
+  background: rgba(255, 176, 32, 0.14);
+}
+
 .user-plan.plan-vvip,
 .user-plan.plan-both {
   color: #b48cf2;
@@ -675,6 +680,15 @@ thead th.free-heading::after {
 
 #boom-slots {
   color: #ffb020;
+}
+
+.boom-price {
+  margin: 0.75rem 0 0;
+  color: #ffb020;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .boom-table {
@@ -4203,6 +4217,11 @@ html:has(body.control-room) {
 .plan-pill.plan-vip {
   color: #e6c15a;
   background: rgba(230, 193, 90, 0.12);
+}
+
+.plan-pill.plan-boom {
+  color: #ffb020;
+  background: rgba(255, 176, 32, 0.14);
 }
 
 .plan-pill.plan-vvip {

@@ -23,8 +23,8 @@ const SQL = {
     UPDATE payments
     SET status = 'success', provider_transaction_id = ?, paid_at = ${NOW}, updated_at = ${NOW}
     WHERE reference = ? AND status = 'pending'`,
-  findUser: "SELECT id, plan, plan_expires_at FROM users WHERE id = ?",
-  updateUserPlan: "UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?",
+  findUser: "SELECT id, plan, plan_expires_at, slot_plan FROM users WHERE id = ?",
+  updateUserPlan: "UPDATE users SET plan = ?, plan_expires_at = ?, slot_plan = ? WHERE id = ?",
 };
 
 export function findPayment(reference) {
@@ -46,7 +46,20 @@ export function publicPayment(payment) {
 // Creates a pending payment and returns the provider's checkout URL.
 // The price comes from PLANS on the server, never from the request.
 // siteUrl is where the provider sends the user back to.
-const PLAN_LABEL = { vip: "VIP", vvip: "VVIP" };
+const PLAN_LABEL = { vip: "VIP", vvip: "VVIP", boom: "Wake up to boom games" };
+
+// The place a member is using. Boom is stored as a VIP account with slot_plan boom.
+function heldSlot(user) {
+  const expiresAt = user?.planExpiresAt || user?.plan_expires_at;
+  const active = user?.plan && user.plan !== "free" && expiresAt && Date.parse(expiresAt) > Date.now();
+  if (!active) {
+    return null;
+  }
+  if (user.plan === "vip" && user.slot_plan === "boom") {
+    return "boom";
+  }
+  return user.plan;
+}
 
 // A member who already holds the plan can renew. Everyone else stops when no places are left.
 export async function assertSlotsOpen(user, planId) {
@@ -54,9 +67,10 @@ export async function assertSlotsOpen(user, planId) {
   if (caps[planId] == null) {
     return;
   }
-  const expiresAt = user?.planExpiresAt || user?.plan_expires_at;
-  const renewing = user?.plan === planId && expiresAt && Date.parse(expiresAt) > Date.now();
-  if (renewing) {
+  const row = user?.slot_plan == null && user?.id
+    ? await one("SELECT plan, plan_expires_at, slot_plan FROM users WHERE id = ?", [user.id])
+    : user;
+  if (heldSlot(row) === planId) {
     return;
   }
   const waiting = await one(
@@ -112,9 +126,15 @@ async function upgradeUser(tx, userId, plan, source) {
 
   const start = stillActive ? currentExpiry : now;
   const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
-  const keepCurrent = stillActive && getPlan(user.plan)?.rank > plan.rank;
-  await tx.execute(SQL.updateUserPlan, [keepCurrent ? user.plan : plan.id, expiresAt, userId]);
-  await recordPurchase(tx, userId, plan.id, todayKey(), source);
+  // Boom opens the same tips as VIP. The account stays VIP, and slot_plan boom uses a boom place.
+  const access = plan.id === "boom" ? getPlan("vip") : plan;
+  const currentRank = stillActive ? (getPlan(user.plan)?.rank ?? 0) : 0;
+  const alreadyVip = plan.id === "boom" && stillActive && user.plan === "vip" && user.slot_plan !== "boom";
+  const keepCurrent = currentRank > access.rank || alreadyVip;
+  const nextPlan = keepCurrent ? user.plan : access.id;
+  const nextSlot = keepCurrent ? (user.slot_plan || user.plan) : plan.id;
+  await tx.execute(SQL.updateUserPlan, [nextPlan, expiresAt, nextSlot, userId]);
+  await recordPurchase(tx, userId, nextPlan, todayKey(), source);
 }
 
 // Confirms a payment with the provider's own servers and, if it really

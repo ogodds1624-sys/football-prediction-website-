@@ -9,6 +9,8 @@ export const PLANS = {
   // Daily packages: each purchase covers one day and is renewed by buying again.
   vip: { id: "vip", name: "VIP", amount: 5000, days: 1, rank: 1 },
   vvip: { id: "vvip", name: "VVIP", amount: 10000, days: 1, rank: 2 },
+  // Same daily shape as VIP. Rank stays below VIP so buying boom does not replace an active VIP plan.
+  boom: { id: "boom", name: "Wake up to boom games", amount: 5000, days: 1, rank: 0 },
 };
 
 const PRICE_KEY = "planPrices";
@@ -69,16 +71,18 @@ export async function publicPlanPrices() {
 }
 
 export async function savePlanPrices(input) {
+  const current = await publicPlanPrices();
   const prices = {
-    vip: minorUnits(input?.vip, "VIP"),
-    vvip: minorUnits(input?.vvip, "VVIP"),
+    vip: minorUnits(input?.vip ?? current.vip, "VIP"),
+    vvip: minorUnits(input?.vvip ?? current.vvip, "VVIP"),
+    boom: minorUnits(input?.boom ?? current.boom, "Wake up to boom games"),
   };
   await execute(
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
     [PRICE_KEY, JSON.stringify(prices)],
   );
-  return { vip: prices.vip / 100, vvip: prices.vvip / 100 };
+  return { vip: prices.vip / 100, vvip: prices.vvip / 100, boom: prices.boom / 100 };
 }
 
 function wholeSlots(value, label) {
@@ -105,16 +109,21 @@ export async function readPlanSlots() {
     }
   }
   const slot = (tier) => {
+    if (stored[tier] == null || stored[tier] === "") {
+      return null;
+    }
     const count = Number(stored[tier]);
     return Number.isInteger(count) && count >= 0 ? count : null;
   };
-  return { vip: slot("vip"), vvip: slot("vvip") };
+  return { vip: slot("vip"), vvip: slot("vvip"), boom: slot("boom") };
 }
 
 export async function savePlanSlots(input) {
+  const current = await readPlanSlots();
   const slots = {
     vip: wholeSlots(input?.vip, "VIP"),
     vvip: wholeSlots(input?.vvip, "VVIP"),
+    boom: input?.boom == null || String(input.boom).trim() === "" ? current.boom : wholeSlots(input.boom, "Wake up to boom games"),
   };
   await execute(
     `INSERT INTO settings (key, value) VALUES (?, ?)

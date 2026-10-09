@@ -344,14 +344,18 @@ function coversTier(tier) {
   if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip" || tier === "boom")) {
     return true;
   }
-  if (tier === "boom") {
-    return currentUser?.plan === "vip";
+  if (tier === "boom" || tier === "vip") {
+    return currentUser?.plan === "vip" || currentUser?.plan === "boom";
   }
   return currentUser?.plan === tier;
 }
 
 function planForButton(button) {
   return button.dataset.plan || button.dataset.tier;
+}
+
+function slotForButton(button) {
+  return planForButton(button);
 }
 
 // A paid member sees the day's SportyBet code where Buy Plan used to be.
@@ -974,7 +978,7 @@ async function openPayment(plan) {
 for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
   button.addEventListener("click", () => {
     const plan = planForButton(button);
-    if (button.disabled || planSlots[plan] === 0) {
+    if (button.disabled || planSlots[slotForButton(button)] === 0) {
       return;
     }
     const next = `pay.html?plan=${plan}`;
@@ -1109,6 +1113,7 @@ loadOptions()
       email: options.checkout?.email || "",
     };
     showPlanSlots(options.slots);
+    showBoomPrice(options);
   })
   .catch(() => {});
 
@@ -1116,7 +1121,7 @@ let planSlots = {};
 
 function markFullPlans() {
   for (const button of planButtons) {
-    const full = planSlots[planForButton(button)] === 0 && !coversTier(button.dataset.tier);
+    const full = planSlots[slotForButton(button)] === 0 && !coversTier(button.dataset.tier);
     button.disabled = full;
     if (full) {
       button.textContent = "SLOTS FULL";
@@ -1124,10 +1129,20 @@ function markFullPlans() {
   }
 }
 
+function showBoomPrice(options) {
+  const line = document.querySelector("#boom-price");
+  const plan = (options?.plans || []).find((item) => item.id === "boom");
+  if (!line || !plan) {
+    return;
+  }
+  line.textContent = `${options.currency || "GHS"} ${Number(plan.amount).toFixed(2)}`;
+}
+
 function showPlanSlots(slots) {
   planSlots = slots || {};
   const slotLines = {
-    vip: ["#vip-slots", "#boom-slots"],
+    vip: ["#vip-slots"],
+    boom: ["#boom-slots"],
     vvip: ["#vvip-slots"],
   };
   for (const [tier, selectors] of Object.entries(slotLines)) {

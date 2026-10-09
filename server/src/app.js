@@ -475,7 +475,7 @@ export function createApp({ limitRequests = true } = {}) {
     const left = (tier) => (caps[tier] == null ? null : Math.max(0, caps[tier] - taken[tier]));
     return {
       caps,
-      available: { vip: left("vip"), vvip: left("vvip") },
+      available: { vip: left("vip"), vvip: left("vvip"), boom: left("boom") },
     };
   }
 

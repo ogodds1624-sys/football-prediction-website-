@@ -30,7 +30,7 @@ export async function verifyPassword(password, stored) {
 }
 
 export function findUserById(userId) {
-  return one("SELECT id, email, name, plan, plan_expires_at, country, last_seen_at FROM users WHERE id = ?", [userId]);
+  return one("SELECT id, email, name, plan, slot_plan, plan_expires_at, country, last_seen_at FROM users WHERE id = ?", [userId]);
 }
 
 // This account always sees VIP and VVIP. No other account is treated this way.
@@ -42,11 +42,12 @@ export function hasFullAccess(user) {
 
 export function publicUser(user) {
   const active = user.plan !== "free" && user.plan_expires_at && user.plan_expires_at > new Date().toISOString();
+  const plan = !active ? "free" : user.plan === "vip" && user.slot_plan === "boom" ? "boom" : user.plan;
   return {
     id: user.id,
     email: user.email,
     name: user.name || "",
-    plan: active ? user.plan : "free",
+    plan,
     planExpiresAt: active ? user.plan_expires_at : null,
     country: user.country || "",
     fullAccess: hasFullAccess(user),

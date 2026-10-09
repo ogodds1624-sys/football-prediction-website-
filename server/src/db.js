@@ -15,6 +15,7 @@ const SCHEMA = [
     password_hash   TEXT NOT NULL,
     plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip')),
     plan_expires_at TEXT,
+    slot_plan       TEXT NOT NULL DEFAULT '',
     last_seen_at    TEXT,
     country         TEXT NOT NULL DEFAULT '',
     created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -25,7 +26,7 @@ const SCHEMA = [
     user_id                 INTEGER NOT NULL REFERENCES users(id),
     provider                TEXT NOT NULL CHECK (provider IN ('paystack', 'flutterwave')),
     reference               TEXT NOT NULL UNIQUE,
-    plan                    TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+    plan                    TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
     amount                  INTEGER NOT NULL CHECK (amount > 0),
     currency                TEXT NOT NULL,
     status                  TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed')),
@@ -95,7 +96,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS manual_payments (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id        INTEGER NOT NULL REFERENCES users(id),
-    plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+    plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
     amount         INTEGER NOT NULL CHECK (amount > 0),
     currency       TEXT NOT NULL,
     method_id      TEXT NOT NULL,
@@ -241,6 +242,8 @@ const MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''",
   // When a member last used the site; shown in the Control Room's Members list.
   "ALTER TABLE users ADD COLUMN last_seen_at TEXT",
+  // Which paid place this account is using. Boom access is stored as VIP, and this marks the boom place.
+  "ALTER TABLE users ADD COLUMN slot_plan TEXT NOT NULL DEFAULT ''",
 ];
 
 // SQLite can't change a CHECK rule in place, so tables made before the
@@ -395,7 +398,7 @@ async function migrate() {
       `CREATE TABLE manual_payments_new (
         id             INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id        INTEGER NOT NULL REFERENCES users(id),
-        plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+        plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
         amount         INTEGER NOT NULL CHECK (amount > 0),
         currency       TEXT NOT NULL,
         method_id      TEXT NOT NULL,
@@ -420,6 +423,75 @@ async function migrate() {
       await backend.execute(statement, []);
     }
   }
+  await allowBoomPlan();
+}
+
+// Payment rows record which package was bought. Boom is its own price, so older
+// payment tables need that plan in the CHECK. The account stays VIP; slot_plan marks a boom place.
+async function allowBoomPlan() {
+  await rebuildPlanTable(
+    "payments",
+    `CREATE TABLE payments_boom (
+      id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id                 INTEGER NOT NULL REFERENCES users(id),
+      provider                TEXT NOT NULL CHECK (provider IN ('paystack', 'flutterwave')),
+      reference               TEXT NOT NULL UNIQUE,
+      plan                    TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
+      amount                  INTEGER NOT NULL CHECK (amount > 0),
+      currency                TEXT NOT NULL,
+      status                  TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed')),
+      provider_transaction_id TEXT,
+      created_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      updated_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      paid_at                 TEXT
+    )`,
+    `INSERT INTO payments_boom
+      (id, user_id, provider, reference, plan, amount, currency, status, provider_transaction_id, created_at, updated_at, paid_at)
+     SELECT id, user_id, provider, reference, plan, amount, currency, status, provider_transaction_id, created_at, updated_at, paid_at FROM payments`,
+    ["CREATE INDEX IF NOT EXISTS payments_user_id ON payments(user_id)"],
+  );
+  await rebuildPlanTable(
+    "manual_payments",
+    `CREATE TABLE manual_payments_boom (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id        INTEGER NOT NULL REFERENCES users(id),
+      plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
+      amount         INTEGER NOT NULL CHECK (amount > 0),
+      currency       TEXT NOT NULL,
+      method_id      TEXT NOT NULL,
+      network        TEXT NOT NULL,
+      account_number TEXT NOT NULL,
+      account_name   TEXT NOT NULL DEFAULT '',
+      receipt_data   TEXT NOT NULL,
+      status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+      created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )`,
+    `INSERT INTO manual_payments_boom
+      (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at)
+     SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at
+     FROM manual_payments`,
+    [`CREATE UNIQUE INDEX IF NOT EXISTS manual_payments_one_pending
+      ON manual_payments(user_id, plan) WHERE status = 'pending'`],
+  );
+}
+
+async function rebuildPlanTable(name, createSql, copySql, after = []) {
+  const { rows } = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", [name]);
+  const sql = rows[0]?.sql || "";
+  if (!sql || sql.includes("'boom'")) {
+    return;
+  }
+  const temp = `${name}_boom`;
+  await backend.transaction(async (tx) => {
+    await tx.execute(createSql, []);
+    await tx.execute(copySql, []);
+    await tx.execute(`DROP TABLE ${name}`, []);
+    await tx.execute(`ALTER TABLE ${temp} RENAME TO ${name}`, []);
+    for (const statement of after) {
+      await tx.execute(statement, []);
+    }
+  });
 }
 
 export function dbReady() {

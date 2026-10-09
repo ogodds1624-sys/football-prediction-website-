@@ -345,6 +345,9 @@
         <label>VIP price
           <input id="price-vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
         </label>
+        <label>Wake up to boom games price
+          <input id="price-boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
         <label>VVIP price
           <input id="price-vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
         </label>
@@ -357,10 +360,13 @@
 
     <section class="control-section" aria-labelledby="plan-slots-title">
       <h2 id="plan-slots-title">Available slots</h2>
-      <p class="form-hint">How many VIP and VVIP places you are offering. Members see the places left on that premium table. A place is used while the plan is still active.</p>
+      <p class="form-hint">How many VIP, Wake up to boom games, and VVIP places you are offering. Members see the places left on that table. A place is used while the plan is still active.</p>
       <form class="match-form" id="plan-slots-form" novalidate>
         <label>VIP slots
           <input id="slot-vip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
+        </label>
+        <label>Wake up to boom games slots
+          <input id="slot-boom" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
         </label>
         <label>VVIP slots
           <input id="slot-vvip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>

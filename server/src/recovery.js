@@ -115,10 +115,10 @@ export async function checkRecovery(userId, date) {
 // Admin: mark a member as paid (e.g. MoMo) for a plan on a day, and unlock their tips.
 export async function activatePlan(email, planId, date) {
   const plan = getPlan(planId);
-  if (!plan) {
+  if (!plan || (planId !== "vip" && planId !== "vvip")) {
     throw new HttpError(400, "Choose VIP or VVIP.");
   }
-  const user = await one("SELECT id, email, plan, plan_expires_at FROM users WHERE email = ?", [String(email || "").trim()]);
+  const user = await one("SELECT id, email, plan, plan_expires_at, slot_plan FROM users WHERE email = ?", [String(email || "").trim()]);
   if (!user) {
     throw new HttpError(404, "No account uses that email. Ask the member to create an account first.");
   }
@@ -128,9 +128,11 @@ export async function activatePlan(email, planId, date) {
     if (date === todayKey()) {
       const endOfDay = `${shiftDate(date, 1)}T00:00:00.000Z`;
       const keepHigher = user.plan_expires_at > new Date().toISOString() && getPlan(user.plan)?.rank > plan.rank;
-      await tx.execute("UPDATE users SET plan = ?, plan_expires_at = ? WHERE id = ?", [
-        keepHigher ? user.plan : plan.id,
+      const nextPlan = keepHigher ? user.plan : plan.id;
+      await tx.execute("UPDATE users SET plan = ?, plan_expires_at = ?, slot_plan = ? WHERE id = ?", [
+        nextPlan,
         keepHigher && user.plan_expires_at > endOfDay ? user.plan_expires_at : endOfDay,
+        keepHigher ? (user.slot_plan || user.plan) : plan.id,
         user.id,
       ]);
     }
@@ -142,7 +144,7 @@ export async function activatePlan(email, planId, date) {
 export async function listMembers() {
   const now = new Date().toISOString();
   const { rows } = await execute(
-    `SELECT id, name, email, plan, plan_expires_at, created_at, last_seen_at
+    `SELECT id, name, email, plan, slot_plan, plan_expires_at, created_at, last_seen_at
      FROM users ORDER BY COALESCE(last_seen_at, created_at) DESC, id DESC LIMIT 500`,
   );
   const paid = await execute(
@@ -166,23 +168,40 @@ export async function listMembers() {
     id: user.id,
     name: user.name || "",
     email: user.email,
-    plan: user.plan !== "free" && user.plan_expires_at > now ? user.plan : "free",
+    plan: visiblePlan(user, now),
     joinedAt: user.created_at,
     lastSeenAt: user.last_seen_at || null,
     payments: paymentsByUser.get(Number(user.id)) || [],
   }));
 }
 
+function visiblePlan(user, now) {
+  const active = user.plan !== "free" && user.plan_expires_at > now;
+  if (!active) {
+    return "free";
+  }
+  if (user.plan === "vip" && user.slot_plan === "boom") {
+    return "boom";
+  }
+  return user.plan;
+}
+
 export async function memberTotals() {
   const now = new Date().toISOString();
   const row = await one(
     `SELECT COUNT(*) AS users,
-            SUM(plan = 'vip' AND plan_expires_at > ?) AS vip,
-            SUM(plan = 'vvip' AND plan_expires_at > ?) AS vvip
+            SUM(plan = 'vip' AND plan_expires_at > ? AND COALESCE(slot_plan, '') != 'boom') AS vip,
+            SUM(plan = 'vvip' AND plan_expires_at > ?) AS vvip,
+            SUM(plan = 'vip' AND slot_plan = 'boom' AND plan_expires_at > ?) AS boom
      FROM users`,
-    [now, now],
+    [now, now, now],
   );
-  return { users: Number(row?.users || 0), vip: Number(row?.vip || 0), vvip: Number(row?.vvip || 0) };
+  return {
+    users: Number(row?.users || 0),
+    vip: Number(row?.vip || 0),
+    vvip: Number(row?.vvip || 0),
+    boom: Number(row?.boom || 0),
+  };
 }
 
 // Active plans plus a pending receipt or checkout that is not already an active plan.
@@ -190,20 +209,27 @@ export async function heldPlanCounts() {
   const totals = await memberTotals();
   const now = new Date().toISOString();
   const pending = await one(
-    `SELECT SUM(plan = 'vip') AS vip, SUM(plan = 'vvip') AS vvip
+    `SELECT SUM(plan = 'vip') AS vip, SUM(plan = 'vvip') AS vvip, SUM(plan = 'boom') AS boom
      FROM (
-       SELECT DISTINCT user_id, plan FROM manual_payments WHERE status = 'pending' AND plan IN ('vip', 'vvip')
+       SELECT DISTINCT user_id, plan FROM manual_payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom')
        UNION
-       SELECT DISTINCT user_id, plan FROM payments WHERE status = 'pending' AND plan IN ('vip', 'vvip')
+       SELECT DISTINCT user_id, plan FROM payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom')
      ) AS waiting
      WHERE NOT EXISTS (
        SELECT 1 FROM users
-       WHERE users.id = waiting.user_id AND users.plan = waiting.plan AND users.plan_expires_at > ?
+       WHERE users.id = waiting.user_id
+         AND users.plan_expires_at > ?
+         AND (
+           (waiting.plan = 'boom' AND users.plan = 'vip' AND users.slot_plan = 'boom')
+           OR (waiting.plan = 'vip' AND users.plan = 'vip' AND COALESCE(users.slot_plan, '') != 'boom')
+           OR (waiting.plan = 'vvip' AND users.plan = 'vvip')
+         )
      )`,
     [now],
   );
   return {
     vip: totals.vip + Number(pending?.vip || 0),
     vvip: totals.vvip + Number(pending?.vvip || 0),
+    boom: totals.boom + Number(pending?.boom || 0),
   };
 }

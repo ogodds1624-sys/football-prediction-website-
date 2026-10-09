@@ -875,7 +875,7 @@ describe("plan prices", () => {
     const admin = await adminCookie();
     try {
       const before = await api("/api/payments/options");
-      assert.deepEqual(before.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 50], ["vvip", 100]]);
+      assert.deepEqual(before.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 50], ["vvip", 100], ["boom", 50]]);
 
       const { cookie } = await newUser();
       const asMember = await api("/api/admin/plans", { method: "POST", cookie, body: { vip: 1, vvip: 2 } });
@@ -886,10 +886,14 @@ describe("plan prices", () => {
 
       const saved = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "75.50", vvip: "120" } });
       assert.equal(saved.status, 200);
-      assert.deepEqual(saved.data.plans, { vip: 75.5, vvip: 120 });
+      assert.deepEqual(saved.data.plans, { vip: 75.5, vvip: 120, boom: 50 });
+
+      const boomPrice = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "75.50", vvip: "120", boom: "35" } });
+      assert.equal(boomPrice.status, 200);
+      assert.equal(boomPrice.data.plans.boom, 35);
 
       const after = await api("/api/payments/options");
-      assert.deepEqual(after.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 75.5], ["vvip", 120]]);
+      assert.deepEqual(after.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 75.5], ["vvip", 120], ["boom", 35]]);
 
       await api("/api/admin/gateway/checkout", {
         method: "POST",
@@ -907,8 +911,24 @@ describe("plan prices", () => {
       const list = await api("/api/admin/manual-payments", { cookie: admin });
       const payment = list.data.payments.find((item) => item.email === buyer.user.email);
       assert.equal(payment.amount, 120);
+
+      const boomBuyer = await newUser();
+      const boomSent = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: boomBuyer.cookie,
+        body: { plan: "boom", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(boomSent.status, 201);
+      const boomList = await api("/api/admin/manual-payments", { cookie: admin });
+      const boomPayment = boomList.data.payments.find((item) => item.email === boomBuyer.user.email);
+      assert.equal(boomPayment.plan, "boom");
+      assert.equal(boomPayment.amount, 35);
+      const confirmed = await api(`/api/admin/manual-payments/${boomPayment.id}/confirm`, { method: "POST", cookie: admin, body: {} });
+      assert.equal(confirmed.status, 200);
+      const boomMember = await api("/api/me", { cookie: boomBuyer.cookie });
+      assert.equal(boomMember.data.user.plan, "boom");
     } finally {
-      await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "50", vvip: "100" } });
+      await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "50", vvip: "100", boom: "50" } });
     }
   });
 });
@@ -923,7 +943,7 @@ describe("plan slots", () => {
   test("VIP and VVIP slots show the places left after active plans", async () => {
     const admin = await adminCookie();
     const before = await api("/api/payments/options");
-    assert.deepEqual(before.data.slots, { vip: null, vvip: null });
+    assert.deepEqual(before.data.slots, { vip: null, vvip: null, boom: null });
 
     const { cookie } = await newUser();
     const denied = await api("/api/admin/slots", { method: "POST", cookie, body: { vip: 5, vvip: 5 } });
@@ -934,7 +954,7 @@ describe("plan slots", () => {
 
     const saved = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
     assert.equal(saved.status, 200);
-    assert.deepEqual(saved.data.caps, { vip: 1000, vvip: 1000 });
+    assert.deepEqual(saved.data.caps, { vip: 1000, vvip: 1000, boom: null });
     assert.ok(saved.data.available.vip > 0);
     assert.ok(saved.data.available.vvip > 0);
 
@@ -977,6 +997,82 @@ describe("plan slots", () => {
       assert.equal(open.data.slots.vip, 0);
     } finally {
       await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    }
+  });
+
+  test("boom slots are separate from VIP slots", async () => {
+    const admin = await adminCookie();
+    const date = "2026-12-20";
+    try {
+      const wide = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000", boom: "1000" } });
+      assert.equal(wide.status, 200);
+      const boomCap = 1000 - wide.data.available.boom + 1;
+      const saved = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000", boom: String(boomCap) } });
+      assert.equal(saved.status, 200);
+      assert.equal(saved.data.caps.boom, boomCap);
+      assert.equal(saved.data.available.boom, 1);
+      const vipBefore = saved.data.available.vip;
+
+      await api("/api/admin/gateway/checkout", {
+        method: "POST",
+        cookie: admin,
+        body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "OG" }] } } },
+      });
+      await api("/api/admin/matches", {
+        method: "POST",
+        cookie: admin,
+        body: {
+          date,
+          matches: [
+            { tier: "vip", home: "Vip Home", away: "Vip Away", tip: "VIP tip", odds: "1.40" },
+            { tier: "boom", home: "Boom Home", away: "Boom Away", tip: "Boom tip", odds: "1.80" },
+          ],
+        },
+      });
+      const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      const buyer = await newUser();
+      const sent = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: buyer.cookie,
+        body: { plan: "boom", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(sent.status, 201);
+      const waiting = await api("/api/payments/options");
+      assert.equal(waiting.data.slots.boom, 0);
+      assert.equal(waiting.data.slots.vip, vipBefore);
+
+      const closed = await newUser();
+      const blocked = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: closed.cookie,
+        body: { plan: "boom", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(blocked.status, 409);
+      assert.match(blocked.data.error, /Wake up to boom games slots are full/);
+
+      const vipBuyer = await newUser();
+      const vipSent = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: vipBuyer.cookie,
+        body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(vipSent.status, 201);
+
+      const list = await api("/api/admin/manual-payments", { cookie: admin });
+      const boomPayment = list.data.payments.find((item) => item.email === buyer.user.email);
+      const confirmed = await api(`/api/admin/manual-payments/${boomPayment.id}/confirm`, { method: "POST", cookie: admin, body: {} });
+      assert.equal(confirmed.status, 200);
+      const member = await api("/api/me", { cookie: buyer.cookie });
+      assert.equal(member.data.user.plan, "boom");
+      const open = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+      const tips = Object.fromEntries(open.data.matches.map((match) => [match.tier, match.tip]));
+      assert.equal(tips.vip, "VIP tip");
+      assert.equal(tips.boom, "Boom tip");
+      const after = await api("/api/payments/options");
+      assert.equal(after.data.slots.boom, 0);
+      assert.equal(after.data.slots.vip, vipBefore - 1);
+    } finally {
+      await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000", boom: "1000" } });
     }
   });
 });

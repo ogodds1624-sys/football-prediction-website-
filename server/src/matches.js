@@ -51,7 +51,7 @@ export function matchFrom(body) {
 // Which tables a viewer may see tips for. Visitors who aren't signed in
 // (plan null) see teams and odds only; a free account unlocks free tips.
 // VIP and VVIP each unlock only their own table. A VVIP plan does not reveal VIP tips.
-// Wake up to boom games uses the VIP package: a VIP plan unlocks it, a VVIP plan does not.
+// Wake up to boom games uses the VIP package: a VIP or boom plan unlocks both, a VVIP plan does not.
 // The one full-access account sees every paid table whether or not a plan is active.
 export function unlockedTiers(plan, user) {
   if (hasFullAccess(user)) {
@@ -63,7 +63,7 @@ export function unlockedTiers(plan, user) {
   if (plan === "vvip") {
     return new Set(["free", "vvip"]);
   }
-  if (plan === "vip") {
+  if (plan === "vip" || plan === "boom") {
     return new Set(["free", "vip", "boom"]);
   }
   return new Set(["free"]);

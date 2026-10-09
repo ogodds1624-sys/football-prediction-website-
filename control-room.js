@@ -784,7 +784,7 @@ async function loadMembers() {
     const { totals, members } = await adminFetch("/api/admin/members");
     document.querySelector("#ov-members").textContent = totals.users;
     document.querySelector("#ov-members-detail").textContent = totals.users
-      ? `Active today: VIP ${totals.vip} · VVIP ${totals.vvip}`
+      ? `Active today: VIP ${totals.vip} · Boom ${totals.boom} · VVIP ${totals.vvip}`
       : "No accounts yet";
     loadedMembers = members;
     membersLoaded = true;
@@ -1234,6 +1234,7 @@ async function loadPlanPrices() {
   const { currency, plans } = await adminFetch("/api/admin/plans");
   document.querySelector("#price-currency").textContent = currency;
   document.querySelector("#price-vip").value = plans.vip;
+  document.querySelector("#price-boom").value = plans.boom;
   document.querySelector("#price-vvip").value = plans.vvip;
 }
 
@@ -1243,9 +1244,11 @@ planPricesForm.addEventListener("submit", async (event) => {
   try {
     const { plans } = await postJson("/api/admin/plans", {
       vip: document.querySelector("#price-vip").value,
+      boom: document.querySelector("#price-boom").value,
       vvip: document.querySelector("#price-vvip").value,
     });
     document.querySelector("#price-vip").value = plans.vip;
+    document.querySelector("#price-boom").value = plans.boom;
     document.querySelector("#price-vvip").value = plans.vvip;
     showMessage(planPricesMessage, "Prices saved. Buy Plan now shows these amounts.");
   } catch (error) {
@@ -1271,12 +1274,13 @@ function slotSummary(view) {
     const places = left === 1 ? "1 place" : `${left} places`;
     return `${name} members see ${places} left`;
   };
-  return `${line("vip", "VIP")}. ${line("vvip", "VVIP")}.`;
+  return `${line("vip", "VIP")}. ${line("boom", "Wake up to boom games")}. ${line("vvip", "VVIP")}.`;
 }
 
 async function loadPlanSlots() {
   const view = await adminFetch("/api/admin/slots");
   document.querySelector("#slot-vip").value = view.caps.vip ?? "";
+  document.querySelector("#slot-boom").value = view.caps.boom ?? "";
   document.querySelector("#slot-vvip").value = view.caps.vvip ?? "";
   planSlotsMessage.textContent = slotSummary(view);
 }
@@ -1287,9 +1291,11 @@ planSlotsForm.addEventListener("submit", async (event) => {
   try {
     const view = await postJson("/api/admin/slots", {
       vip: document.querySelector("#slot-vip").value,
+      boom: document.querySelector("#slot-boom").value,
       vvip: document.querySelector("#slot-vvip").value,
     });
     document.querySelector("#slot-vip").value = view.caps.vip;
+    document.querySelector("#slot-boom").value = view.caps.boom;
     document.querySelector("#slot-vvip").value = view.caps.vvip;
     showMessage(planSlotsMessage, `Slots saved. ${slotSummary(view)}`);
   } catch (error) {
