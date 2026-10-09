@@ -4339,6 +4339,40 @@ html:has(body.control-room) {
 }
 
 /* Members: receipts sent from the buy-plan page */
+.payment-senders {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .payment-senders:not([hidden]) {
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .payment-senders h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .payment-senders ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .payment-senders li {
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+}
+
 #member-list + .table-wrap {
   margin-top: 1.25rem;
 }

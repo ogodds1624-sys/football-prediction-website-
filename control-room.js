@@ -1367,18 +1367,29 @@ function emptyManualRow(text) {
 async function loadManualPayments() {
   const body = document.querySelector("#payment-table-body");
   const message = document.querySelector("#manual-payment-message");
+  const senders = document.querySelector("#payment-senders");
+  const senderNames = document.querySelector("#payment-sender-names");
   if (!body) {
     return;
   }
   try {
     const { payments } = await adminFetch("/api/admin/manual-payments");
     const waiting = payments.filter((payment) => payment.status !== "confirmed");
+    const names = [...new Set(waiting.map((payment) => payment.name || payment.email))];
+    senderNames.replaceChildren(...names.map((name) => {
+      const item = document.createElement("li");
+      item.textContent = name;
+      return item;
+    }));
+    senders.hidden = !names.length;
     body.replaceChildren(...(waiting.length ? waiting.map(manualPaymentRow) : [emptyManualRow("No payments waiting.")]));
     labelCells(body.closest("table"));
     for (const cell of body.querySelectorAll("td[colspan]")) {
       cell.dataset.label = "";
     }
   } catch (error) {
+    senders.hidden = true;
+    senderNames.replaceChildren();
     body.replaceChildren(emptyManualRow("Couldn't load payments."));
     showMessage(message, error.message, true);
   }
