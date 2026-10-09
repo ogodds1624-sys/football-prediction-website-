@@ -1,3 +1,4 @@
+import path from "node:path";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
@@ -577,6 +578,19 @@ export function createApp({ limitRequests = true } = {}) {
   app.use((req, res, next) => {
     if (/^\/server(\/|$)/i.test(req.path)) {
       res.sendStatus(404);
+      return;
+    }
+    next();
+  });
+  // The passcode page is admin.html. /admin is the address people type.
+  // A route of "/admin/" also matches "/admin" when strict routing is off, so check the path here.
+  app.use((req, res, next) => {
+    if (req.path === "/admin/") {
+      res.redirect(308, "/admin");
+      return;
+    }
+    if (req.path === "/admin") {
+      res.sendFile(path.join(config.siteDir, "admin.html"));
       return;
     }
     next();

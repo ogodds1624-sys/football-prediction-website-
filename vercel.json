@@ -5,6 +5,8 @@
     { "src": "/(server|node_modules)(/.*)?", "status": 404 },
     { "src": "/(package\\.json|package-lock\\.json|vercel\\.json|\\.gitignore)", "status": 404 },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "^/admin/$", "status": 308, "headers": { "Location": "/admin" } },
+    { "src": "^/admin$", "dest": "/admin.html" },
     { "handle": "filesystem" }
   ]
 }

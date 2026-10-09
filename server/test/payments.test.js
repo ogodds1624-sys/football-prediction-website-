@@ -334,6 +334,21 @@ describe("static files", () => {
       assert.equal(result.status, 404, path);
     }
   });
+
+  test("/admin opens the passcode page", async () => {
+    const slash = await api("/admin/");
+    assert.equal(slash.status, 308);
+    assert.equal(slash.headers.get("location"), "/admin");
+
+    const page = await api("/admin");
+    assert.equal(page.status, 200);
+    assert.match(page.data, /Admin Access/);
+    assert.match(page.data, /admin\.js/);
+
+    const file = await api("/admin.html");
+    assert.equal(file.status, 200);
+    assert.match(file.data, /Admin Access/);
+  });
 });
 
 describe("members list", () => {
