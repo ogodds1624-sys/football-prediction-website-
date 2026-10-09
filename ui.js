@@ -13,7 +13,7 @@
   );
 
   // Buttons inside pop-up windows and the side menu appear instantly when opened.
-  [...buttons].filter((button) => !button.closest("dialog, .site-menu")).forEach((button, index) => {
+  [...buttons].filter((button) => !button.closest("dialog, .site-menu, .help-panel")).forEach((button, index) => {
     button.style.setProperty("--pop-delay", `${Math.min(index * STAGGER_S, MAX_DELAY_S)}s`);
     button.classList.add("pop-in");
     // Hand control back to the normal hover/press effects once it has popped.

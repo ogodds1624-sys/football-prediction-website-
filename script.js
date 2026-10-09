@@ -235,6 +235,7 @@ async function renderPredictions() {
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
   }
   showOwnedBookingCodes();
+  markFullPlans();
 }
 
 let codeRequest = 0;
@@ -306,7 +307,6 @@ function selectDay(offset) {
   if (isCustom) {
     customDayButton.textContent = shortDayLabel(offset);
   }
-  hideBooking();
   renderPredictions();
 }
 
@@ -864,6 +864,9 @@ async function openPayment(plan) {
 for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
   button.addEventListener("click", () => {
     const plan = button.dataset.tier;
+    if (button.disabled || planSlots[plan] === 0) {
+      return;
+    }
     const next = `pay.html?plan=${plan}`;
     if (!currentUser) {
       location.href = `account.html?mode=register&next=${encodeURIComponent(next)}`;
@@ -922,7 +925,7 @@ async function signOut() {
     await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   } finally {
     showUser(null);
-    hideBooking();
+    renderPredictions();
   }
 }
 
@@ -969,7 +972,7 @@ loadCurrentUser().then(() => {
   }
 });
 
-// The support chat uses the WhatsApp number saved in the Control Room. The footer icon stays on 233597559382.
+// Payment proof still uses the Control Room WhatsApp number. The support chat and the footer icon use 233597559382.
 let supportInfo = { plans: [], currency: "GHS", whatsapp: "", email: "" };
 
 loadOptions()
@@ -980,8 +983,41 @@ loadOptions()
       whatsapp: options.checkout?.whatsapp || "",
       email: options.checkout?.email || "",
     };
+    showPlanSlots(options.slots);
   })
   .catch(() => {});
+
+let planSlots = {};
+
+function markFullPlans() {
+  for (const button of planButtons) {
+    const full = planSlots[button.dataset.tier] === 0 && !coversTier(button.dataset.tier);
+    button.disabled = full;
+    if (full) {
+      button.textContent = "SLOTS FULL";
+    }
+  }
+}
+
+function showPlanSlots(slots) {
+  planSlots = slots || {};
+  for (const tier of ["vip", "vvip"]) {
+    const line = document.querySelector(`#${tier}-slots`);
+    if (!line) {
+      continue;
+    }
+    const left = planSlots[tier];
+    if (left == null || left === "") {
+      line.hidden = true;
+      line.textContent = "";
+      continue;
+    }
+    const count = Math.max(0, Number(left));
+    line.hidden = false;
+    line.textContent = count === 1 ? "1 slot available" : `${count} slots available`;
+  }
+  markFullPlans();
+}
 
 document.querySelector("#year").textContent = new Date().getFullYear();
 
@@ -1022,22 +1058,22 @@ function planPriceText() {
     .join(". ") + ".";
 }
 
-function whatsappAnswer() {
-  const link = whatsappLink(supportInfo.whatsapp, "Hello, I have a question about my predictions account.");
-  if (link) {
-    return { text: "You can message us on WhatsApp and a person will get back to you.", link: { href: link, label: "Open WhatsApp" } };
-  }
-  if (supportInfo.email) {
-    return { text: `WhatsApp is not set up yet. Email ${supportInfo.email} and we will reply.` };
-  }
-  return { text: "WhatsApp support is not set up yet. Ask me here about predictions, payments, booking codes, or recovery tickets." };
+const SUPPORT_WHATSAPP = "233597559382";
+
+function contactAnswer() {
+  const link = whatsappLink(SUPPORT_WHATSAPP, "Hello, I have a question about my predictions account.");
+  return {
+    text: "Our WhatsApp contact is 233597559382. You will see the other handles in the footer at the bottom of the page, under Follow us: TikTok, Instagram, and X.",
+    link: link ? { href: link, label: "Open WhatsApp" } : null,
+    showFooter: true,
+  };
 }
 
 function supportReply(raw) {
   const text = raw.toLowerCase();
   const asks = (pattern) => pattern.test(text);
-  if (asks(/\b(whatsapp|human|agent|someone|person|call)\b/)) {
-    return whatsappAnswer();
+  if (asks(/\b(whats\s*a+p+p?|whatapp|instagram|insta|tik\s*tok|twitter|socials?|handles?)\b/) || asks(/\bfollow us\b/) || asks(/\b(human|agent|someone|person|call)\b/)) {
+    return contactAnswer();
   }
   if (asks(/\b(book|booking|sporty)\b/)) {
     return { text: "The SportyBet booking code shows only for the plan you have, in place of Buy Plan, for the day you are viewing. VIP members see the VIP code. VVIP members see the VVIP code. If the code is not ready, that space says so. The free table does not have a booking-code button." };
@@ -1072,7 +1108,23 @@ function supportReply(raw) {
   return { text: "Ask me about predictions, buying VIP or VVIP, payment confirmation, booking codes, or recovery tickets. You can also message us on WhatsApp." };
 }
 
-function addHelpBubble(role, text, link) {
+let footerGlowTimer;
+
+function showFooterHandles() {
+  const block = document.querySelector(".social-links");
+  setHelpOpen(false);
+  if (!block) {
+    return;
+  }
+  block.scrollIntoView({ behavior: "smooth", block: "center" });
+  block.classList.remove("is-highlighted");
+  void block.offsetWidth;
+  block.classList.add("is-highlighted");
+  clearTimeout(footerGlowTimer);
+  footerGlowTimer = setTimeout(() => block.classList.remove("is-highlighted"), 2500);
+}
+
+function addHelpBubble(role, text, link, showFooter) {
   const item = document.createElement("div");
   item.className = `help-bubble help-${role}`;
   const paragraph = document.createElement("p");
@@ -1085,6 +1137,14 @@ function addHelpBubble(role, text, link) {
     anchor.rel = "noopener";
     anchor.textContent = link.label;
     item.append(anchor);
+  }
+  if (showFooter) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "help-footer-jump";
+    button.textContent = "Show footer handles";
+    button.addEventListener("click", showFooterHandles);
+    item.append(button);
   }
   helpLog.append(item);
   helpLog.scrollTop = helpLog.scrollHeight;
@@ -1105,7 +1165,9 @@ function setHelpOpen(open) {
   if (open) {
     setMenuOpen(false);
     greetHelp();
-    helpInput.focus();
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
   }
 }
 
@@ -1117,7 +1179,8 @@ function sendHelp(raw) {
   helpBusy = true;
   setHelpOpen(true);
   addHelpBubble("user", text);
-  helpInput.value = "";
+  helpDraft = "";
+  paintHelpDraft();
   const pending = document.createElement("p");
   pending.className = "help-typing";
   pending.setAttribute("aria-label", "Replying");
@@ -1127,7 +1190,7 @@ function sendHelp(raw) {
   window.setTimeout(() => {
     pending.remove();
     const answer = supportReply(text);
-    addHelpBubble("bot", answer.text, answer.link);
+    addHelpBubble("bot", answer.text, answer.link, answer.showFooter);
     helpBusy = false;
   }, 400);
 }
@@ -1135,10 +1198,128 @@ function sendHelp(raw) {
 helpOpen.addEventListener("click", () => setHelpOpen(helpPanel.hidden));
 document.querySelector("#help-back").addEventListener("click", () => setHelpOpen(false));
 document.querySelector("#menu-help").addEventListener("click", () => setHelpOpen(true));
-document.querySelector("#help-form").addEventListener("submit", (event) => {
+document.querySelector("#help-send").addEventListener("click", () => sendHelp(helpDraft));
+
+const helpKeys = document.querySelector("#help-keys");
+let helpDraft = "";
+let helpShift = false;
+let helpNumbers = false;
+const HELP_LETTERS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
+const HELP_NUMBERS = ["1234567890", "-/:;()$&@", ".,?!'"];
+
+function paintHelpDraft() {
+  helpInput.textContent = helpDraft;
+  helpInput.classList.toggle("is-empty", helpDraft.length === 0);
+}
+
+function helpKey(label, name, wide) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `help-key${wide ? " help-key-space" : ""}`;
+  button.dataset.key = name;
+  button.textContent = label;
+  if (name === "shift" && helpShift) {
+    button.classList.add("is-on");
+  }
+  if (name === "numbers" && helpNumbers) {
+    button.classList.add("is-on");
+  }
+  return button;
+}
+
+function renderHelpKeys() {
+  helpKeys.replaceChildren();
+  const rows = helpNumbers ? HELP_NUMBERS : HELP_LETTERS;
+  rows.forEach((row, index) => {
+    const line = document.createElement("div");
+    line.className = "help-key-row";
+    if (index === 2 && !helpNumbers) {
+      line.classList.add("help-key-row-edge");
+      line.append(helpKey("Shift", "shift", true));
+    }
+    for (const char of row) {
+      const shown = !helpNumbers && helpShift ? char.toUpperCase() : char;
+      line.append(helpKey(shown, `char:${shown}`));
+    }
+    if (index === 2) {
+      line.append(helpKey("⌫", "backspace", true));
+    }
+    helpKeys.append(line);
+  });
+  const bottom = document.createElement("div");
+  bottom.className = "help-key-row help-key-row-bottom";
+  bottom.append(helpKey(helpNumbers ? "ABC" : "123", "numbers", true));
+  bottom.append(helpKey("space", "space", true));
+  bottom.append(helpKey("Send", "send", true));
+  helpKeys.append(bottom);
+}
+
+function typeHelp(char) {
+  if (helpDraft.length >= 400) {
+    return;
+  }
+  helpDraft += char;
+  if (helpShift && !helpNumbers) {
+    helpShift = false;
+    renderHelpKeys();
+  }
+  paintHelpDraft();
+}
+
+helpKeys.addEventListener("pointerdown", (event) => {
+  const key = event.target.closest("[data-key]");
+  if (!key) {
+    return;
+  }
   event.preventDefault();
-  sendHelp(helpInput.value);
+  const name = key.dataset.key;
+  if (name.startsWith("char:")) {
+    typeHelp(name.slice(5));
+  } else if (name === "space") {
+    typeHelp(" ");
+  } else if (name === "backspace") {
+    helpDraft = helpDraft.slice(0, -1);
+    paintHelpDraft();
+  } else if (name === "shift") {
+    if (helpNumbers) {
+      return;
+    }
+    helpShift = !helpShift;
+    renderHelpKeys();
+  } else if (name === "numbers") {
+    helpNumbers = !helpNumbers;
+    helpShift = false;
+    renderHelpKeys();
+  } else if (name === "send") {
+    sendHelp(helpDraft);
+  }
 });
+
+document.addEventListener("keydown", (event) => {
+  if (helpPanel.hidden) {
+    return;
+  }
+  if (event.key === "Escape") {
+    setHelpOpen(false);
+    return;
+  }
+  if (event.metaKey || event.ctrlKey || event.altKey) {
+    return;
+  }
+  if (event.key === "Backspace") {
+    helpDraft = helpDraft.slice(0, -1);
+    paintHelpDraft();
+    event.preventDefault();
+  } else if (event.key === "Enter") {
+    sendHelp(helpDraft);
+    event.preventDefault();
+  } else if (event.key.length === 1) {
+    typeHelp(event.key);
+    event.preventDefault();
+  }
+});
+
+renderHelpKeys();
 
 document.addEventListener("click", (event) => {
   const ask = event.target.closest("[data-help-ask]");
@@ -1146,10 +1327,4 @@ document.addEventListener("click", (event) => {
     return;
   }
   sendHelp(ask.dataset.helpAsk);
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !helpPanel.hidden) {
-    setHelpOpen(false);
-  }
 });

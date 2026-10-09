@@ -12,6 +12,7 @@ export const PLANS = {
 };
 
 const PRICE_KEY = "planPrices";
+const SLOT_KEY = "planSlots";
 
 export function getPlan(planId) {
   return Object.hasOwn(PLANS, planId) ? PLANS[planId] : null;
@@ -78,4 +79,47 @@ export async function savePlanPrices(input) {
     [PRICE_KEY, JSON.stringify(prices)],
   );
   return { vip: prices.vip / 100, vvip: prices.vvip / 100 };
+}
+
+function wholeSlots(value, label) {
+  const text = String(value ?? "").trim();
+  if (!/^\d+$/.test(text)) {
+    throw new HttpError(400, `Enter a whole number of ${label} slots.`);
+  }
+  const count = Number(text);
+  if (count > 100_000) {
+    throw new HttpError(400, `${label} slots are too high.`);
+  }
+  return count;
+}
+
+// Null means the Control Room has not set a cap, so the public page hides the line.
+export async function readPlanSlots() {
+  const row = await one("SELECT value FROM settings WHERE key = ?", [SLOT_KEY]);
+  let stored = {};
+  if (row) {
+    try {
+      stored = JSON.parse(row.value);
+    } catch {
+      stored = {};
+    }
+  }
+  const slot = (tier) => {
+    const count = Number(stored[tier]);
+    return Number.isInteger(count) && count >= 0 ? count : null;
+  };
+  return { vip: slot("vip"), vvip: slot("vvip") };
+}
+
+export async function savePlanSlots(input) {
+  const slots = {
+    vip: wholeSlots(input?.vip, "VIP"),
+    vvip: wholeSlots(input?.vvip, "VVIP"),
+  };
+  await execute(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+    [SLOT_KEY, JSON.stringify(slots)],
+  );
+  return slots;
 }

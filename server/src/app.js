@@ -43,8 +43,8 @@ import {
   startPayment,
   submitManualPayment,
 } from "./payments.js";
-import { activatePlan, checkRecovery, listMembers, memberTotals, shiftDate, todayKey } from "./recovery.js";
-import { PLANS, publicPlanPrices, savePlanPrices } from "./plans.js";
+import { activatePlan, checkRecovery, heldPlanCounts, listMembers, memberTotals, shiftDate, todayKey } from "./recovery.js";
+import { PLANS, publicPlanPrices, readPlanSlots, savePlanPrices, savePlanSlots } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -439,8 +439,19 @@ export function createApp({ limitRequests = true } = {}) {
   /* ---------- Payments ---------- */
 
   // Public: plan prices, online providers and the manual checkout details.
+  async function slotView() {
+    const caps = await readPlanSlots();
+    const taken = await heldPlanCounts();
+    const left = (tier) => (caps[tier] == null ? null : Math.max(0, caps[tier] - taken[tier]));
+    return {
+      caps,
+      available: { vip: left("vip"), vvip: left("vvip") },
+    };
+  }
+
   app.get("/api/payments/options", async (req, res) => {
     const prices = await publicPlanPrices();
+    const { available } = await slotView();
     res.json({
       currency: config.currency,
       providers: enabledProviders(),
@@ -450,8 +461,18 @@ export function createApp({ limitRequests = true } = {}) {
         amount: prices[plan.id],
         days: plan.days,
       })),
+      slots: available,
       checkout: await publicCheckout(),
     });
+  });
+
+  app.get("/api/admin/slots", requireAdmin, async (req, res) => {
+    res.json(await slotView());
+  });
+
+  app.post("/api/admin/slots", requireAdmin, async (req, res) => {
+    await savePlanSlots(req.body);
+    res.json(await slotView());
   });
 
   app.get("/api/admin/plans", requireAdmin, async (req, res) => {

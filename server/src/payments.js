@@ -3,9 +3,9 @@ import { config } from "./config.js";
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
 import { publicCheckout } from "./gateway.js";
-import { getPlan, getPricedPlan } from "./plans.js";
+import { getPlan, getPricedPlan, readPlanSlots } from "./plans.js";
 import { getProvider } from "./providers/index.js";
-import { recordPurchase, todayKey } from "./recovery.js";
+import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -45,11 +45,38 @@ export function publicPayment(payment) {
 // Creates a pending payment and returns the provider's checkout URL.
 // The price comes from PLANS on the server, never from the request.
 // siteUrl is where the provider sends the user back to.
+const PLAN_LABEL = { vip: "VIP", vvip: "VVIP" };
+
+// A member who already holds the plan can renew. Everyone else stops when no places are left.
+export async function assertSlotsOpen(user, planId) {
+  const caps = await readPlanSlots();
+  if (caps[planId] == null) {
+    return;
+  }
+  const expiresAt = user?.planExpiresAt || user?.plan_expires_at;
+  const renewing = user?.plan === planId && expiresAt && Date.parse(expiresAt) > Date.now();
+  if (renewing) {
+    return;
+  }
+  const waiting = await one(
+    "SELECT id FROM manual_payments WHERE user_id = ? AND plan = ? AND status = 'pending'",
+    [user.id, planId],
+  );
+  if (waiting) {
+    return;
+  }
+  const held = await heldPlanCounts();
+  if (held[planId] >= caps[planId]) {
+    throw new HttpError(409, `${PLAN_LABEL[planId] || "Plan"} slots are full.`);
+  }
+}
+
 export async function startPayment(user, providerName, planId, siteUrl) {
   const plan = await getPricedPlan(planId);
   if (!plan) {
     throw new HttpError(400, "Unknown plan.");
   }
+  await assertSlotsOpen(user, plan.id);
   const provider = getProvider(providerName);
   if (!provider) {
     throw new HttpError(400, "That payment method is not available.");
@@ -145,6 +172,7 @@ export async function submitManualPayment(user, input) {
   if (!plan) {
     throw new HttpError(400, "Unknown plan.");
   }
+  await assertSlotsOpen(user, plan.id);
   const checkout = await publicCheckout();
   const method = checkout.methods.find((item) => item.id === input?.methodId);
   const account = method?.accounts[Number(input?.accountIndex)];

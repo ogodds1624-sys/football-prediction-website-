@@ -136,6 +136,7 @@
           </tr>
         </tbody>
       </table>
+      <p class="slot-line" id="vip-slots" hidden></p>
       <button type="button" class="plan-button vip-plan table-cta" data-tier="vip">BUY PLAN (total odds)</button>
       <div class="booking-panel plan-code" id="vip-code" hidden>
         <p class="booking-text"></p>
@@ -159,6 +160,7 @@
           </tr>
         </tbody>
       </table>
+      <p class="slot-line" id="vvip-slots" hidden></p>
       <button type="button" class="plan-button vvip-plan table-cta" data-tier="vvip">BUY PLAN (total odds)</button>
       <div class="booking-panel plan-code" id="vvip-code" hidden>
         <p class="booking-text"></p>
@@ -328,13 +330,13 @@
         <button type="button" data-help-ask="How do I confirm a payment?">Payment</button>
         <button type="button" data-help-ask="Where is the booking code?">Booking code</button>
       </div>
-      <form class="help-form" id="help-form">
-        <label class="visually-hidden" for="help-input">Message</label>
-        <input id="help-input" maxlength="400" autocomplete="off" placeholder="Write a message" enterkeyhint="send">
-        <button type="submit" aria-label="Send">
+      <div class="help-form" id="help-form">
+        <div id="help-input" class="help-draft is-empty" role="textbox" aria-label="Message" aria-multiline="false" data-placeholder="Write a message"></div>
+        <button type="button" id="help-send" aria-label="Send">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-7-6 16-2.5-6.5z"/></svg>
         </button>
-      </form>
+      </div>
+      <div class="help-keys" id="help-keys" role="group" aria-label="Keyboard"></div>
     </section>
     <button type="button" class="help-open" id="help-open" aria-expanded="false" aria-controls="help-panel" aria-label="Open chat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

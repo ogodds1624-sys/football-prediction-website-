@@ -844,6 +844,74 @@ describe("plan prices", () => {
   });
 });
 
+describe("plan slots", () => {
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(result.status, 200);
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("VIP and VVIP slots show the places left after active plans", async () => {
+    const admin = await adminCookie();
+    const before = await api("/api/payments/options");
+    assert.deepEqual(before.data.slots, { vip: null, vvip: null });
+
+    const { cookie } = await newUser();
+    const denied = await api("/api/admin/slots", { method: "POST", cookie, body: { vip: 5, vvip: 5 } });
+    assert.equal(denied.status, 401);
+
+    const bad = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "-1", vvip: "4" } });
+    assert.equal(bad.status, 400);
+
+    const saved = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.data.caps, { vip: 1000, vvip: 1000 });
+    assert.ok(saved.data.available.vip > 0);
+    assert.ok(saved.data.available.vvip > 0);
+
+    const member = await newUser();
+    const activated = await api("/api/admin/members/activate", {
+      method: "POST",
+      cookie: admin,
+      body: { email: member.user.email, plan: "vip" },
+    });
+    assert.equal(activated.status, 201);
+
+    const after = await api("/api/payments/options");
+    assert.equal(after.data.slots.vip, saved.data.available.vip - 1);
+    assert.equal(after.data.slots.vvip, saved.data.available.vvip);
+  });
+
+  test("a full plan refuses a new purchase", async () => {
+    const admin = await adminCookie();
+    try {
+      const closed = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "0", vvip: "4" } });
+      assert.equal(closed.status, 200);
+      assert.equal(closed.data.available.vip, 0);
+
+      await api("/api/admin/gateway/checkout", {
+        method: "POST",
+        cookie: admin,
+        body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "OG" }] } } },
+      });
+      const buyer = await newUser();
+      const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      const sent = await api("/api/payments/manual", {
+        method: "POST",
+        cookie: buyer.cookie,
+        body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+      });
+      assert.equal(sent.status, 409);
+      assert.match(sent.data.error, /VIP slots are full/);
+
+      const open = await api("/api/payments/options");
+      assert.equal(open.data.slots.vip, 0);
+    } finally {
+      await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    }
+  });
+});
+
 describe("manual plan payment", () => {
   const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 

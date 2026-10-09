@@ -237,6 +237,11 @@ async function loadPage() {
     location.replace("index.html");
     return;
   }
+  if (paymentStatus !== "pending" && options.slots?.[planId] === 0 && me.user.plan !== planId) {
+    const name = planId === "vvip" ? "VVIP" : "VIP";
+    showProblem(`${name} slots are full. No places are left for this plan.`);
+    return;
+  }
   fillSheet(plan, options.currency);
   if (paymentStatus === "pending") {
     showWaiting();

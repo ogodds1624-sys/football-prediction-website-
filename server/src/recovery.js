@@ -184,3 +184,26 @@ export async function memberTotals() {
   );
   return { users: Number(row?.users || 0), vip: Number(row?.vip || 0), vvip: Number(row?.vvip || 0) };
 }
+
+// Active plans plus a pending receipt or checkout that is not already an active plan.
+export async function heldPlanCounts() {
+  const totals = await memberTotals();
+  const now = new Date().toISOString();
+  const pending = await one(
+    `SELECT SUM(plan = 'vip') AS vip, SUM(plan = 'vvip') AS vvip
+     FROM (
+       SELECT DISTINCT user_id, plan FROM manual_payments WHERE status = 'pending' AND plan IN ('vip', 'vvip')
+       UNION
+       SELECT DISTINCT user_id, plan FROM payments WHERE status = 'pending' AND plan IN ('vip', 'vvip')
+     ) AS waiting
+     WHERE NOT EXISTS (
+       SELECT 1 FROM users
+       WHERE users.id = waiting.user_id AND users.plan = waiting.plan AND users.plan_expires_at > ?
+     )`,
+    [now],
+  );
+  return {
+    vip: totals.vip + Number(pending?.vip || 0),
+    vvip: totals.vvip + Number(pending?.vvip || 0),
+  };
+}

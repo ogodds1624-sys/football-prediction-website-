@@ -333,6 +333,23 @@
       <p class="form-message" id="plan-prices-message" role="status"></p>
     </section>
 
+    <section class="control-section" aria-labelledby="plan-slots-title">
+      <h2 id="plan-slots-title">Available slots</h2>
+      <p class="form-hint">How many VIP and VVIP places you are offering. Members see the places left on that premium table. A place is used while the plan is still active.</p>
+      <form class="match-form" id="plan-slots-form" novalidate>
+        <label>VIP slots
+          <input id="slot-vip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
+        </label>
+        <label>VVIP slots
+          <input id="slot-vvip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="control-primary">Save slots</button>
+        </div>
+      </form>
+      <p class="form-message" id="plan-slots-message" role="status"></p>
+    </section>
+
       </div>
 
       <div class="control-panel" data-panel="reviews" hidden>

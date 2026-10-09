@@ -1211,6 +1211,46 @@ render();
 loadMembers();
 loadGateway();
 loadPlanPrices().catch((error) => showMessage(planPricesMessage, error.message, true));
+
+const planSlotsForm = document.querySelector("#plan-slots-form");
+const planSlotsMessage = document.querySelector("#plan-slots-message");
+
+function slotSummary(view) {
+  const line = (tier, name) => {
+    if (view.caps[tier] == null) {
+      return `${name} is not shown yet`;
+    }
+    const left = view.available[tier];
+    const places = left === 1 ? "1 place" : `${left} places`;
+    return `${name} members see ${places} left`;
+  };
+  return `${line("vip", "VIP")}. ${line("vvip", "VVIP")}.`;
+}
+
+async function loadPlanSlots() {
+  const view = await adminFetch("/api/admin/slots");
+  document.querySelector("#slot-vip").value = view.caps.vip ?? "";
+  document.querySelector("#slot-vvip").value = view.caps.vvip ?? "";
+  planSlotsMessage.textContent = slotSummary(view);
+}
+
+planSlotsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  planSlotsMessage.textContent = "";
+  try {
+    const view = await postJson("/api/admin/slots", {
+      vip: document.querySelector("#slot-vip").value,
+      vvip: document.querySelector("#slot-vvip").value,
+    });
+    document.querySelector("#slot-vip").value = view.caps.vip;
+    document.querySelector("#slot-vvip").value = view.caps.vvip;
+    showMessage(planSlotsMessage, `Slots saved. ${slotSummary(view)}`);
+  } catch (error) {
+    showMessage(planSlotsMessage, error.message, true);
+  }
+});
+
+loadPlanSlots().catch((error) => showMessage(planSlotsMessage, error.message, true));
 loadTestimonials();
 showMigrateBanner();
 
