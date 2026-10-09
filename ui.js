@@ -9,7 +9,7 @@
   const MAX_DELAY_S = 0.8;
   const buttons = document.querySelectorAll(
     // The passcode eye button is positioned with a transform, so it is left out.
-    "button:not(.toggle-passcode), a.plan-button, a.admin-button, a.admin-submit, a.back-button, a.pay-whatsapp",
+    "button:not(.toggle-passcode), a.plan-button, a.admin-button, a.admin-submit, a.back-button, a.pay-whatsapp, a.country-choice",
   );
 
   // Buttons inside pop-up windows and the side menu appear instantly when opened.

@@ -75,7 +75,8 @@ form.addEventListener("submit", async (event) => {
     } catch {
       // No storage (private window): skip the greeting.
     }
-    location.href = nextPage();
+    // A new account picks a country before continuing. Sign-in goes straight on.
+    location.href = mode === "register" ? `country.html?next=${encodeURIComponent(nextPage())}` : nextPage();
   } catch {
     errorText.textContent = "Can't reach the server. Check your connection and try again.";
   } finally {

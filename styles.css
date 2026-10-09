@@ -5020,3 +5020,54 @@ button.help-key-space {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+
+/* ---------- Country chooser ---------- */
+.country-page {
+  min-height: 100dvh;
+}
+
+.country-card h1 {
+  font-family: "Bebas Neue", "Segoe UI", sans-serif;
+  font-size: 2.4rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.country-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.country-page .country-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.country-page .country-choice strong {
+  font-size: 1.15rem;
+}
+
+.country-page .country-choice:hover,
+.country-page .country-choice:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.country-flag {
+  width: 3.4rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}

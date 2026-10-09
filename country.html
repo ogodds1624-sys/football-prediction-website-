@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1424">
+  <meta name="description" content="Select your country.">
+  <meta name="author" content="Andrew Frimpong">
+  <title>Select your country - Football Predictions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@300;400&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="country-page">
+  <main class="admin-page">
+    <section class="admin-card country-card" aria-labelledby="country-title">
+      <h1 id="country-title">Select your country</h1>
+      <div class="country-list">
+        <a class="country-choice country-ghana" href="index.html" data-country="ghana">
+          <svg class="country-flag" viewBox="0 0 60 40" aria-hidden="true">
+            <rect width="60" height="13.34" fill="#CE1126"/>
+            <rect y="13.34" width="60" height="13.32" fill="#FCD116"/>
+            <rect y="26.66" width="60" height="13.34" fill="#006B3F"/>
+            <polygon fill="#000" points="30,16.2 31.6,21 36.6,21 32.6,24 34.2,28.8 30,25.8 25.8,28.8 27.4,24 23.4,21 28.4,21"/>
+          </svg>
+          <strong>Ghana</strong>
+        </a>
+        <a class="country-choice country-nigeria" href="index.html" data-country="nigeria">
+          <svg class="country-flag" viewBox="0 0 60 40" aria-hidden="true">
+            <rect width="20" height="40" fill="#008751"/>
+            <rect x="20" width="20" height="40" fill="#fff"/>
+            <rect x="40" width="20" height="40" fill="#008751"/>
+          </svg>
+          <strong>Nigeria</strong>
+        </a>
+        <a class="country-choice country-kenya" href="index.html" data-country="kenya">
+          <svg class="country-flag" viewBox="0 0 60 40" aria-hidden="true">
+            <rect width="60" height="12" fill="#000"/>
+            <rect y="12" width="60" height="1.6" fill="#fff"/>
+            <rect y="13.6" width="60" height="12.8" fill="#BB0000"/>
+            <rect y="26.4" width="60" height="1.6" fill="#fff"/>
+            <rect y="28" width="60" height="12" fill="#006600"/>
+            <ellipse cx="30" cy="20" rx="4.6" ry="7" fill="#fff"/>
+            <ellipse cx="30" cy="20" rx="2.8" ry="4.6" fill="#BB0000"/>
+            <ellipse cx="30" cy="20" rx="1.2" ry="2.2" fill="#000"/>
+          </svg>
+          <strong>Kenya</strong>
+        </a>
+        <a class="country-choice country-uganda" href="index.html" data-country="uganda">
+          <svg class="country-flag" viewBox="0 0 60 40" aria-hidden="true">
+            <rect width="60" height="6.67" fill="#000"/>
+            <rect y="6.67" width="60" height="6.67" fill="#FCDC04"/>
+            <rect y="13.33" width="60" height="6.67" fill="#D90000"/>
+            <rect y="20" width="60" height="6.67" fill="#000"/>
+            <rect y="26.67" width="60" height="6.67" fill="#FCDC04"/>
+            <rect y="33.33" width="60" height="6.67" fill="#D90000"/>
+            <circle cx="30" cy="20" r="6.4" fill="#fff"/>
+            <circle cx="30" cy="21" r="3.2" fill="#8B7355"/>
+          </svg>
+          <strong>Uganda</strong>
+        </a>
+        <a class="country-choice country-international" href="index.html" data-country="international">
+          <svg class="country-flag country-globe" viewBox="0 0 60 40" aria-hidden="true">
+            <rect width="60" height="40" fill="#0c1424"/>
+            <circle cx="30" cy="20" r="12" fill="none" stroke="#3ddc84" stroke-width="1.6"/>
+            <ellipse cx="30" cy="20" rx="5.5" ry="12" fill="none" stroke="#9aabc4" stroke-width="1.2"/>
+            <path d="M18 20h24M19.5 15h21M19.5 25h21" fill="none" stroke="#9aabc4" stroke-width="1.2"/>
+          </svg>
+          <strong>International</strong>
+        </a>
+      </div>
+    </section>
+  </main>
+  <script>
+    const next = new URLSearchParams(location.search).get("next") || "index.html";
+    const destination = /^[a-z0-9-]+\.html(\?[\w=&%-]*)?$/i.test(next) ? next : "index.html";
+    for (const link of document.querySelectorAll("[data-country]")) {
+      link.href = destination;
+      link.addEventListener("click", () => {
+        try {
+          sessionStorage.setItem("predictions-country", link.dataset.country);
+        } catch {
+          // The predictions page still opens if storage is blocked.
+        }
+      });
+    }
+  </script>
+  <script src="ui.js"></script>
+</body>
+</html>
