@@ -47,7 +47,15 @@ import {
   submitManualPayment,
 } from "./payments.js";
 import { activatePlan, checkRecovery, heldPlanCounts, listMembers, memberTotals, shiftDate, todayKey } from "./recovery.js";
-import { PLANS, publicPlanPrices, readPlanSlots, savePlanPrices, savePlanSlots } from "./plans.js";
+import {
+  PLANS,
+  publicCountryPlanPrices,
+  publicPlanPrices,
+  publicPlanPriceOverrides,
+  readPlanSlots,
+  savePlanPrices,
+  savePlanSlots,
+} from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -481,6 +489,7 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.get("/api/payments/options", async (req, res) => {
     const prices = await publicPlanPrices();
+    const countryPrices = await publicCountryPlanPrices();
     const { available } = await slotView();
     const checkout = await publicCheckout();
     res.json({
@@ -490,6 +499,9 @@ export function createApp({ limitRequests = true } = {}) {
         id: plan.id,
         name: plan.name,
         amount: prices[plan.id],
+        pricesByCountry: Object.fromEntries(
+          Object.entries(countryPrices).map(([country, plans]) => [country, plans[plan.id]]),
+        ),
         days: plan.days,
         usdtAmount: usdtFromGhs(prices[plan.id], {
           ngn: checkout.usdt.ngnPerGhs,
@@ -511,12 +523,16 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/plans", requireAdmin, async (req, res) => {
-    res.json({ currency: config.currency, plans: await publicPlanPrices() });
+    res.json({
+      currency: config.currency,
+      plans: await publicPlanPrices(),
+      countries: await publicPlanPriceOverrides(),
+    });
   });
 
   app.post("/api/admin/plans", requireAdmin, async (req, res) => {
-    const plans = await savePlanPrices(req.body);
-    res.json({ currency: config.currency, plans });
+    const { plans, countries } = await savePlanPrices(req.body);
+    res.json({ currency: config.currency, plans, countries });
   });
 
   app.post("/api/payments/initialize", requireUser, paymentLimiter, async (req, res) => {
@@ -661,4 +677,3 @@ export function createApp({ limitRequests = true } = {}) {
 
   return app;
 }
-

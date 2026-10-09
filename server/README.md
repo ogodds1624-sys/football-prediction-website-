@@ -11,7 +11,7 @@ server/
   .env.example        template for your keys (copy to .env)
   src/config.js       loads and checks .env
   src/db.js           tables users + payments (Turso online, SQLite file locally)
-  src/plans.js        plan prices and durations (edit prices here)
+  src/plans.js        default plan prices and durations (live prices are set in the Control Room)
   src/auth.js         passwords (scrypt) and signed login cookies
   src/providers/      paystack.js, flutterwave.js
   src/payments.js     start payment, verify, upgrade user
@@ -155,7 +155,7 @@ The server answers `200` once a webhook is handled. If verification fails becaus
 | POST | `/api/auth/login` | `{ email, password }` |
 | POST | `/api/auth/logout` | |
 | GET | `/api/me` | current user and active plan |
-| GET | `/api/payments/options` | enabled providers, plan prices |
+| GET | `/api/payments/options` | enabled providers, base and country-specific plan prices |
 | POST | `/api/payments/initialize` | `{ provider: "paystack" \| "flutterwave", plan: "vip" \| "vvip" }` → `{ checkoutUrl, reference }` |
 | GET | `/api/payments/callback/:provider` | where the provider redirects the user |
 | GET | `/api/payments/:reference` | the signed-in user's payment status (re-verifies if pending) |

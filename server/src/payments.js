@@ -1,10 +1,9 @@
 import crypto from "node:crypto";
 import { hasFullAccess } from "./auth.js";
-import { config } from "./config.js";
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
-import { getGateway, METHODS, methodServes, publicCheckout, usdtFromGhs } from "./gateway.js";
-import { getPlan, getPricedPlan, readPlanSlots } from "./plans.js";
+import { METHODS, methodServes, publicCheckout } from "./gateway.js";
+import { getCountryPlanPrice, getPlan, getPricedPlan, readPlanSlots } from "./plans.js";
 import { getProvider } from "./providers/index.js";
 import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
 
@@ -44,7 +43,7 @@ export function publicPayment(payment) {
 }
 
 // Creates a pending payment and returns the provider's checkout URL.
-// The price comes from PLANS on the server, never from the request.
+// The price comes from saved server-side plan settings, never from the request.
 // siteUrl is where the provider sends the user back to.
 const PLAN_LABEL = { vip: "VIP", vvip: "VVIP", boom: "Wake up to boom games" };
 
@@ -97,14 +96,15 @@ export async function startPayment(user, providerName, planId, siteUrl) {
     throw new HttpError(400, "That payment method is not available.");
   }
 
+  const price = await getCountryPlanPrice(plan.id, user.country === "nigeria" ? "nigeria" : "ghana");
   const reference = `${plan.id}_${crypto.randomUUID()}`;
-  await execute(SQL.insertPayment, [user.id, provider.name, reference, plan.id, plan.amount, config.currency]);
+  await execute(SQL.insertPayment, [user.id, provider.name, reference, plan.id, price.amount, price.currency]);
 
   try {
     const checkoutUrl = await provider.initialize({
       email: user.email,
-      amount: plan.amount,
-      currency: config.currency,
+      amount: price.amount,
+      currency: price.currency,
       reference,
       callbackUrl: `${siteUrl}/api/payments/callback/${provider.name}`,
       metadata: { user_id: user.id, plan: plan.id },
@@ -217,14 +217,11 @@ export async function submitManualPayment(user, input) {
   }
   const receipt = `data:${match[1]};base64,${bytes.toString("base64")}`;
   const network = account.network || account.bank || method.label;
-  let amount = plan.amount;
-  let currency = config.currency;
-  if (method.id === "usdt") {
-    const { rates } = await getGateway();
-    const quote = usdtFromGhs(plan.amount / 100, rates);
-    amount = Math.round(quote.amount * 100);
-    currency = quote.currency;
-  }
+  const pricingCountry =
+    user.country || (method.id === "usdt" ? "international" : method.id === "ngBank" ? "nigeria" : "ghana");
+  const price = await getCountryPlanPrice(plan.id, pricingCountry);
+  const amount = price.amount;
+  const currency = price.currency;
 
   try {
     const { rows } = await execute(

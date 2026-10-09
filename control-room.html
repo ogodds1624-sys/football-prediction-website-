@@ -340,16 +340,52 @@
 
     <section class="control-section" aria-labelledby="plan-prices-title">
       <h2 id="plan-prices-title">Plan prices</h2>
-      <p class="form-hint">Amounts are in <span id="price-currency">GHS</span>. Members see these when they tap Buy Plan, and a buyer cannot change the price.</p>
+      <p class="form-hint">Set each country’s VIP, Wake up to boom games, and VVIP prices. Ghana uses <span id="price-currency">GHS</span>. A blank country price keeps using the current exchange-rate conversion.</p>
       <form class="match-form" id="plan-prices-form" novalidate>
-        <label>VIP price
+        <label>Ghana — VIP (<span class="price-currency">GHS</span>)
           <input id="price-vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
         </label>
-        <label>Wake up to boom games price
+        <label>Ghana — Wake up to boom games (<span class="price-currency">GHS</span>)
           <input id="price-boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
         </label>
-        <label>VVIP price
+        <label>Ghana — VVIP (<span class="price-currency">GHS</span>)
           <input id="price-vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
+        <label>Nigeria — VIP (NGN)
+          <input data-country-price="nigeria" data-plan-price="vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Nigeria — Wake up to boom games (NGN)
+          <input data-country-price="nigeria" data-plan-price="boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Nigeria — VVIP (NGN)
+          <input data-country-price="nigeria" data-plan-price="vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Kenya — VIP (USDT)
+          <input data-country-price="kenya" data-plan-price="vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Kenya — Wake up to boom games (USDT)
+          <input data-country-price="kenya" data-plan-price="boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Kenya — VVIP (USDT)
+          <input data-country-price="kenya" data-plan-price="vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Uganda — VIP (USDT)
+          <input data-country-price="uganda" data-plan-price="vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Uganda — Wake up to boom games (USDT)
+          <input data-country-price="uganda" data-plan-price="boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Uganda — VVIP (USDT)
+          <input data-country-price="uganda" data-plan-price="vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>International — VIP (USDT)
+          <input data-country-price="international" data-plan-price="vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>International — Wake up to boom games (USDT)
+          <input data-country-price="international" data-plan-price="boom" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>International — VVIP (USDT)
+          <input data-country-price="international" data-plan-price="vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
         </label>
         <div class="form-actions">
           <button type="submit" class="control-primary">Save prices</button>

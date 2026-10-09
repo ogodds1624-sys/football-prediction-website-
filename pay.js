@@ -258,7 +258,13 @@ async function loadPage() {
     return;
   }
   const payingUsdt = accounts.every((account) => account.methodId === "usdt");
-  fillSheet(plan, payingUsdt ? "USDT" : options.currency, payingUsdt ? plan.usdtAmount : plan.amount, me.user.country);
+  const countryPrice = plan.pricesByCountry?.[me.user.country];
+  fillSheet(
+    plan,
+    countryPrice?.currency || (payingUsdt ? "USDT" : options.currency),
+    countryPrice?.amount ?? (payingUsdt ? plan.usdtAmount : plan.amount),
+    me.user.country,
+  );
   if (paymentStatus === "pending") {
     showWaiting();
   }

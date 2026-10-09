@@ -1231,26 +1231,41 @@ const planPricesForm = document.querySelector("#plan-prices-form");
 const planPricesMessage = document.querySelector("#plan-prices-message");
 
 async function loadPlanPrices() {
-  const { currency, plans } = await adminFetch("/api/admin/plans");
+  const { currency, plans, countries } = await adminFetch("/api/admin/plans");
   document.querySelector("#price-currency").textContent = currency;
+  for (const node of document.querySelectorAll(".price-currency")) {
+    node.textContent = currency;
+  }
   document.querySelector("#price-vip").value = plans.vip;
   document.querySelector("#price-boom").value = plans.boom;
   document.querySelector("#price-vvip").value = plans.vvip;
+  for (const input of document.querySelectorAll("[data-country-price]")) {
+    input.value = countries?.[input.dataset.countryPrice]?.[input.dataset.planPrice] ?? "";
+  }
 }
 
 planPricesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   planPricesMessage.textContent = "";
+  const countries = {};
+  for (const input of document.querySelectorAll("[data-country-price]")) {
+    countries[input.dataset.countryPrice] ||= {};
+    countries[input.dataset.countryPrice][input.dataset.planPrice] = input.value;
+  }
   try {
-    const { plans } = await postJson("/api/admin/plans", {
+    const { plans, countries: savedCountries } = await postJson("/api/admin/plans", {
       vip: document.querySelector("#price-vip").value,
       boom: document.querySelector("#price-boom").value,
       vvip: document.querySelector("#price-vvip").value,
+      countries,
     });
     document.querySelector("#price-vip").value = plans.vip;
     document.querySelector("#price-boom").value = plans.boom;
     document.querySelector("#price-vvip").value = plans.vvip;
-    showMessage(planPricesMessage, "Prices saved. Buy Plan now shows these amounts.");
+    for (const input of document.querySelectorAll("[data-country-price]")) {
+      input.value = savedCountries?.[input.dataset.countryPrice]?.[input.dataset.planPrice] ?? "";
+    }
+    showMessage(planPricesMessage, "Prices saved. Country-specific prices appear at checkout.");
   } catch (error) {
     showMessage(planPricesMessage, error.message, true);
   }

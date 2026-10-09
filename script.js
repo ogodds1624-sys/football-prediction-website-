@@ -247,17 +247,15 @@ async function renderPredictions() {
 
   for (const tier of TIERS) {
     const tierMatches = matches.filter((match) => match.tier === tier.id);
-    const savedTotal = Boolean(oddsTotals[tier.id]);
-    const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, savedTotal)) : [emptyRow()];
+    const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, Boolean(oddsTotals[tier.id]))) : [emptyRow()];
     tierBodies[tier.id].replaceChildren(...rows);
   }
 
   for (const button of planButtons) {
     const override = oddsTotals[button.dataset.tier];
     const total = override ? Number(override) : totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
-    button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
+    button.dataset.totalOdds = total ? total.toFixed(2) : "";
   }
-  showSavedOdds(oddsTotals);
   showOwnedBookingCodes();
   markFullPlans();
 }
@@ -869,7 +867,10 @@ function contactLinks(checkout, message) {
 // Manual payment details: accounts, price in other currencies, and how to send proof.
 function manualPayment(planInfo, options, hasOnline) {
   const { checkout, currency } = options;
-  const amountText = `${currency} ${planInfo.amount.toFixed(2)}`;
+  const countryPrice = planInfo.pricesByCountry?.[currentUser.country];
+  const amountText = countryPrice
+    ? `${countryPrice.currency} ${Number(countryPrice.amount).toFixed(2)}`
+    : `${currency} ${planInfo.amount.toFixed(2)}`;
   const nodes = [];
 
   if (!checkout.methods.length) {
@@ -888,7 +889,7 @@ function manualPayment(planInfo, options, hasOnline) {
     return nodes;
   }
 
-  nodes.push(element("p", "pay-heading", hasOnline ? "Or pay manually" : `Send ${amountText} to any of these:`));
+  nodes.push(element("p", "pay-heading", hasOnline ? `Or pay manually: send ${amountText}` : `Send ${amountText} to any of these:`));
   for (const method of checkout.methods) {
     const block = element("div", "pay-method");
     block.append(element("p", "pay-method-title", method.label));
@@ -904,7 +905,7 @@ function manualPayment(planInfo, options, hasOnline) {
     nodes.push(block);
   }
 
-  if (checkout.rates.length) {
+  if (checkout.rates.length && !countryPrice) {
     const list = element("p", "pay-small pay-convert");
     list.textContent = "Paying from abroad: " + checkout.rates
       .map((rate) => `${rate.symbol} ${(planInfo.amount * rate.rate).toLocaleString(undefined, { maximumFractionDigits: 2 })} (${rate.country})`)
@@ -958,9 +959,13 @@ async function openPayment(plan) {
     return;
   }
   const hasOnline = options.providers.length > 0;
+  const countryPrice = planInfo.pricesByCountry?.[currentUser.country];
+  const displayedPrice = countryPrice && (!hasOnline || countryPrice.currency !== "USDT")
+    ? countryPrice
+    : { currency: options.currency, amount: planInfo.amount };
 
   payTitle.textContent = `Buy ${planInfo.name} plan`;
-  payPrice.textContent = `${options.currency} ${planInfo.amount.toFixed(2)} · valid for ${planInfo.days === 1 ? "today (renews daily)" : `${planInfo.days} days`}`;
+  payPrice.textContent = `${displayedPrice.currency} ${Number(displayedPrice.amount).toFixed(2)} · valid for ${planInfo.days === 1 ? "today (renews daily)" : `${planInfo.days} days`}`;
   payError.textContent = "";
   payNote.hidden = !hasOnline;
   payManual.replaceChildren(...manualPayment(planInfo, options, hasOnline));
@@ -1077,6 +1082,9 @@ async function loadCurrentUser() {
 }
 
 loadCurrentUser().then(() => {
+  if (paymentOptions) {
+    showBoomPrice(paymentOptions);
+  }
   const params = new URLSearchParams(location.search);
   // Back from registering via the booking code button: open the code for them.
   if (params.get("booking") === "1") {
@@ -1105,9 +1113,11 @@ loadCurrentUser().then(() => {
 
 // Payment proof still uses the Control Room WhatsApp number. The support chat and the footer icon use 233597559382.
 let supportInfo = { plans: [], currency: "GHS", whatsapp: "", email: "" };
+let paymentOptions = null;
 
 loadOptions()
   .then((options) => {
+    paymentOptions = options;
     supportInfo = {
       plans: options.plans || [],
       currency: options.currency || "GHS",
@@ -1124,49 +1134,24 @@ let planSlots = {};
 function markFullPlans() {
   for (const button of planButtons) {
     const full = planSlots[slotForButton(button)] === 0 && !coversTier(button.dataset.tier);
+    const total = button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
     button.disabled = full;
-    if (full) {
-      button.textContent = "SLOTS FULL";
-    }
+    button.textContent = `${full ? "SLOTS FULL" : "BUY PLAN"}${total}`;
   }
 }
 
 let boomPriceLabel = "";
-let savedOdds = {};
 
 function showBoomPrice(options) {
   const plan = (options?.plans || []).find((item) => item.id === "boom");
-  boomPriceLabel = plan ? `${options.currency || "GHS"} ${Number(plan.amount).toFixed(2)}` : "";
-  showSavedOdds(savedOdds);
-}
-
-// A saved total replaces the plan price and each game's own odds for that day.
-function showSavedOdds(oddsTotals) {
-  savedOdds = oddsTotals || {};
-  const lines = {
-    free: "#free-odds",
-    vip: "#vip-odds",
-    vvip: "#vvip-odds",
-    boom: "#boom-price",
-  };
-  for (const [tier, selector] of Object.entries(lines)) {
-    const line = document.querySelector(selector);
-    if (!line) {
-      continue;
-    }
-    const saved = savedOdds[tier];
-    if (saved) {
-      line.hidden = false;
-      line.textContent = `Total odds ${Number(saved).toFixed(2)}`;
-      continue;
-    }
-    if (tier === "boom" && boomPriceLabel) {
-      line.hidden = false;
-      line.textContent = boomPriceLabel;
-      continue;
-    }
-    line.hidden = true;
-    line.textContent = "";
+  const countryPrice = plan?.pricesByCountry?.[currentUser?.country];
+  boomPriceLabel = plan
+    ? `${countryPrice?.currency || options.currency || "GHS"} ${Number(countryPrice?.amount ?? plan.amount).toFixed(2)}`
+    : "";
+  const priceLine = document.querySelector("#boom-price");
+  if (priceLine) {
+    priceLine.hidden = !boomPriceLabel;
+    priceLine.textContent = boomPriceLabel;
   }
 }
 
@@ -1231,7 +1216,10 @@ function planPriceText() {
   return supportInfo.plans
     .map((plan) => {
       const days = Number(plan.days) === 1 ? "1 day" : `${plan.days} days`;
-      return `${plan.name} is ${supportInfo.currency} ${moneyAmount(plan.amount)} for ${days}`;
+      const price = plan.pricesByCountry?.[currentUser?.country];
+      const currency = price?.currency || supportInfo.currency;
+      const amount = price?.amount ?? plan.amount;
+      return `${plan.name} is ${currency} ${moneyAmount(amount)} for ${days}`;
     })
     .join(". ") + ".";
 }

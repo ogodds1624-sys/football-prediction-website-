@@ -1394,4 +1394,57 @@ describe("country checkout", () => {
     assert.equal(custom.data.plans.find((plan) => plan.id === "vip").usdtAmount, 4);
     assert.deepEqual(custom.data.checkout.usdt, { ngnPerGhs: 120, ngnPerUsdt: 1500 });
   });
+
+  test("country plan prices can be overridden and are used for manual payments", async () => {
+    const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const admin = await adminCookie();
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        methods: {
+          usdt: { enabled: true, accounts: [{ network: "TRC20", number: "TTESTUSDTTRC20ADDRESS0000000000001", name: "OG USDT" }] },
+        },
+      },
+    });
+    const saved = await api("/api/admin/plans", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        vip: "50",
+        boom: "50",
+        vvip: "100",
+        countries: {
+          nigeria: { vip: "8500" },
+          kenya: { vip: "3.25" },
+        },
+      },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.countries.nigeria.vip, 8500);
+    assert.equal(saved.data.countries.kenya.vip, 3.25);
+
+    const options = await api("/api/payments/options");
+    const vip = options.data.plans.find((plan) => plan.id === "vip");
+    assert.deepEqual(vip.pricesByCountry.nigeria, { currency: "NGN", amount: 8500 });
+    assert.deepEqual(vip.pricesByCountry.kenya, { currency: "USDT", amount: 3.25 });
+
+    const nigeria = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: nigeria.cookie, body: { country: "nigeria" } });
+    await startCheckout(nigeria.cookie, "paystack", "vip");
+    assert.equal(initializeCalls[0].amount, 850000);
+    assert.equal(initializeCalls[0].currency, "NGN");
+
+    const kenya = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: kenya.cookie, body: { country: "kenya" } });
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: kenya.cookie,
+      body: { plan: "vip", methodId: "usdt", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+    const status = await api("/api/payments/manual?plan=vip", { cookie: kenya.cookie });
+    assert.equal(status.data.payment.currency, "USDT");
+    assert.equal(status.data.payment.amount, 3.25);
+  });
 });
