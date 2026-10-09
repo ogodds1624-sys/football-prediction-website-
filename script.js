@@ -241,6 +241,83 @@ async function renderPredictions() {
 let codeRequest = 0;
 const DAY_NAMES = { "-1": "yesterday", 0: "today", 1: "tomorrow" };
 
+/* ---------- SportyBet booking code (free predictions) ---------- */
+
+const bookingButton = document.querySelector("#booking-button");
+const bookingPanel = document.querySelector("#booking-panel");
+const bookingText = document.querySelector("#booking-text");
+const bookingCodeRow = document.querySelector("#booking-code-row");
+const bookingCode = document.querySelector("#booking-code");
+const bookingCopy = document.querySelector("#booking-copy");
+
+function showBooking({ text, code = null }) {
+  bookingPanel.hidden = false;
+  bookingButton.setAttribute("aria-expanded", "true");
+  bookingText.textContent = text;
+  bookingCodeRow.hidden = !code;
+  bookingCode.textContent = code || "";
+  bookingCopy.textContent = "Copy";
+}
+
+function hideBooking() {
+  bookingPanel.hidden = true;
+  bookingButton.setAttribute("aria-expanded", "false");
+}
+
+// Visitors go straight to registration, then come back here with the code opened.
+function sendToRegister() {
+  location.href = `account.html?mode=register&next=${encodeURIComponent("index.html?booking=1")}`;
+}
+
+// The free code is only sent by the server to signed-in users.
+async function revealBookingCode() {
+  const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
+  if (!currentUser) {
+    sendToRegister();
+    return;
+  }
+
+  bookingButton.disabled = true;
+  try {
+    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}&tier=free`);
+    if (response.status === 401) {
+      showUser(null);
+      sendToRegister();
+      return;
+    }
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error);
+    }
+    if (body.code) {
+      showBooking({ text: `SportyBet booking code for ${dayName}'s free predictions:`, code: body.code });
+    } else {
+      showBooking({ text: `The booking code for ${dayName} isn't ready yet. Check back soon.` });
+    }
+  } catch {
+    showBooking({ text: "Couldn't load the booking code. Check your connection and try again." });
+  } finally {
+    bookingButton.disabled = false;
+  }
+}
+
+bookingButton.addEventListener("click", () => {
+  if (!bookingPanel.hidden) {
+    hideBooking();
+    return;
+  }
+  revealBookingCode();
+});
+
+bookingCopy.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(bookingCode.textContent);
+    bookingCopy.textContent = "Copied!";
+  } catch {
+    bookingCopy.textContent = "Select and copy";
+  }
+});
+
 function coversTier(tier) {
   return currentUser?.plan === tier;
 }
@@ -307,6 +384,7 @@ function selectDay(offset) {
   if (isCustom) {
     customDayButton.textContent = shortDayLabel(offset);
   }
+  hideBooking();
   renderPredictions();
 }
 
@@ -925,6 +1003,7 @@ async function signOut() {
     await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
   } finally {
     showUser(null);
+    hideBooking();
     renderPredictions();
   }
 }
@@ -955,6 +1034,14 @@ async function loadCurrentUser() {
 
 loadCurrentUser().then(() => {
   const params = new URLSearchParams(location.search);
+  // Back from registering via the booking code button: open the code for them.
+  if (params.get("booking") === "1") {
+    history.replaceState(null, "", location.pathname);
+    if (currentUser) {
+      bookingButton.scrollIntoView({ behavior: "smooth", block: "center" });
+      revealBookingCode();
+    }
+  }
   if (params.get("recovery") === "1") {
     history.replaceState(null, "", location.pathname);
     if (currentUser) {
@@ -1076,7 +1163,7 @@ function supportReply(raw) {
     return contactAnswer();
   }
   if (asks(/\b(book|booking|sporty)\b/)) {
-    return { text: "The SportyBet booking code shows only for the plan you have, in place of Buy Plan, for the day you are viewing. VIP members see the VIP code. VVIP members see the VVIP code. If the code is not ready, that space says so. The free table does not have a booking-code button." };
+    return { text: "Under Free predictions, press Get SportyBet booking code. You need an account: if you are not signed in, that button takes you to register, then opens the code. Signed-in members see that day's free code, or a note if it is not ready yet. VIP and VVIP members also see their own code in place of Buy Plan." };
   }
   if (asks(/\brecovery\b/)) {
     return { text: "Open Recovery ticket in the menu. It is for a VIP or VVIP ticket that lost, and it stays available for 2 days after that loss. A winning ticket does not qualify. Sign in with the account that bought the plan." };
@@ -1103,7 +1190,11 @@ function supportReply(raw) {
     return { text: "Betting is for adults, and winnings are never guaranteed. Only stake money you can afford to lose. If betting is hurting your money or your life, stop and seek professional help." };
   }
   if (asks(/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\b/) && text.trim().split(/\s+/).length <= 4) {
-    return { text: "Hello. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets." };
+    const name = String(currentUser?.name || currentUser?.email || "").trim();
+    if (!name) {
+      return { text: "Hi. Please register before I can help with anything. Use Sign in at the top of the page to create an account." };
+    }
+    return { text: `Hi, ${name}. Ask me about predictions, VIP and VVIP plans, payments, booking codes, or recovery tickets.` };
   }
   return { text: "Ask me about predictions, buying VIP or VVIP, payment confirmation, booking codes, or recovery tickets. You can also message us on WhatsApp." };
 }
