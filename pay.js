@@ -195,22 +195,11 @@ function fillSheet(plan, currency, amount) {
   document.querySelector("#pay-amount-row").textContent = amountText;
   document.querySelector("#pay-step-amount").textContent = amountText;
   document.title = `Pay for ${plan.name}`;
-  const rate = document.querySelector("#pay-rate");
-  const payingUsdt = accounts.every((account) => account.methodId === "usdt");
-  if (payingUsdt && optionsUsdt) {
-    rate.hidden = false;
-    rate.textContent = `1 GHS = ${optionsUsdt.ngnPerGhs} NGN · 1 USDT = ${Number(optionsUsdt.ngnPerUsdt).toLocaleString("en")} NGN`;
-  } else {
-    rate.hidden = true;
-    rate.textContent = "";
-  }
   renderPicker();
   showAccount(0);
   loading.hidden = true;
   sheet.hidden = false;
 }
-
-let optionsUsdt = null;
 
 async function loadPage() {
   if (planId !== "vip" && planId !== "vvip") {
@@ -266,7 +255,6 @@ async function loadPage() {
     showProblem(`${name} slots are full. No places are left for this plan.`);
     return;
   }
-  optionsUsdt = options.checkout.usdt || null;
   const payingUsdt = accounts.every((account) => account.methodId === "usdt");
   fillSheet(plan, payingUsdt ? "USDT" : options.currency, payingUsdt ? plan.usdtAmount : plan.amount);
   if (paymentStatus === "pending") {
