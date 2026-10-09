@@ -682,22 +682,6 @@ thead th.free-heading::after {
   color: #ffb020;
 }
 
-.boom-price {
-  margin: 0.75rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-align: center;
-}
-
-.boom-price[hidden] {
-  display: none;
-}
-
-.boom-price {
-  color: #ffb020;
-}
-
 .boom-table {
   border-color: #ffb020;
 }

@@ -1082,9 +1082,6 @@ async function loadCurrentUser() {
 }
 
 loadCurrentUser().then(() => {
-  if (paymentOptions) {
-    showBoomPrice(paymentOptions);
-  }
   const params = new URLSearchParams(location.search);
   // Back from registering via the booking code button: open the code for them.
   if (params.get("booking") === "1") {
@@ -1113,11 +1110,9 @@ loadCurrentUser().then(() => {
 
 // Payment proof still uses the Control Room WhatsApp number. The support chat and the footer icon use 233597559382.
 let supportInfo = { plans: [], currency: "GHS", whatsapp: "", email: "" };
-let paymentOptions = null;
 
 loadOptions()
   .then((options) => {
-    paymentOptions = options;
     supportInfo = {
       plans: options.plans || [],
       currency: options.currency || "GHS",
@@ -1125,7 +1120,6 @@ loadOptions()
       email: options.checkout?.email || "",
     };
     showPlanSlots(options.slots);
-    showBoomPrice(options);
   })
   .catch(() => {});
 
@@ -1137,21 +1131,6 @@ function markFullPlans() {
     const total = button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
     button.disabled = full;
     button.textContent = `${full ? "SLOTS FULL" : "BUY PLAN"}${total}`;
-  }
-}
-
-let boomPriceLabel = "";
-
-function showBoomPrice(options) {
-  const plan = (options?.plans || []).find((item) => item.id === "boom");
-  const countryPrice = plan?.pricesByCountry?.[currentUser?.country];
-  boomPriceLabel = plan
-    ? `${countryPrice?.currency || options.currency || "GHS"} ${Number(countryPrice?.amount ?? plan.amount).toFixed(2)}`
-    : "";
-  const priceLine = document.querySelector("#boom-price");
-  if (priceLine) {
-    priceLine.hidden = !boomPriceLabel;
-    priceLine.textContent = boomPriceLabel;
   }
 }
 
