@@ -672,6 +672,46 @@ describe("predictions", () => {
     const badTier = await api("/api/admin/matches", { method: "POST", cookie: admin, body: { date: DATE, tier: "gold", home: "A", away: "B", tip: "1" } });
     assert.equal(badTier.status, 400);
   });
+
+  test("the admin can replace a table's total odds", async () => {
+    const admin = await adminCookie();
+    const denied = await api("/api/admin/odds-total", {
+      method: "POST",
+      body: { date: DATE, tier: "vip", total: "8.5" },
+    });
+    assert.equal(denied.status, 401);
+    const bad = await api("/api/admin/odds-total", {
+      method: "POST",
+      cookie: admin,
+      body: { date: DATE, tier: "vip", total: "0.5" },
+    });
+    assert.equal(bad.status, 400);
+
+    const saved = await api("/api/admin/odds-total", {
+      method: "POST",
+      cookie: admin,
+      body: { date: DATE, tier: "vip", total: "8.5" },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.total, "8.50");
+
+    const listed = await api("/api/admin/matches?date=" + DATE, { cookie: admin });
+    assert.equal(listed.data.oddsTotals.vip, "8.50");
+    assert.equal(listed.data.oddsTotals.vvip, null);
+
+    const pub = await api(`/api/matches?date=${DATE}`);
+    assert.equal(pub.data.oddsTotals.vip, "8.50");
+    assert.equal(pub.data.oddsTotals.vvip, null);
+
+    const cleared = await api("/api/admin/odds-total", {
+      method: "POST",
+      cookie: admin,
+      body: { date: DATE, tier: "vip", total: "" },
+    });
+    assert.equal(cleared.data.total, null);
+    const after = await api(`/api/matches?date=${DATE}`);
+    assert.equal(after.data.oddsTotals.vip, null);
+  });
 });
 
 describe("results calendar", () => {

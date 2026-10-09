@@ -421,12 +421,8 @@ function tierSection(tier, matches) {
   title.textContent = `${tier.label} predictions`;
   heading.append(title);
 
-  const total = totalOdds(matches);
-  if (tier.id !== "free" && total) {
-    const totalText = document.createElement("p");
-    totalText.className = "tier-total";
-    totalText.textContent = `Total odds ${total.toFixed(2)}`;
-    heading.append(totalText);
+  if (tier.id !== "free") {
+    heading.append(totalOddsEditor(tier, matches));
   }
   if (dayCodes[tier.id]) {
     const codeText = document.createElement("p");
@@ -477,6 +473,55 @@ function renderStats() {
 
 let matchesRequest = 0;
 let dayCodes = {};
+let dayTotals = {};
+
+function totalOddsEditor(tier, matches) {
+  const form = document.createElement("form");
+  form.className = "total-odds-form";
+  form.noValidate = true;
+  const label = document.createElement("label");
+  label.append("Total odds");
+  const input = document.createElement("input");
+  input.type = "number";
+  input.step = "0.01";
+  input.min = "1";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", `${tier.label} total odds`);
+  const calculated = totalOdds(matches);
+  input.value = dayTotals[tier.id] || "";
+  input.placeholder = calculated ? calculated.toFixed(2) : "e.g. 12.40";
+  label.append(input);
+  const button = document.createElement("button");
+  button.type = "submit";
+  button.className = "row-action";
+  button.textContent = "Save";
+  form.append(label, button);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    try {
+      const saved = await postJson("/api/admin/odds-total", {
+        date: dateKey(selectedOffset),
+        tier: tier.id,
+        total: input.value,
+      });
+      dayTotals[tier.id] = saved.total;
+      input.value = saved.total || "";
+      showMessage(
+        formMessage,
+        saved.total
+          ? `${tier.label} total odds saved.`
+          : `${tier.label} total odds cleared. Buy Plan will multiply the match odds.`,
+      );
+    } catch (error) {
+      showMessage(formMessage, error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return form;
+}
 
 async function render() {
   const request = ++matchesRequest;
@@ -494,6 +539,7 @@ async function render() {
     }
     serverMatches = body.matches;
     dayCodes = codesBody.codes || {};
+    dayTotals = body.oddsTotals || {};
   } catch (error) {
     showMessage(formMessage, error.message, true);
     return;

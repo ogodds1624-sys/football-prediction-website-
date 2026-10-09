@@ -76,6 +76,14 @@ const SCHEMA = [
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
   // SportyBet booking code for one table on one day. Adding a match saves the code with that table.
+  // Optional total odds for one table on one day. Blank means multiply the match odds.
+  `CREATE TABLE IF NOT EXISTS odds_totals (
+    date       TEXT NOT NULL,
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+    total      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (date, tier)
+  )`,
   `CREATE TABLE IF NOT EXISTS booking_codes (
     date       TEXT NOT NULL,
     tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),

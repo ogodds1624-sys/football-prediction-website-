@@ -128,6 +128,50 @@ export async function deleteMatch(id) {
   await execute("DELETE FROM matches WHERE id = ?", [id]);
 }
 
+// A typed total replaces the multiplied match odds on Buy Plan. Empty clears it.
+export function oddsTotalFrom(value) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return null;
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) {
+    throw new HttpError(400, "Enter total odds with up to 2 decimal places.");
+  }
+  const total = Number(text);
+  if (total < 1 || total > 1_000_000) {
+    throw new HttpError(400, "Enter total odds from 1 upwards.");
+  }
+  return total.toFixed(2);
+}
+
+export async function oddsTotalsFor(date) {
+  const { rows } = await execute("SELECT tier, total FROM odds_totals WHERE date = ?", [date]);
+  const totals = { free: null, vip: null, vvip: null, recovery: null };
+  for (const row of rows) {
+    if (Object.hasOwn(totals, row.tier)) {
+      totals[row.tier] = row.total;
+    }
+  }
+  return totals;
+}
+
+export async function saveOddsTotal(date, tier, value) {
+  if (!TIERS.includes(tier)) {
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP or Recovery.");
+  }
+  const total = oddsTotalFrom(value);
+  if (!total) {
+    await execute("DELETE FROM odds_totals WHERE date = ? AND tier = ?", [date, tier]);
+    return null;
+  }
+  await execute(
+    `INSERT INTO odds_totals (date, tier, total) VALUES (?, ?, ?)
+     ON CONFLICT(date, tier) DO UPDATE SET total = excluded.total, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+    [date, tier, total],
+  );
+  return total;
+}
+
 // Per-day totals for a month ("YYYY-MM"), used by the front page calendar.
 export async function monthSummary(month) {
   if (!/^\d{4}-\d{2}$/.test(String(month || ""))) {

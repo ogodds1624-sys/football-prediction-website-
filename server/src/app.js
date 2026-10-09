@@ -27,7 +27,9 @@ import {
   matchesForDate,
   matchFrom,
   monthSummary,
+  oddsTotalsFor,
   publicMatch,
+  saveOddsTotal,
   setResult,
   unlockedTiers,
   updateMatch,
@@ -272,8 +274,14 @@ export function createApp({ limitRequests = true } = {}) {
     const plan = req.user ? publicUser(req.user).plan : null;
     const unlocked = unlockedTiers(plan, req.user);
     // Recovery bonus tips are only given out through /api/recovery.
-    const matches = (await matchesForDate(dateFrom(req.query.date))).filter((match) => match.tier !== "recovery");
-    res.json({ plan, matches: matches.map((match) => publicMatch(match, unlocked)) });
+    const date = dateFrom(req.query.date);
+    const matches = (await matchesForDate(date)).filter((match) => match.tier !== "recovery");
+    const totals = await oddsTotalsFor(date);
+    res.json({
+      plan,
+      matches: matches.map((match) => publicMatch(match, unlocked)),
+      oddsTotals: { free: totals.free, vip: totals.vip, vvip: totals.vvip },
+    });
   });
 
   // Which days of a month have predictions, with won/lost counts (no tips).
@@ -370,7 +378,15 @@ export function createApp({ limitRequests = true } = {}) {
   });
 
   app.get("/api/admin/matches", requireAdmin, async (req, res) => {
-    res.json({ matches: await matchesForDate(dateFrom(req.query.date)) });
+    const date = dateFrom(req.query.date);
+    res.json({ matches: await matchesForDate(date), oddsTotals: await oddsTotalsFor(date) });
+  });
+
+  // Empty total clears the typed figure and Buy Plan multiplies the match odds again.
+  app.post("/api/admin/odds-total", requireAdmin, async (req, res) => {
+    const date = dateFrom(req.body?.date);
+    const tier = String(req.body?.tier || "");
+    res.json({ tier, total: await saveOddsTotal(date, tier, req.body?.total) });
   });
 
   // One match, or several at once (e.g. read from a SportyBet slip).

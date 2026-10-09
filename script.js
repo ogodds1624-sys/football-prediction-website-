@@ -213,12 +213,15 @@ async function renderPredictions() {
   const request = ++predictionsRequest;
   const date = dateKey(selectedOffset);
   let matches;
+  let oddsTotals = {};
   try {
     const response = await fetch(`/api/matches?date=${date}`);
     if (!response.ok) {
       throw new Error("predictions unavailable");
     }
-    matches = (await response.json()).matches;
+    const body = await response.json();
+    matches = body.matches;
+    oddsTotals = body.oddsTotals || {};
   } catch {
     if (request === predictionsRequest) {
       for (const tier of TIERS) {
@@ -238,7 +241,8 @@ async function renderPredictions() {
   }
 
   for (const button of planButtons) {
-    const total = totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
+    const override = oddsTotals[button.dataset.tier];
+    const total = override ? Number(override) : totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
   }
   showOwnedBookingCodes();
