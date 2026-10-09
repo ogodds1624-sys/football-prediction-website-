@@ -237,7 +237,7 @@ async function loadPage() {
     location.replace("index.html");
     return;
   }
-  if (paymentStatus !== "pending" && options.slots?.[planId] === 0 && me.user.plan !== planId) {
+  if (paymentStatus !== "pending" && options.slots?.[planId] === 0 && me.user.plan !== planId && !me.user.fullAccess) {
     const name = planId === "vvip" ? "VVIP" : "VIP";
     showProblem(`${name} slots are full. No places are left for this plan.`);
     return;
@@ -301,6 +301,10 @@ form.addEventListener("submit", async (event) => {
     const body = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 409) {
       throw new Error(body.error || "Couldn't send your receipt. Please try again.");
+    }
+    if (body.status === "confirmed") {
+      location.replace("index.html");
+      return;
     }
     showWaiting();
   } catch (error) {

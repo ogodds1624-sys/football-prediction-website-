@@ -1,3 +1,4 @@
+import { hasFullAccess } from "./auth.js";
 import { execute, one } from "./db.js";
 import { HttpError } from "./errors.js";
 
@@ -50,7 +51,11 @@ export function matchFrom(body) {
 // Which tables a viewer may see tips for. Visitors who aren't signed in
 // (plan null) see teams and odds only; a free account unlocks free tips.
 // VIP and VVIP each unlock only their own table. A VVIP plan does not reveal VIP tips.
-export function unlockedTiers(plan) {
+// The one full-access account sees both paid tables whether or not a plan is active.
+export function unlockedTiers(plan, user) {
+  if (hasFullAccess(user)) {
+    return new Set(["free", "vip", "vvip"]);
+  }
   if (!plan) {
     return new Set();
   }

@@ -248,7 +248,8 @@ header > .user-chip {
   background: rgba(230, 193, 90, 0.12);
 }
 
-.user-plan.plan-vvip {
+.user-plan.plan-vvip,
+.user-plan.plan-both {
   color: #b48cf2;
   background: rgba(180, 140, 242, 0.14);
 }
@@ -1957,6 +1958,10 @@ button {
 
   .user-chip[data-plan="vvip"] .user-avatar {
     box-shadow: 0 0 0 2px #b48cf2;
+  }
+
+  .user-chip[data-plan="both"] .user-avatar {
+    box-shadow: 0 0 0 2px #e6c15a, 0 0 0 4px #b48cf2;
   }
 }
 

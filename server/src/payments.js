@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { hasFullAccess } from "./auth.js";
 import { config } from "./config.js";
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
@@ -172,7 +173,9 @@ export async function submitManualPayment(user, input) {
   if (!plan) {
     throw new HttpError(400, "Unknown plan.");
   }
-  await assertSlotsOpen(user, plan.id);
+  if (!hasFullAccess(user)) {
+    await assertSlotsOpen(user, plan.id);
+  }
   const checkout = await publicCheckout();
   const method = checkout.methods.find((item) => item.id === input?.methodId);
   const account = method?.accounts[Number(input?.accountIndex)];
@@ -199,13 +202,31 @@ export async function submitManualPayment(user, input) {
        RETURNING id`,
       [user.id, plan.id, plan.amount, config.currency, method.id, network, account.number, account.name || "", receipt],
     );
-    return { id: Number(rows[0].id) };
+    return finishManualPayment(user, Number(rows[0].id));
   } catch (error) {
     if (/UNIQUE constraint failed/i.test(error.message)) {
+      if (hasFullAccess(user)) {
+        const waiting = await one(
+          "SELECT id FROM manual_payments WHERE user_id = ? AND plan = ? AND status = 'pending'",
+          [user.id, plan.id],
+        );
+        if (waiting) {
+          return finishManualPayment(user, Number(waiting.id));
+        }
+      }
       throw new HttpError(409, "You already sent a receipt for this plan. We'll confirm it soon.");
     }
     throw error;
   }
+}
+
+// Everyone else waits for the Control Room. This one account is confirmed immediately.
+async function finishManualPayment(user, id) {
+  if (!hasFullAccess(user)) {
+    return { id };
+  }
+  await confirmManualPayment(id);
+  return { id, status: "confirmed" };
 }
 
 // The member's latest receipt for one plan, without the file itself.

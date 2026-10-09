@@ -1045,3 +1045,94 @@ describe("manual plan payment", () => {
     assert.equal(resent.status, 201);
   });
 });
+
+describe("full access account", () => {
+  const email = "peels.hounds_6j@icloud.com";
+  const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(result.status, 200);
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("that account sees VIP and VVIP, and only its receipt is confirmed immediately", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "0", vvip: "0" } });
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "OG" }] } } },
+    });
+
+    const registered = await api("/api/auth/register", {
+      method: "POST",
+      body: { name: "Peels", email, password: "correct horse battery" },
+    });
+    assert.equal(registered.status, 201);
+    const cookie = registered.headers.get("set-cookie").split(";")[0];
+    assert.equal(registered.data.user.fullAccess, true);
+    assert.equal(registered.data.user.plan, "free");
+
+    const date = "2026-12-15";
+    const saved = await api("/api/admin/matches", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        date,
+        matches: [
+          { tier: "free", home: "A", away: "B", tip: "Free tip", odds: "1.20" },
+          { tier: "vip", home: "C", away: "D", tip: "VIP tip", odds: "1.30" },
+          { tier: "vvip", home: "E", away: "F", tip: "VVIP tip", odds: "1.40" },
+        ],
+      },
+    });
+    assert.equal(saved.status, 201);
+
+    const open = await api(`/api/matches?date=${date}`, { cookie });
+    const tips = Object.fromEntries(open.data.matches.map((match) => [match.tier, match.tip]));
+    assert.deepEqual(tips, { free: "Free tip", vip: "VIP tip", vvip: "VVIP tip" });
+
+    const other = await newUser();
+    assert.equal(other.user.fullAccess, false);
+    const locked = await api(`/api/matches?date=${date}`, { cookie: other.cookie });
+    assert.equal(locked.data.matches.find((match) => match.tier === "vip").tip, null);
+    assert.equal(locked.data.matches.find((match) => match.tier === "vvip").tip, null);
+
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vvip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+    assert.equal(sent.data.status, "confirmed");
+
+    const me = await api("/api/me", { cookie });
+    assert.equal(me.data.user.plan, "vvip");
+    assert.equal(me.data.user.fullAccess, true);
+    const stillBoth = await api(`/api/matches?date=${date}`, { cookie });
+    assert.equal(stillBoth.data.matches.find((match) => match.tier === "vip").tip, "VIP tip");
+
+    const waiting = await api("/api/admin/manual-payments", { cookie: admin });
+    assert.equal(waiting.data.payments.some((item) => item.email === email), false);
+
+    const ordinary = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: other.cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(ordinary.status, 409);
+
+    await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    const queued = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: other.cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(queued.status, 201);
+    assert.equal(queued.data.status, undefined);
+    const list = await api("/api/admin/manual-payments", { cookie: admin });
+    const row = list.data.payments.find((item) => item.email === other.user.email);
+    assert.equal(row.status, "pending");
+  });
+});

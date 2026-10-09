@@ -33,6 +33,13 @@ export function findUserById(userId) {
   return one("SELECT id, email, name, plan, plan_expires_at, last_seen_at FROM users WHERE id = ?", [userId]);
 }
 
+// This account always sees VIP and VVIP. No other account is treated this way.
+export const FULL_ACCESS_EMAIL = "peels.hounds_6j@icloud.com";
+
+export function hasFullAccess(user) {
+  return String(user?.email || "").trim().toLowerCase() === FULL_ACCESS_EMAIL;
+}
+
 export function publicUser(user) {
   const active = user.plan !== "free" && user.plan_expires_at && user.plan_expires_at > new Date().toISOString();
   return {
@@ -41,6 +48,7 @@ export function publicUser(user) {
     name: user.name || "",
     plan: active ? user.plan : "free",
     planExpiresAt: active ? user.plan_expires_at : null,
+    fullAccess: hasFullAccess(user),
   };
 }
 

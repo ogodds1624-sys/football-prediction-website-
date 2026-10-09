@@ -38,7 +38,7 @@ function arrangeTables(signedIn) {
 }
 
 function showPlanTables(plan) {
-  const hideVip = plan === "vvip";
+  const hideVip = plan === "vvip" && !currentUser?.fullAccess;
   tableSections.vip.hidden = hideVip;
   for (const link of document.querySelectorAll('a[href="#vip"]')) {
     const target = link.closest(".footer-list li") || link;
@@ -66,10 +66,17 @@ function showUser(user) {
   document.querySelector("#user-avatar").textContent = initials(who);
   document.querySelector("#user-name").textContent = who;
   const planBadge = document.querySelector("#user-plan");
-  planBadge.textContent = user.plan.toUpperCase();
-  planBadge.className = `user-plan plan-${user.plan}`;
-  userLabel.dataset.plan = user.plan;
-  userLabel.title = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()} member`;
+  if (user.fullAccess) {
+    planBadge.textContent = "VIP + VVIP";
+    planBadge.className = "user-plan plan-both";
+    userLabel.dataset.plan = "both";
+    userLabel.title = `${who} · VIP and VVIP`;
+  } else {
+    planBadge.textContent = user.plan.toUpperCase();
+    planBadge.className = `user-plan plan-${user.plan}`;
+    userLabel.dataset.plan = user.plan;
+    userLabel.title = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()} member`;
+  }
   showWelcome(user);
 }
 
@@ -319,6 +326,9 @@ bookingCopy.addEventListener("click", async () => {
 });
 
 function coversTier(tier) {
+  if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip")) {
+    return true;
+  }
   return currentUser?.plan === tier;
 }
 
@@ -338,22 +348,22 @@ async function showOwnedBookingCodes() {
     return;
   }
 
-  let code = "";
-  let failed = false;
-  try {
-    const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}&tier=${owned[0].dataset.tier}`);
-    if (!response.ok) {
-      throw new Error("code");
-    }
-    code = (await response.json()).code || "";
-  } catch {
-    failed = true;
-  }
-  if (request !== codeRequest) {
-    return;
-  }
   const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
-  for (const button of owned) {
+  await Promise.all(owned.map(async (button) => {
+    let code = "";
+    let failed = false;
+    try {
+      const response = await fetch(`/api/booking-code?date=${dateKey(selectedOffset)}&tier=${button.dataset.tier}`);
+      if (!response.ok) {
+        throw new Error("code");
+      }
+      code = (await response.json()).code || "";
+    } catch {
+      failed = true;
+    }
+    if (request !== codeRequest) {
+      return;
+    }
     const slot = document.querySelector(`#${button.dataset.tier}-code`);
     const text = slot.querySelector(".booking-text");
     const row = slot.querySelector(".booking-code-row");
@@ -369,7 +379,7 @@ async function showOwnedBookingCodes() {
       text.textContent = `The booking code for ${dayName} isn't ready yet. Check back soon.`;
       row.hidden = true;
     }
-  }
+  }));
 }
 
 // Shows the predictions for a day, as an offset from today (0 = today).
