@@ -155,7 +155,7 @@ const planButtons = document.querySelectorAll(".plan-button[data-tier]");
 
 let selectedOffset = 0;
 
-function matchRow(match, tier) {
+function matchRow(match, tier, hideOdds = false) {
   const row = document.createElement("tr");
   const cell = document.createElement("td");
 
@@ -170,7 +170,7 @@ function matchRow(match, tier) {
 
   const meta = document.createElement("span");
   meta.className = "match-meta";
-  const odds = match.odds ? ` · Odds: ${match.odds}` : "";
+  const odds = !hideOdds && match.odds ? ` · Odds: ${match.odds}` : "";
   // The server only sends tips the viewer may see: free tips need an account,
   // and VIP and VVIP tips need that exact plan. A VVIP plan does not reveal VIP tips.
   const lockedText = tier === "free" ? "Tip hidden · register free to see it" : "Tip locked · buy the plan to unlock";
@@ -247,7 +247,8 @@ async function renderPredictions() {
 
   for (const tier of TIERS) {
     const tierMatches = matches.filter((match) => match.tier === tier.id);
-    const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id)) : [emptyRow()];
+    const savedTotal = Boolean(oddsTotals[tier.id]);
+    const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, savedTotal)) : [emptyRow()];
     tierBodies[tier.id].replaceChildren(...rows);
   }
 
@@ -256,6 +257,7 @@ async function renderPredictions() {
     const total = override ? Number(override) : totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
     button.textContent = total ? `BUY PLAN (total odds ${total.toFixed(2)})` : "BUY PLAN (total odds)";
   }
+  showSavedOdds(oddsTotals);
   showOwnedBookingCodes();
   markFullPlans();
 }
@@ -1129,13 +1131,43 @@ function markFullPlans() {
   }
 }
 
+let boomPriceLabel = "";
+let savedOdds = {};
+
 function showBoomPrice(options) {
-  const line = document.querySelector("#boom-price");
   const plan = (options?.plans || []).find((item) => item.id === "boom");
-  if (!line || !plan) {
-    return;
+  boomPriceLabel = plan ? `${options.currency || "GHS"} ${Number(plan.amount).toFixed(2)}` : "";
+  showSavedOdds(savedOdds);
+}
+
+// A saved total replaces the plan price and each game's own odds for that day.
+function showSavedOdds(oddsTotals) {
+  savedOdds = oddsTotals || {};
+  const lines = {
+    free: "#free-odds",
+    vip: "#vip-odds",
+    vvip: "#vvip-odds",
+    boom: "#boom-price",
+  };
+  for (const [tier, selector] of Object.entries(lines)) {
+    const line = document.querySelector(selector);
+    if (!line) {
+      continue;
+    }
+    const saved = savedOdds[tier];
+    if (saved) {
+      line.hidden = false;
+      line.textContent = `Total odds ${Number(saved).toFixed(2)}`;
+      continue;
+    }
+    if (tier === "boom" && boomPriceLabel) {
+      line.hidden = false;
+      line.textContent = boomPriceLabel;
+      continue;
+    }
+    line.hidden = true;
+    line.textContent = "";
   }
-  line.textContent = `${options.currency || "GHS"} ${Number(plan.amount).toFixed(2)}`;
 }
 
 function showPlanSlots(slots) {

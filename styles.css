@@ -682,13 +682,34 @@ thead th.free-heading::after {
   color: #ffb020;
 }
 
+.odds-total,
 .boom-price {
   margin: 0.75rem 0 0;
-  color: #ffb020;
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-align: center;
+}
+
+.odds-total[hidden],
+.boom-price[hidden] {
+  display: none;
+}
+
+#free-odds {
+  color: #d7deea;
+}
+
+#vip-odds {
+  color: #e6c15a;
+}
+
+#vvip-odds {
+  color: #b48cf2;
+}
+
+.boom-price {
+  color: #ffb020;
 }
 
 .boom-table {
