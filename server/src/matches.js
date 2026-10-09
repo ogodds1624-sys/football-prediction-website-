@@ -7,7 +7,7 @@ import { HttpError } from "./errors.js";
 // whose plan covers that table, so a locked tip never reaches the browser.
 
 // "recovery" holds bonus tips for recovery tickets; it is never in the public tables.
-export const TIERS = ["free", "vip", "vvip", "recovery"];
+export const TIERS = ["free", "vip", "vvip", "boom", "recovery"];
 const RESULTS = ["pending", "won", "lost"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // Pictures are shrunk in the browser first; this keeps a runaway upload out.
@@ -29,7 +29,7 @@ function text(value, max = 60) {
 export function matchFrom(body) {
   const tier = String(body?.tier || "");
   if (!TIERS.includes(tier)) {
-    throw new HttpError(400, "Choose a table: Free, VIP, VVIP or Recovery.");
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games or Recovery.");
   }
   const match = {
     tier,
@@ -51,10 +51,11 @@ export function matchFrom(body) {
 // Which tables a viewer may see tips for. Visitors who aren't signed in
 // (plan null) see teams and odds only; a free account unlocks free tips.
 // VIP and VVIP each unlock only their own table. A VVIP plan does not reveal VIP tips.
-// The one full-access account sees both paid tables whether or not a plan is active.
+// Wake up to boom games uses the VIP package: a VIP plan unlocks it, a VVIP plan does not.
+// The one full-access account sees every paid table whether or not a plan is active.
 export function unlockedTiers(plan, user) {
   if (hasFullAccess(user)) {
-    return new Set(["free", "vip", "vvip"]);
+    return new Set(["free", "vip", "vvip", "boom"]);
   }
   if (!plan) {
     return new Set();
@@ -63,7 +64,7 @@ export function unlockedTiers(plan, user) {
     return new Set(["free", "vvip"]);
   }
   if (plan === "vip") {
-    return new Set(["free", "vip"]);
+    return new Set(["free", "vip", "boom"]);
   }
   return new Set(["free"]);
 }
@@ -146,7 +147,7 @@ export function oddsTotalFrom(value) {
 
 export async function oddsTotalsFor(date) {
   const { rows } = await execute("SELECT tier, total FROM odds_totals WHERE date = ?", [date]);
-  const totals = { free: null, vip: null, vvip: null, recovery: null };
+  const totals = { free: null, vip: null, vvip: null, boom: null, recovery: null };
   for (const row of rows) {
     if (Object.hasOwn(totals, row.tier)) {
       totals[row.tier] = row.total;
@@ -157,7 +158,7 @@ export async function oddsTotalsFor(date) {
 
 export async function saveOddsTotal(date, tier, value) {
   if (!TIERS.includes(tier)) {
-    throw new HttpError(400, "Choose a table: Free, VIP, VVIP or Recovery.");
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games or Recovery.");
   }
   const total = oddsTotalFrom(value);
   if (!total) {

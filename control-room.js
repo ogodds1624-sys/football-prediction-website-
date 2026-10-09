@@ -418,7 +418,7 @@ function tierSection(tier, matches) {
   const heading = document.createElement("div");
   heading.className = "tier-heading";
   const title = document.createElement("h2");
-  title.textContent = `${tier.label} predictions`;
+  title.textContent = tier.id === "boom" ? tier.label : `${tier.label} predictions`;
   heading.append(title);
 
   if (tier.id !== "free") {

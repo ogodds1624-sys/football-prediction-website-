@@ -457,7 +457,7 @@ main hr {
   scroll-margin-top: 4.75rem;
 }
 
-.boom-title {
+thead th.boom-title {
   margin: 0;
   padding: 1rem 0.85rem;
   text-align: center;
@@ -624,6 +624,7 @@ thead th.free-heading::after {
 }
 
 #vip[hidden],
+#boom[hidden],
 .site-menu .menu-item[hidden],
 .footer-list li[hidden] {
   display: none;
@@ -670,6 +671,14 @@ thead th.free-heading::after {
 
 #vip-slots {
   color: #e6c15a;
+}
+
+#boom-slots {
+  color: #ffb020;
+}
+
+.boom-table {
+  border-color: #ffb020;
 }
 
 #vvip-slots {
@@ -3131,6 +3140,8 @@ button:not(:disabled):not(.toggle-passcode):active,
 #free td,
 #vip th,
 #vip td,
+#boom th,
+#boom td,
 #vvip th,
 #vvip td {
   text-align: center;

@@ -45,7 +45,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS matches (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
     home       TEXT NOT NULL,
     away       TEXT NOT NULL,
     tip        TEXT NOT NULL,
@@ -79,14 +79,14 @@ const SCHEMA = [
   // Optional total odds for one table on one day. Blank means multiply the match odds.
   `CREATE TABLE IF NOT EXISTS odds_totals (
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
     total      TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     PRIMARY KEY (date, tier)
   )`,
   `CREATE TABLE IF NOT EXISTS booking_codes (
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
     code       TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     PRIMARY KEY (date, tier)
@@ -277,6 +277,72 @@ async function allowRecoveryTier() {
   });
 }
 
+// Tables created before Wake up to boom games need the boom tier in their CHECK.
+const BOOM_TIER_CHECK = "('free', 'vip', 'vvip', 'boom', 'recovery')";
+
+async function allowBoomTier() {
+  await rebuildTierTable(
+    "matches",
+    `CREATE TABLE matches_boom (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      date       TEXT NOT NULL,
+      tier       TEXT NOT NULL CHECK (tier IN ${BOOM_TIER_CHECK}),
+      home       TEXT NOT NULL,
+      away       TEXT NOT NULL,
+      tip        TEXT NOT NULL,
+      odds       TEXT NOT NULL DEFAULT '',
+      image      TEXT NOT NULL DEFAULT '',
+      result     TEXT NOT NULL DEFAULT 'pending' CHECK (result IN ('pending', 'won', 'lost')),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )`,
+    `INSERT INTO matches_boom (id, date, tier, home, away, tip, odds, image, result, created_at)
+     SELECT id, date, tier, home, away, tip, odds, image, result, created_at FROM matches`,
+    ["CREATE INDEX IF NOT EXISTS matches_date ON matches(date)"],
+  );
+  await rebuildTierTable(
+    "odds_totals",
+    `CREATE TABLE odds_totals_boom (
+      date       TEXT NOT NULL,
+      tier       TEXT NOT NULL CHECK (tier IN ${BOOM_TIER_CHECK}),
+      total      TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      PRIMARY KEY (date, tier)
+    )`,
+    `INSERT INTO odds_totals_boom (date, tier, total, updated_at)
+     SELECT date, tier, total, updated_at FROM odds_totals`,
+  );
+  await rebuildTierTable(
+    "booking_codes",
+    `CREATE TABLE booking_codes_boom (
+      date       TEXT NOT NULL,
+      tier       TEXT NOT NULL CHECK (tier IN ${BOOM_TIER_CHECK}),
+      code       TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      PRIMARY KEY (date, tier)
+    )`,
+    `INSERT INTO booking_codes_boom (date, tier, code, updated_at)
+     SELECT date, tier, code, updated_at FROM booking_codes`,
+  );
+}
+
+async function rebuildTierTable(name, createSql, copySql, after = []) {
+  const { rows } = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", [name]);
+  const sql = rows[0]?.sql || "";
+  if (!sql || sql.includes("'boom'")) {
+    return;
+  }
+  const temp = `${name}_boom`;
+  await backend.transaction(async (tx) => {
+    await tx.execute(createSql, []);
+    await tx.execute(copySql, []);
+    await tx.execute(`DROP TABLE ${name}`, []);
+    await tx.execute(`ALTER TABLE ${temp} RENAME TO ${name}`, []);
+    for (const statement of after) {
+      await tx.execute(statement, []);
+    }
+  });
+}
+
 // Older databases stored one code per day. Copy it onto every public table
 // so a code saved before this change still shows with those matches.
 async function bookingCodesByTier() {
@@ -319,6 +385,7 @@ async function migrate() {
   }
   await allowRecoveryTier();
   await bookingCodesByTier();
+  await allowBoomTier();
   // The first version of this table could only store "confirmed". Rebuild it
   // once so an admin can also reject a payment.
   const defined = await backend.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_payments'");

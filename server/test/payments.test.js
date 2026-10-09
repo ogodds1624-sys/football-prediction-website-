@@ -604,6 +604,7 @@ describe("predictions", () => {
         matches: [
           { tier: "free", home: "Hearts", away: "Kotoko", tip: "Over 1.5", odds: "1.45" },
           { tier: "vip", home: "Enyimba", away: "Rangers", tip: "Home win", odds: "1.90" },
+          { tier: "boom", home: "Boom Home", away: "Boom Away", tip: "Over 2.5", odds: "2.10" },
           { tier: "vvip", home: "Arsenal", away: "Chelsea", tip: "GG", odds: "1.70" },
         ],
       },
@@ -617,7 +618,7 @@ describe("predictions", () => {
 
   test("visitors see no tips at all; teams and odds stay visible", async () => {
     const { data } = await api(`/api/matches?date=${DATE}`);
-    assert.deepEqual(tipsByTier(data.matches), { free: null, vip: null, vvip: null });
+    assert.deepEqual(tipsByTier(data.matches), { free: null, vip: null, boom: null, vvip: null });
     assert.equal(data.matches.find((match) => match.tier === "free").home, "Hearts");
     const vip = data.matches.find((match) => match.tier === "vip");
     assert.equal(vip.home, "Enyimba");
@@ -628,20 +629,33 @@ describe("predictions", () => {
   test("a free account unlocks free tips only", async () => {
     const { cookie } = await newUser();
     const { data } = await api(`/api/matches?date=${DATE}`, { cookie });
-    assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, vvip: null });
+    assert.deepEqual(tipsByTier(data.matches), { free: "Over 1.5", vip: null, boom: null, vvip: null });
   });
 
   test("VIP members unlock VIP only, VVIP members unlock VVIP only", async () => {
     const vip = await memberWithPlan("vip");
     const vipView = await api(`/api/matches?date=${DATE}`, { cookie: vip.cookie });
-    assert.deepEqual(tipsByTier(vipView.data.matches), { free: "Over 1.5", vip: "Home win", vvip: null });
+    assert.deepEqual(tipsByTier(vipView.data.matches), { free: "Over 1.5", vip: "Home win", boom: "Over 2.5", vvip: null });
 
     const vvip = await memberWithPlan("vvip");
     const vvipView = await api(`/api/matches?date=${DATE}`, { cookie: vvip.cookie });
-    assert.deepEqual(tipsByTier(vvipView.data.matches), { free: "Over 1.5", vip: null, vvip: "GG" });
+    assert.deepEqual(tipsByTier(vvipView.data.matches), { free: "Over 1.5", vip: null, boom: null, vvip: "GG" });
     const vipMatch = vvipView.data.matches.find((match) => match.tier === "vip");
     assert.equal(vipMatch.locked, true);
     assert.equal(vipMatch.image, "");
+    const boomMatch = vvipView.data.matches.find((match) => match.tier === "boom");
+    assert.equal(boomMatch.locked, true);
+    assert.equal(boomMatch.image, "");
+
+    const admin = await adminCookie();
+    const saved = await api("/api/admin/booking-code", {
+      method: "POST",
+      cookie: admin,
+      body: { date: DATE, tier: "boom", code: "BOOM1234" },
+    });
+    assert.equal(saved.status, 200);
+    const code = await api(`/api/booking-code?date=${DATE}&tier=boom`, { cookie: vip.cookie });
+    assert.equal(code.data.code, "BOOM1234");
   });
 
   test("admin can update, set results and delete; members cannot", async () => {
@@ -1123,6 +1137,7 @@ describe("full access account", () => {
         matches: [
           { tier: "free", home: "A", away: "B", tip: "Free tip", odds: "1.20" },
           { tier: "vip", home: "C", away: "D", tip: "VIP tip", odds: "1.30" },
+          { tier: "boom", home: "G", away: "H", tip: "Boom tip", odds: "1.50" },
           { tier: "vvip", home: "E", away: "F", tip: "VVIP tip", odds: "1.40" },
         ],
       },
@@ -1131,12 +1146,13 @@ describe("full access account", () => {
 
     const open = await api(`/api/matches?date=${date}`, { cookie });
     const tips = Object.fromEntries(open.data.matches.map((match) => [match.tier, match.tip]));
-    assert.deepEqual(tips, { free: "Free tip", vip: "VIP tip", vvip: "VVIP tip" });
+    assert.deepEqual(tips, { free: "Free tip", vip: "VIP tip", boom: "Boom tip", vvip: "VVIP tip" });
 
     const other = await newUser();
     assert.equal(other.user.fullAccess, false);
     const locked = await api(`/api/matches?date=${date}`, { cookie: other.cookie });
     assert.equal(locked.data.matches.find((match) => match.tier === "vip").tip, null);
+    assert.equal(locked.data.matches.find((match) => match.tier === "boom").tip, null);
     assert.equal(locked.data.matches.find((match) => match.tier === "vvip").tip, null);
 
     const sent = await api("/api/payments/manual", {

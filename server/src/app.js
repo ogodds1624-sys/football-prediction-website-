@@ -79,7 +79,7 @@ function reviewFrom(body) {
   return review;
 }
 
-const BOOKING_TIERS = new Set(["free", "vip", "vvip", "recovery"]);
+const BOOKING_TIERS = new Set(["free", "vip", "vvip", "boom", "recovery"]);
 
 function bookingTier(value, fallback = "") {
   const tier = String(value || fallback);
@@ -280,7 +280,7 @@ export function createApp({ limitRequests = true } = {}) {
     res.json({
       plan,
       matches: matches.map((match) => publicMatch(match, unlocked)),
-      oddsTotals: { free: totals.free, vip: totals.vip, vvip: totals.vvip },
+      oddsTotals: { free: totals.free, vip: totals.vip, vvip: totals.vvip, boom: totals.boom },
     });
   });
 

@@ -4,6 +4,7 @@ const DATA_KEY = "predictions-data";
 const TIERS = [
   { id: "free", label: "Free" },
   { id: "vip", label: "VIP" },
+  { id: "boom", label: "Wake up to boom games" },
   { id: "vvip", label: "VVIP" },
 ];
 

@@ -19,13 +19,22 @@ function setMenuOpen(open) {
 
 // Signed-in members see the paid tables first: VIP, then VVIP, then Free.
 // Visitors see Free first. The dividers between tables move with them.
-const tableSections = { free: document.querySelector("#free"), vip: document.querySelector("#vip"), vvip: document.querySelector("#vvip") };
+const tableSections = {
+  free: document.querySelector("#free"),
+  vip: document.querySelector("#vip"),
+  boom: document.querySelector("#boom"),
+  vvip: document.querySelector("#vvip"),
+};
 // Tables are placed after the day switcher, which always stays on top.
 const leadDivider = document.querySelector(".day-switcher");
-const tableDividers = [tableSections.vip.previousElementSibling, tableSections.vvip.previousElementSibling];
+const tableDividers = [
+  tableSections.vip.previousElementSibling,
+  tableSections.boom.previousElementSibling,
+  tableSections.vvip.previousElementSibling,
+];
 
 function arrangeTables(signedIn) {
-  const order = signedIn ? ["vip", "vvip", "free"] : ["free", "vip", "vvip"];
+  const order = signedIn ? ["vip", "boom", "vvip", "free"] : ["free", "vip", "boom", "vvip"];
   let previous = leadDivider;
   order.forEach((id, index) => {
     previous.after(tableSections[id]);
@@ -40,7 +49,8 @@ function arrangeTables(signedIn) {
 function showPlanTables(plan) {
   const hideVip = plan === "vvip" && !currentUser?.fullAccess;
   tableSections.vip.hidden = hideVip;
-  for (const link of document.querySelectorAll('a[href="#vip"]')) {
+  tableSections.boom.hidden = hideVip;
+  for (const link of document.querySelectorAll('a[href="#vip"], a[href="#boom"]')) {
     const target = link.closest(".footer-list li") || link;
     target.hidden = hideVip;
   }
@@ -137,6 +147,7 @@ function popToast(title, text, ms) {
 const tierBodies = {
   free: document.querySelector("#free-body"),
   vip: document.querySelector("#vip-body"),
+  boom: document.querySelector("#boom-body"),
   vvip: document.querySelector("#vvip-body"),
 };
 // Only the VIP/VVIP buttons; other buttons share the .plan-button look.
@@ -330,10 +341,17 @@ bookingCopy.addEventListener("click", async () => {
 });
 
 function coversTier(tier) {
-  if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip")) {
+  if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip" || tier === "boom")) {
     return true;
   }
+  if (tier === "boom") {
+    return currentUser?.plan === "vip";
+  }
   return currentUser?.plan === tier;
+}
+
+function planForButton(button) {
+  return button.dataset.plan || button.dataset.tier;
 }
 
 // A paid member sees the day's SportyBet code where Buy Plan used to be.
@@ -955,7 +973,7 @@ async function openPayment(plan) {
 
 for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
   button.addEventListener("click", () => {
-    const plan = button.dataset.tier;
+    const plan = planForButton(button);
     if (button.disabled || planSlots[plan] === 0) {
       return;
     }
@@ -1098,7 +1116,7 @@ let planSlots = {};
 
 function markFullPlans() {
   for (const button of planButtons) {
-    const full = planSlots[button.dataset.tier] === 0 && !coversTier(button.dataset.tier);
+    const full = planSlots[planForButton(button)] === 0 && !coversTier(button.dataset.tier);
     button.disabled = full;
     if (full) {
       button.textContent = "SLOTS FULL";
@@ -1108,20 +1126,26 @@ function markFullPlans() {
 
 function showPlanSlots(slots) {
   planSlots = slots || {};
-  for (const tier of ["vip", "vvip"]) {
-    const line = document.querySelector(`#${tier}-slots`);
-    if (!line) {
-      continue;
-    }
+  const slotLines = {
+    vip: ["#vip-slots", "#boom-slots"],
+    vvip: ["#vvip-slots"],
+  };
+  for (const [tier, selectors] of Object.entries(slotLines)) {
     const left = planSlots[tier];
-    if (left == null || left === "") {
-      line.hidden = true;
-      line.textContent = "";
-      continue;
+    for (const selector of selectors) {
+      const line = document.querySelector(selector);
+      if (!line) {
+        continue;
+      }
+      if (left == null || left === "") {
+        line.hidden = true;
+        line.textContent = "";
+        continue;
+      }
+      const count = Math.max(0, Number(left));
+      line.hidden = false;
+      line.textContent = count === 1 ? "1 slot available" : `${count} slots available`;
     }
-    const count = Math.max(0, Number(left));
-    line.hidden = false;
-    line.textContent = count === 1 ? "1 slot available" : `${count} slots available`;
   }
   markFullPlans();
 }
