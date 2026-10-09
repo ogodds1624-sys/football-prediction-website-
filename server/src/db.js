@@ -16,6 +16,7 @@ const SCHEMA = [
     plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip')),
     plan_expires_at TEXT,
     last_seen_at    TEXT,
+    country         TEXT NOT NULL DEFAULT '',
     created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
   // amount is stored in the smallest currency unit (pesewas / kobo / cents).
@@ -102,6 +103,19 @@ const SCHEMA = [
     ON manual_payments(user_id, plan) WHERE status = 'pending'`,
 ];
 
+// Existing databases were created before country was stored on the account.
+const ADD_COUNTRY = "ALTER TABLE users ADD COLUMN country TEXT NOT NULL DEFAULT ''";
+
+function addCountryColumn(run) {
+  try {
+    run();
+  } catch (error) {
+    if (!/duplicate column/i.test(String(error.message))) {
+      throw error;
+    }
+  }
+}
+
 function createTursoBackend() {
   let clientPromise;
   const client = () => {
@@ -120,7 +134,15 @@ function createTursoBackend() {
 
   return {
     async init() {
-      await (await client()).batch(SCHEMA, "write");
+      const connection = await client();
+      await connection.batch(SCHEMA, "write");
+      try {
+        await connection.execute(ADD_COUNTRY);
+      } catch (error) {
+        if (!/duplicate column/i.test(String(error.message))) {
+          throw error;
+        }
+      }
     },
     execute: async (sql, args) => wrap(await client()).execute(sql, args),
     async transaction(fn) {
@@ -172,6 +194,7 @@ function createLocalBackend() {
       for (const statement of SCHEMA) {
         db.exec(statement);
       }
+      addCountryColumn(() => db.exec(ADD_COUNTRY));
     },
     execute: (sql, args) => runner.execute(sql, args),
     transaction(fn) {

@@ -39,9 +39,15 @@ function money(currency, amount) {
   return `${currency} ${shown}`;
 }
 
-function paymentAccounts(checkout) {
+function servesCountry(method, country) {
+  const countries = Array.isArray(method.countries) && method.countries.length ? method.countries : [method.country];
+  return countries.includes(country);
+}
+
+function paymentAccounts(checkout, country) {
   const list = [];
-  for (const method of checkout.methods || []) {
+  const methods = (checkout.methods || []).filter((method) => servesCountry(method, country));
+  for (const method of methods) {
     method.accounts.forEach((account, accountIndex) => {
       if (!account.number) {
         return;
@@ -61,6 +67,9 @@ function paymentAccounts(checkout) {
 function showAccount(index) {
   selected = index;
   const account = accounts[index];
+  const usdt = account.methodId === "usdt";
+  document.querySelector("#pay-send-label").textContent = usdt ? "TRC20 address" : "Send to";
+  document.querySelector("#pay-name-label").textContent = usdt ? "Wallet name" : "Account name";
   document.querySelector("#pay-network").textContent = account.network;
   document.querySelector("#pay-number").textContent = account.number;
   document.querySelector("#pay-name").textContent = account.name;
@@ -177,8 +186,8 @@ async function checkDecision() {
   }
 }
 
-function fillSheet(plan, currency) {
-  amountText = money(currency, plan.amount);
+function fillSheet(plan, currency, amount) {
+  amountText = money(currency, amount);
   document.querySelector("#pay-heading").textContent = `${plan.name} plan fee`;
   document.querySelector("#pay-plan").textContent = plan.name;
   document.querySelector("#pay-copy").textContent = `One-time payment for ${plan.days} days. Your plan activates once we confirm the transfer.`;
@@ -186,11 +195,22 @@ function fillSheet(plan, currency) {
   document.querySelector("#pay-amount-row").textContent = amountText;
   document.querySelector("#pay-step-amount").textContent = amountText;
   document.title = `Pay for ${plan.name}`;
+  const rate = document.querySelector("#pay-rate");
+  const payingUsdt = accounts.every((account) => account.methodId === "usdt");
+  if (payingUsdt && optionsUsdt) {
+    rate.hidden = false;
+    rate.textContent = `1 GHS = ${optionsUsdt.ngnPerGhs} NGN · 1 USDT = ${Number(optionsUsdt.ngnPerUsdt).toLocaleString("en")} NGN`;
+  } else {
+    rate.hidden = true;
+    rate.textContent = "";
+  }
   renderPicker();
   showAccount(0);
   loading.hidden = true;
   sheet.hidden = false;
 }
+
+let optionsUsdt = null;
 
 async function loadPage() {
   if (planId !== "vip" && planId !== "vvip") {
@@ -228,7 +248,11 @@ async function loadPage() {
   }
 
   const plan = options.plans.find((item) => item.id === planId);
-  accounts = paymentAccounts(options.checkout);
+  if (!me.user.country) {
+    location.replace(`country.html?next=${encodeURIComponent(`pay.html?plan=${planId}`)}`);
+    return;
+  }
+  accounts = paymentAccounts(options.checkout, me.user.country);
   if (!plan || !accounts.length) {
     showProblem("Payments are opening soon. Please check back shortly.");
     return;
@@ -242,7 +266,9 @@ async function loadPage() {
     showProblem(`${name} slots are full. No places are left for this plan.`);
     return;
   }
-  fillSheet(plan, options.currency);
+  optionsUsdt = options.checkout.usdt || null;
+  const payingUsdt = accounts.every((account) => account.methodId === "usdt");
+  fillSheet(plan, payingUsdt ? "USDT" : options.currency, payingUsdt ? plan.usdtAmount : plan.amount);
   if (paymentStatus === "pending") {
     showWaiting();
   }
@@ -253,7 +279,7 @@ copyButton.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(number);
   } catch {
-    errorText.textContent = "Couldn't copy the number. Select it and copy it yourself.";
+    errorText.textContent = "Couldn't copy that. Select it and copy it yourself.";
     return;
   }
   copyLabel.textContent = "Copied";

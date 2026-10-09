@@ -14,10 +14,47 @@ export const RATE_CURRENCIES = [
 ];
 
 export const METHODS = [
-  { id: "momo", label: "Ghana MoMo", fields: ["network", "number", "name"] },
-  { id: "ghBank", label: "Ghana bank", fields: ["bank", "number", "name"] },
-  { id: "ngBank", label: "Nigeria bank transfer", fields: ["bank", "number", "name"] },
+  { id: "momo", label: "Ghana MoMo", country: "ghana", fields: ["network", "number", "name"] },
+  { id: "ghBank", label: "Ghana bank", country: "ghana", fields: ["bank", "number", "name"] },
+  { id: "ngBank", label: "Nigeria bank transfer", country: "nigeria", fields: ["bank", "number", "name"] },
+  {
+    id: "usdt",
+    label: "USDT (TRC20)",
+    countries: ["kenya", "uganda", "international"],
+    fields: ["network", "number", "name"],
+  },
 ];
+
+// Used when the Control Room rate boxes are left blank.
+export const NGN_PER_GHS = 120;
+export const NGN_PER_USDT = 1329;
+
+export function methodCountries(method) {
+  if (Array.isArray(method?.countries) && method.countries.length) {
+    return method.countries;
+  }
+  return method?.country ? [method.country] : [];
+}
+
+export function methodServes(method, country) {
+  return methodCountries(method).includes(country);
+}
+
+// USDT = GHS price × naira per GHS ÷ naira per USDT.
+// Blank rates use 1 GHS = 120 NGN and 1 USDT = 1,329 NGN.
+export function usdtFromGhs(ghsMajor, rates = {}) {
+  const ngnPerGhs = rates.ngn ?? NGN_PER_GHS;
+  const ngnPerUsdt = rates.usdtNgn ?? NGN_PER_USDT;
+  const minor = Math.round((Number(ghsMajor) * 100 * ngnPerGhs) / ngnPerUsdt);
+  return {
+    currency: "USDT",
+    amount: minor / 100,
+    ngnPerGhs,
+    ngnPerUsdt,
+  };
+}
+
+export const COUNTRIES = ["ghana", "nigeria", "kenya", "uganda", "international"];
 
 const MAX_ACCOUNTS = 5;
 const MAX_TEXT = 60;
@@ -33,7 +70,18 @@ function emptyCheckout() {
 }
 
 function emptyRates() {
-  return Object.fromEntries(RATE_CURRENCIES.map((currency) => [currency.id, null]));
+  return { ...Object.fromEntries(RATE_CURRENCIES.map((currency) => [currency.id, null])), usdtNgn: null };
+}
+
+function rateOrNull(raw, label) {
+  if (raw === null || raw === undefined || raw === "") {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || value > 1e7) {
+    throw new HttpError(400, `Enter a valid rate for ${label}, or leave it empty.`);
+  }
+  return Math.round(value * 10000) / 10000;
 }
 
 function text(value, max = MAX_TEXT) {
@@ -64,17 +112,9 @@ export function cleanCheckout(input = {}) {
 export function cleanRates(input = {}) {
   const rates = {};
   for (const currency of RATE_CURRENCIES) {
-    const raw = input[currency.id];
-    if (raw === null || raw === undefined || raw === "") {
-      rates[currency.id] = null;
-      continue;
-    }
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value <= 0 || value > 1e7) {
-      throw new HttpError(400, `Enter a valid rate for ${currency.country}, or leave it empty.`);
-    }
-    rates[currency.id] = Math.round(value * 10000) / 10000;
+    rates[currency.id] = rateOrNull(input[currency.id], currency.country);
   }
+  rates.usdtNgn = rateOrNull(input.usdtNgn, "USDT");
   return rates;
 }
 
@@ -121,13 +161,21 @@ export async function saveRates(input) {
 export async function publicCheckout() {
   const { checkout, rates } = await getGateway();
   const methods = METHODS.filter((method) => checkout.methods[method.id].enabled && checkout.methods[method.id].accounts.length).map(
-    (method) => ({ id: method.id, label: method.label, accounts: checkout.methods[method.id].accounts }),
+    (method) => ({
+      id: method.id,
+      label: method.label,
+      country: method.country || null,
+      countries: methodCountries(method),
+      accounts: checkout.methods[method.id].accounts,
+    }),
   );
+  const usdt = usdtFromGhs(1, rates);
   return {
     businessName: checkout.businessName,
     whatsapp: checkout.whatsapp,
     email: checkout.email,
     methods,
     rates: RATE_CURRENCIES.filter((currency) => rates[currency.id]).map((currency) => ({ ...currency, rate: rates[currency.id] })),
+    usdt: { ngnPerGhs: usdt.ngnPerGhs, ngnPerUsdt: usdt.ngnPerUsdt },
   };
 }

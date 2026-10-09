@@ -3,7 +3,7 @@ import { hasFullAccess } from "./auth.js";
 import { config } from "./config.js";
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
-import { publicCheckout } from "./gateway.js";
+import { getGateway, METHODS, methodServes, publicCheckout, usdtFromGhs } from "./gateway.js";
 import { getPlan, getPricedPlan, readPlanSlots } from "./plans.js";
 import { getProvider } from "./providers/index.js";
 import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
@@ -178,6 +178,10 @@ export async function submitManualPayment(user, input) {
   }
   const checkout = await publicCheckout();
   const method = checkout.methods.find((item) => item.id === input?.methodId);
+  const definition = METHODS.find((item) => item.id === method?.id);
+  if (user.country && definition && !methodServes(definition, user.country)) {
+    throw new HttpError(400, "That payment method is not available for your country.");
+  }
   const account = method?.accounts[Number(input?.accountIndex)];
   if (!account?.number) {
     throw new HttpError(400, "Choose a payment account.");
@@ -193,6 +197,14 @@ export async function submitManualPayment(user, input) {
   }
   const receipt = `data:${match[1]};base64,${bytes.toString("base64")}`;
   const network = account.network || account.bank || method.label;
+  let amount = plan.amount;
+  let currency = config.currency;
+  if (method.id === "usdt") {
+    const { rates } = await getGateway();
+    const quote = usdtFromGhs(plan.amount / 100, rates);
+    amount = Math.round(quote.amount * 100);
+    currency = quote.currency;
+  }
 
   try {
     const { rows } = await execute(
@@ -200,7 +212,7 @@ export async function submitManualPayment(user, input) {
         (user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
-      [user.id, plan.id, plan.amount, config.currency, method.id, network, account.number, account.name || "", receipt],
+      [user.id, plan.id, amount, currency, method.id, network, account.number, account.name || "", receipt],
     );
     return finishManualPayment(user, Number(rows[0].id));
   } catch (error) {

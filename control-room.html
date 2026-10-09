@@ -220,7 +220,7 @@
           <div class="rate-field">
             <label for="rate-ngn">Nigeria — ₦ per GHS</label>
             <div class="rate-row">
-              <input id="rate-ngn" data-rate="ngn" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off">
+              <input id="rate-ngn" data-rate="ngn" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off" placeholder="120">
               <button type="button" class="round-button" data-reset="ngn" aria-label="Reset Nigeria rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
             </div>
           </div>
@@ -253,6 +253,14 @@
             </div>
           </div>
           </div>
+          <p class="form-hint">Kenya, Uganda, and International pay in USDT. The amount is the GHS price × naira per GHS ÷ naira per USDT. Blank rates use 1 GHS = 120 NGN and 1 USDT = 1,329 NGN.</p>
+          <div class="rate-field">
+            <label for="rate-usdtNgn">USDT — ₦ per 1 USDT</label>
+            <div class="rate-row">
+              <input id="rate-usdtNgn" data-rate="usdtNgn" type="number" step="0.0001" min="0" inputmode="decimal" autocomplete="off" placeholder="1329">
+              <button type="button" class="round-button" data-reset="usdtNgn" aria-label="Reset USDT rate to last saved value" title="Reset to last saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+            </div>
+          </div>
           <button type="submit" class="control-primary gateway-save">Save rates</button>
           <p class="form-message" id="rates-message" role="status"></p>
         </form>
@@ -274,6 +282,7 @@
             <input id="c-email" type="email" maxlength="120" autocomplete="off">
           </div>
 
+          <p class="form-hint">Members who chose Ghana see Ghana MoMo and Ghana bank when they buy VIP or VVIP, and only the ones you switch on. Nigeria bank is for members who chose Nigeria. Kenya, Uganda, and International see the USDT (TRC20) address when you switch it on.</p>
           <div class="method-block" data-method="momo">
             <div class="method-head">
               <span class="method-title" id="method-momo-title">Ghana MoMo</span>
@@ -308,6 +317,18 @@
             </div>
             <div class="method-rows" data-method-rows="ngBank" data-placeholders="Bank|Account number|Account name"></div>
             <button type="button" class="outline-button" data-method-add="ngBank">Add Nigeria account</button>
+          </div>
+
+          <div class="method-block" data-method="usdt">
+            <div class="method-head">
+              <span class="method-title" id="method-usdt-title">USDT (TRC20)</span>
+              <label class="switch">
+                <input type="checkbox" data-method-toggle="usdt" aria-labelledby="method-usdt-title">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="method-rows" data-method-rows="usdt" data-placeholders="Network|TRC20 address|Wallet name"></div>
+            <button type="button" class="outline-button" data-method-add="usdt">Add address</button>
           </div>
           <button type="submit" class="control-primary gateway-save">Save settings</button>
           <p class="form-message" id="checkout-message" role="status"></p>

@@ -20,7 +20,7 @@ import {
 import { config } from "./config.js";
 import { execute, one } from "./db.js";
 import { HttpError, ProviderError } from "./errors.js";
-import { getGateway, publicCheckout, saveCheckout, saveRates } from "./gateway.js";
+import { COUNTRIES, getGateway, publicCheckout, saveCheckout, saveRates, usdtFromGhs } from "./gateway.js";
 import {
   createMatches,
   deleteMatch,
@@ -206,7 +206,7 @@ export function createApp({ limitRequests = true } = {}) {
       throw new HttpError(409, "An account with this email already exists. Sign in instead.");
     }
     const user = await one(
-      "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?) RETURNING id, email, name, plan, plan_expires_at",
+      "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?) RETURNING id, email, name, plan, plan_expires_at, country",
       [email, name, await hashPassword(password)],
     );
     startSession(res, user.id);
@@ -237,8 +237,21 @@ export function createApp({ limitRequests = true } = {}) {
   // Accounts made before sign-up asked for a name add one here.
   app.post("/api/me/name", requireUser, async (req, res) => {
     const user = await one(
-      "UPDATE users SET name = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at",
+      "UPDATE users SET name = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at, country",
       [readName(req.body), req.user.id],
+    );
+    res.json({ user: publicUser(user) });
+  });
+
+  // Chosen on country.html after the account is created.
+  app.post("/api/me/country", requireUser, async (req, res) => {
+    const country = String(req.body?.country || "").trim().toLowerCase();
+    if (!COUNTRIES.includes(country)) {
+      throw new HttpError(400, "Choose a country.");
+    }
+    const user = await one(
+      "UPDATE users SET country = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at, country",
+      [country, req.user.id],
     );
     res.json({ user: publicUser(user) });
   });
@@ -453,6 +466,7 @@ export function createApp({ limitRequests = true } = {}) {
   app.get("/api/payments/options", async (req, res) => {
     const prices = await publicPlanPrices();
     const { available } = await slotView();
+    const checkout = await publicCheckout();
     res.json({
       currency: config.currency,
       providers: enabledProviders(),
@@ -461,9 +475,13 @@ export function createApp({ limitRequests = true } = {}) {
         name: plan.name,
         amount: prices[plan.id],
         days: plan.days,
+        usdtAmount: usdtFromGhs(prices[plan.id], {
+          ngn: checkout.usdt.ngnPerGhs,
+          usdtNgn: checkout.usdt.ngnPerUsdt,
+        }).amount,
       })),
       slots: available,
-      checkout: await publicCheckout(),
+      checkout,
     });
   });
 

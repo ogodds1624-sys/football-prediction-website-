@@ -764,6 +764,7 @@ const GATEWAY_METHODS = {
   momo: ["network", "number", "name"],
   ghBank: ["bank", "number", "name"],
   ngBank: ["bank", "number", "name"],
+  usdt: ["network", "number", "name"],
 };
 const ratesForm = document.querySelector("#rates-form");
 const ratesMessage = document.querySelector("#rates-message");

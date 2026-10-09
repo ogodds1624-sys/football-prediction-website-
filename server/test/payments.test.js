@@ -1136,3 +1136,110 @@ describe("full access account", () => {
     assert.equal(row.status, "pending");
   });
 });
+
+describe("country checkout", () => {
+  const receipt = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  async function adminCookie() {
+    const result = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    return result.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("a Ghana member can pay only with the Ghana methods that are switched on", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        methods: {
+          momo: { enabled: true, accounts: [{ network: "MTN", number: "0241111111", name: "OG Ghana" }] },
+          ngBank: { enabled: true, accounts: [{ bank: "GTBank", number: "0123456789", name: "OG Nigeria" }] },
+        },
+      },
+    });
+
+    const ghana = await newUser();
+    const missing = await api("/api/me/country", { method: "POST", cookie: ghana.cookie, body: { country: "mars" } });
+    assert.equal(missing.status, 400);
+    const saved = await api("/api/me/country", { method: "POST", cookie: ghana.cookie, body: { country: "ghana" } });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.user.country, "ghana");
+
+    const wrong = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: ghana.cookie,
+      body: { plan: "vip", methodId: "ngBank", accountIndex: 0, receipt },
+    });
+    assert.equal(wrong.status, 400);
+
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: ghana.cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+
+    const options = await api("/api/payments/options");
+    const momo = options.data.checkout.methods.find((method) => method.id === "momo");
+    assert.equal(momo.country, "ghana");
+  });
+
+  test("Kenya, Uganda, and International pay USDT from the naira rate", async () => {
+    const admin = await adminCookie();
+    await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
+    await api("/api/admin/gateway/rates", { method: "POST", cookie: admin, body: { ngn: "", usdtNgn: "" } });
+    const address = "TTESTUSDTTRC20ADDRESS0000000000001";
+    await api("/api/admin/gateway/checkout", {
+      method: "POST",
+      cookie: admin,
+      body: {
+        methods: {
+          momo: { enabled: true, accounts: [{ network: "MTN", number: "0241111111", name: "OG Ghana" }] },
+          usdt: { enabled: true, accounts: [{ network: "TRC20", number: address, name: "OG USDT" }] },
+        },
+      },
+    });
+
+    const options = await api("/api/payments/options");
+    const vip = options.data.plans.find((plan) => plan.id === "vip");
+    const vvip = options.data.plans.find((plan) => plan.id === "vvip");
+    assert.equal(vip.usdtAmount, 4.51);
+    assert.equal(vvip.usdtAmount, 9.03);
+    assert.deepEqual(options.data.checkout.usdt, { ngnPerGhs: 120, ngnPerUsdt: 1329 });
+    const usdt = options.data.checkout.methods.find((method) => method.id === "usdt");
+    assert.deepEqual(usdt.countries, ["kenya", "uganda", "international"]);
+
+    const kenya = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: kenya.cookie, body: { country: "kenya" } });
+    const blocked = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: kenya.cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+    });
+    assert.equal(blocked.status, 400);
+    const sent = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: kenya.cookie,
+      body: { plan: "vip", methodId: "usdt", accountIndex: 0, receipt },
+    });
+    assert.equal(sent.status, 201);
+    const status = await api("/api/payments/manual?plan=vip", { cookie: kenya.cookie });
+    assert.equal(status.data.payment.currency, "USDT");
+    assert.equal(status.data.payment.amount, 4.51);
+
+    const ghana = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: ghana.cookie, body: { country: "ghana" } });
+    const wrong = await api("/api/payments/manual", {
+      method: "POST",
+      cookie: ghana.cookie,
+      body: { plan: "vip", methodId: "usdt", accountIndex: 0, receipt },
+    });
+    assert.equal(wrong.status, 400);
+
+    await api("/api/admin/gateway/rates", { method: "POST", cookie: admin, body: { ngn: "120", usdtNgn: "1500" } });
+    const custom = await api("/api/payments/options");
+    assert.equal(custom.data.plans.find((plan) => plan.id === "vip").usdtAmount, 4);
+    assert.deepEqual(custom.data.checkout.usdt, { ngnPerGhs: 120, ngnPerUsdt: 1500 });
+  });
+});

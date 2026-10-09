@@ -31,6 +31,7 @@
       <div class="fee-amount">
         <p class="fee-label">Amount to send</p>
         <p class="fee-sum" id="pay-amount"></p>
+        <p class="fee-rate" id="pay-rate" hidden></p>
         <span class="fee-shield" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3.2l7 2.4v6.2c0 4.2-2.8 7.2-7 8.9-4.2-1.7-7-4.7-7-8.9V5.6z"/>
@@ -46,8 +47,8 @@
           <dt>Network</dt>
           <dd id="pay-network"></dd>
         </div>
-        <div>
-          <dt>Send to</dt>
+        <div id="pay-send-row">
+          <dt id="pay-send-label">Send to</dt>
           <dd class="fee-sendto">
             <span id="pay-number"></span>
             <button type="button" class="fee-copy-btn" id="pay-copy-btn">
@@ -60,7 +61,7 @@
           </dd>
         </div>
         <div>
-          <dt>Account name</dt>
+          <dt id="pay-name-label">Account name</dt>
           <dd id="pay-name"></dd>
         </div>
         <div>

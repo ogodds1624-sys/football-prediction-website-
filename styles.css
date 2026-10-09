@@ -4443,6 +4443,17 @@ html:has(body.control-room) {
   font-weight: 800;
 }
 
+.fee-rate {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.fee-rate[hidden] {
+  display: none;
+}
+
 .fee-shield {
   position: absolute;
   top: 0.9rem;
@@ -4518,6 +4529,19 @@ html:has(body.control-room) {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+#pay-send-row {
+  align-items: flex-start;
+}
+
+#pay-number {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .fee-copy-btn {

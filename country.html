@@ -77,12 +77,23 @@
     const destination = /^[a-z0-9-]+\.html(\?[\w=&%-]*)?$/i.test(next) ? next : "index.html";
     for (const link of document.querySelectorAll("[data-country]")) {
       link.href = destination;
-      link.addEventListener("click", () => {
+      link.addEventListener("click", async (event) => {
+        event.preventDefault();
         try {
           sessionStorage.setItem("predictions-country", link.dataset.country);
         } catch {
-          // The predictions page still opens if storage is blocked.
+          // The choice is still saved on the account when the request below works.
         }
+        try {
+          await fetch("/api/me/country", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ country: link.dataset.country }),
+          });
+        } catch {
+          // The next page still opens if the save cannot be reached.
+        }
+        location.href = destination;
       });
     }
   </script>
