@@ -1033,6 +1033,12 @@ async function loadCurrentUser() {
   try {
     const response = await fetch("/api/me");
     const body = await response.json();
+    if (body.user && !body.user.country) {
+      const file = location.pathname.split("/").pop() || "index.html";
+      const next = `${file}${location.search}`;
+      location.replace(`country.html?next=${encodeURIComponent(next)}`);
+      return;
+    }
     showUser(body.user);
     if (!body.user) {
       showVisitorInvite();

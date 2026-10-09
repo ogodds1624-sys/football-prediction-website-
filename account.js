@@ -75,8 +75,11 @@ form.addEventListener("submit", async (event) => {
     } catch {
       // No storage (private window): skip the greeting.
     }
-    // A new account picks a country before continuing. Sign-in goes straight on.
-    location.href = mode === "register" ? `country.html?next=${encodeURIComponent(nextPage())}` : nextPage();
+    // New accounts, and anyone who signed up before a country was saved, pick one before continuing.
+    const next = nextPage();
+    location.href = mode === "register" || !body.user.country
+      ? `country.html?next=${encodeURIComponent(next)}`
+      : next;
   } catch {
     errorText.textContent = "Can't reach the server. Check your connection and try again.";
   } finally {
