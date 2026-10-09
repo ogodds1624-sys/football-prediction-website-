@@ -452,8 +452,28 @@ main hr {
 
 #free,
 #vip,
-#vvip {
+#vvip,
+#boom {
   scroll-margin-top: 4.75rem;
+}
+
+.boom-title {
+  margin: 0;
+  padding: 1rem 0.85rem;
+  text-align: center;
+  font-family: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  font-size: clamp(1.45rem, 5.4vw, 1.9rem);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  color: #2a1208;
+  background: linear-gradient(120deg, #ff7a18 0%, #ffb020 52%, #ff5a36 100%);
+  border: 1px solid #ffb020;
+  border-radius: 12px;
+}
+
+.icon-boom {
+  color: #ff8a2a;
 }
 
 .site-menu a {
