@@ -219,10 +219,14 @@ function messageRow(text) {
 
 // Each request gets a number so a slow answer for an old day can't overwrite a newer one.
 let predictionsRequest = 0;
+let pendingPredictionTiers = new Set();
+let planSlots = {};
 
 async function renderPredictions() {
   const request = ++predictionsRequest;
   const date = dateKey(selectedOffset);
+  pendingPredictionTiers = new Set();
+  showPlanSlots(planSlots);
   let matches;
   let oddsTotals = {};
   try {
@@ -245,6 +249,10 @@ async function renderPredictions() {
     return;
   }
 
+  pendingPredictionTiers = new Set(
+    matches.filter((match) => match.result !== "won" && match.result !== "lost").map((match) => match.tier),
+  );
+  showPlanSlots(planSlots);
   for (const tier of TIERS) {
     const tierMatches = matches.filter((match) => match.tier === tier.id);
     const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, Boolean(oddsTotals[tier.id]))) : [emptyRow()];
@@ -1123,8 +1131,6 @@ loadOptions()
   })
   .catch(() => {});
 
-let planSlots = {};
-
 function markFullPlans() {
   for (const button of planButtons) {
     const full = planSlots[slotForButton(button)] === 0 && !coversTier(button.dataset.tier);
@@ -1148,7 +1154,7 @@ function showPlanSlots(slots) {
       if (!line) {
         continue;
       }
-      if (left == null || left === "") {
+      if (!pendingPredictionTiers.has(tier) || left == null || left === "") {
         line.hidden = true;
         line.textContent = "";
         continue;
