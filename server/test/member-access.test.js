@@ -127,3 +127,37 @@ test("an unpaid user still opens checkout and concurrent refreshes share one req
   await page.clicks.get("boom")();
   assert.equal(page.context.location.href, "pay.html?plan=boom");
 });
+
+test("unchanged paid membership reloads predictions instead of retaining an old locked response", () => {
+  const showSource = source.slice(source.indexOf("function showUser("), source.indexOf('// "Kwame Mensah"'));
+  const nodes = new Map();
+  const node = (key) => {
+    if (!nodes.has(key)) {
+      nodes.set(key, { classList: { toggle() {} }, dataset: {} });
+    }
+    return nodes.get(key);
+  };
+  let predictions = 0;
+  let bookingCodes = 0;
+  const user = { id: 1, name: "Buyer", email: "buyer@example.com", plan: "boom", country: "ghana" };
+  const context = vm.createContext({
+    currentUser: user,
+    document: { querySelector: node },
+    signInButton: node("sign-in"), footerSignIn: node("footer"), userLabel: node("label"),
+    arrangeTables() {}, showPlanTables() {}, showWelcome() {}, initials: () => "B",
+    renderPredictions: () => { predictions += 1; },
+    showOwnedBookingCodes: () => { bookingCodes += 1; },
+  });
+  vm.runInContext(showSource, context);
+  for (const plan of ["vip", "vvip", "boom", "weekly"]) {
+    context.currentUser = { ...user, plan };
+    const before = predictions;
+    context.showUser({ ...user, plan });
+    context.showUser({ ...user, plan });
+    assert.equal(predictions, before + 2, `${plan} refreshes unchanged paid predictions`);
+    assert.equal(bookingCodes, predictions);
+  }
+  context.currentUser = { ...user, plan: "free" };
+  context.showUser({ ...user, plan: "free" });
+  assert.equal(predictions, 8);
+});

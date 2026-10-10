@@ -1166,6 +1166,57 @@ describe("manual plan payment", () => {
     return result.headers.get("set-cookie").split(";")[0];
   }
 
+  for (const planId of ["vip", "vvip", "boom", "weekly"]) {
+  test(`yesterday's expired ${planId} buyer can buy again today and today's approval unlocks tips`, async () => {
+    const admin = await adminCookie();
+    const { execute } = await import("../src/db.js");
+    const { todayKey } = await import("../src/recovery.js");
+    const date = todayKey();
+    await api("/api/admin/slots", {
+      method: "POST", cookie: admin, body: { vip: 1000, vvip: 1000, boom: 1000, weekly: 1000 },
+    });
+    await api("/api/admin/gateway/checkout", {
+      method: "POST", cookie: admin,
+      body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "Test" }] } } },
+    });
+    const buyer = await newUser();
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    await execute("UPDATE users SET plan = ?, slot_plan = ?, plan_expires_at = ? WHERE id = ?",
+      [planId === "boom" ? "vip" : planId, planId, yesterday, buyer.user.id]);
+    await execute(
+      `INSERT INTO manual_payments (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,created_at)
+       VALUES (?,?,?,'GHS','momo','MTN','0240000000',?,'confirmed',?)`,
+      [buyer.user.id, planId, PLANS[planId].amount, receipt, yesterday],
+    );
+    const added = await api("/api/admin/matches", {
+      method: "POST", cookie: admin,
+      body: { date, tier: planId, home: `${planId} Renewal Home`, away: "Renewal Away", tip: "Over 1.5", odds: "1.25" },
+    });
+    assert.equal(added.status, 201);
+    const before = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+    assert.equal(before.data.plan, "free");
+    assert.equal(before.data.matches.find((match) => match.home === `${planId} Renewal Home`).locked, true);
+    const sent = await api("/api/payments/manual", { method: "POST", cookie: buyer.cookie, body: {
+      plan: planId, methodId: "momo", accountIndex: 0, receipt,
+    } });
+    assert.equal(sent.status, 201);
+    const pending = await api(`/api/payments/manual?plan=${planId}`, { cookie: buyer.cookie });
+    assert.equal(pending.data.payment.id, sent.data.id);
+    assert.equal(pending.data.payment.status, "pending");
+    const approved = await api(`/api/admin/manual-payments/${sent.data.id}/confirm`, { method: "POST", cookie: admin, body: {} });
+    assert.equal(approved.status, 200);
+    const me = await api("/api/me", { cookie: buyer.cookie });
+    assert.equal(me.data.user.plan, planId);
+    assert.ok(Date.parse(me.data.user.planExpiresAt) > Date.now());
+    assert.ok(Math.abs(Date.parse(me.data.user.planExpiresAt) - Date.now() - PLANS[planId].days * 86400000) < 5000);
+    const after = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+    assert.equal(after.data.plan, planId);
+    const match = after.data.matches.find((item) => item.home === `${planId} Renewal Home`);
+    assert.equal(match.locked, false);
+    assert.equal(match.tip, "Over 1.5");
+  });
+  }
+
   test("a receipt for a real account activates the plan when confirmed", async () => {
     const admin = await adminCookie();
     await api("/api/admin/gateway/checkout", {

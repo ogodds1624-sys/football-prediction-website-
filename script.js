@@ -63,7 +63,7 @@ function showUser(user) {
   currentUser = user;
   arrangeTables(Boolean(user));
   showPlanTables(user?.plan);
-  if (changed) {
+  if (changed || user?.fullAccess || (user && user.plan !== "free")) {
     showOwnedBookingCodes();
     renderPredictions();
   }

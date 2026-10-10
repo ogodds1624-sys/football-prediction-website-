@@ -24,6 +24,9 @@ refreshes signed-in access every ten seconds, when returning to the tab, and
 before opening checkout. Approved members see their owned table's booking code
 instead of another Buy Plan prompt; a failed refresh does not downgrade their
 displayed plan or open checkout.
+Paid members' predictions and booking codes also refresh with the access check,
+even when the plan label has not changed. This replaces stale locked responses
+after renewals and retries a temporary prediction-loading failure.
 While the admin page is open, it checks for payments every 10 seconds and
 shows a dismissible alert for new pending receipts across all admin sections.
 It also checks when you return to the tab; closed-page browser notifications are
