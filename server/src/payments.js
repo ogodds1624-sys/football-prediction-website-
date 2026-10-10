@@ -290,8 +290,8 @@ export function listManualPayments() {
             manual_payments.currency, manual_payments.network, manual_payments.status, manual_payments.created_at
      FROM manual_payments
      JOIN users ON users.id = manual_payments.user_id
-     WHERE manual_payments.status != 'confirmed'
-     ORDER BY CASE manual_payments.status WHEN 'pending' THEN 0 ELSE 1 END, manual_payments.id DESC`,
+     WHERE manual_payments.status = 'pending'
+     ORDER BY manual_payments.id DESC`,
   );
 }
 

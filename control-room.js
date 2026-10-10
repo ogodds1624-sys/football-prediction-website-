@@ -1446,7 +1446,7 @@ async function loadManualPayments() {
       showMessage(document.querySelector(`${id}-detail`),
         `${currencyCount} approved receipt${currencyCount === 1 ? "" : "s"} · All time`);
     }
-    const waiting = payments.filter((payment) => payment.status !== "confirmed");
+    const waiting = payments.filter((payment) => payment.status === "pending");
     const names = [...new Set(waiting.map((payment) => payment.name || payment.email))];
     senderNames.replaceChildren(...names.map((name) => {
       const item = document.createElement("li");

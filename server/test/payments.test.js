@@ -1186,11 +1186,8 @@ describe("manual plan payment", () => {
     assert.equal(me.data.user.plan, "free");
     const waiting = await api("/api/admin/manual-payments", { cookie: admin });
     assert.deepEqual(waiting.data.approvedTotals, list.data.approvedTotals);
-    const row = waiting.data.payments.find((item) => item.id === payment.id);
-    assert.equal(row.status, "rejected");
-    assert.equal(row.name, user.name);
-    assert.equal(row.email, user.email);
-    assert.equal(row.amount, 100);
+    assert.equal(waiting.data.payments.some((item) => item.id === payment.id), false);
+    assert.ok(waiting.data.payments.every((item) => item.status === "pending"));
 
     const resent = await api("/api/payments/manual", {
       method: "POST",

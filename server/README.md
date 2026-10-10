@@ -4,7 +4,9 @@ Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
 Runs on **Vercel** (database: **Turso**) or on your own computer (database: a local SQLite file).
 
 In the Control Room's Members section, payment receipts appear above the account
-list. While the admin page is open, it checks for payments every 10 seconds and
+list. The approval table lists only pending receipts; approved and rejected
+receipts stay saved but no longer appear in that table.
+While the admin page is open, it checks for payments every 10 seconds and
 shows a dismissible alert for new pending receipts across all admin sections.
 It also checks when you return to the tab; closed-page notifications are not enabled.
 
