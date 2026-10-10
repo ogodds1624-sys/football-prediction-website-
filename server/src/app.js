@@ -35,6 +35,7 @@ import {
   updateMatch,
 } from "./matches.js";
 import {
+  approvedPaymentTotals,
   confirmManualPayment,
   rejectManualPayment,
   confirmPayment,
@@ -567,6 +568,7 @@ export function createApp({ limitRequests = true } = {}) {
         status: payment.status,
         createdAt: payment.created_at,
       })),
+      approvedTotals: await approvedPaymentTotals(),
     });
   });
 

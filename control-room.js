@@ -1373,7 +1373,34 @@ async function loadManualPayments() {
     return;
   }
   try {
-    const { payments } = await adminFetch("/api/admin/manual-payments");
+    const { payments, approvedTotals } = await adminFetch("/api/admin/manual-payments");
+    const approvedValue = document.querySelector("#ov-approved");
+    approvedValue.replaceChildren(...approvedTotals.map((total) => {
+      const line = document.createElement("span");
+      line.style.display = "block";
+      line.textContent = `${total.currency} ${Number(total.amount).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+      return line;
+    }));
+    if (!approvedTotals.length) {
+      approvedValue.textContent = "0";
+    }
+    const count = approvedTotals.reduce((sum, total) => sum + total.count, 0);
+    showMessage(document.querySelector("#ov-approved-detail"),
+      `${count} approved receipt${count === 1 ? "" : "s"} · All time`);
+    for (const currency of ["NGN", "USDT"]) {
+      const total = approvedTotals.find((entry) => entry.currency === currency);
+      const id = `#ov-approved-${currency.toLowerCase()}`;
+      document.querySelector(id).textContent = `${currency} ${(total?.amount ?? 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+      const currencyCount = total?.count ?? 0;
+      showMessage(document.querySelector(`${id}-detail`),
+        `${currencyCount} approved receipt${currencyCount === 1 ? "" : "s"} · All time`);
+    }
     const waiting = payments.filter((payment) => payment.status !== "confirmed");
     const names = [...new Set(waiting.map((payment) => payment.name || payment.email))];
     senderNames.replaceChildren(...names.map((name) => {
@@ -1388,6 +1415,12 @@ async function loadManualPayments() {
       cell.dataset.label = "";
     }
   } catch (error) {
+    document.querySelector("#ov-approved").textContent = "Unavailable";
+    showMessage(document.querySelector("#ov-approved-detail"), error.message, true);
+    for (const currency of ["ngn", "usdt"]) {
+      document.querySelector(`#ov-approved-${currency}`).textContent = "Unavailable";
+      showMessage(document.querySelector(`#ov-approved-${currency}-detail`), error.message, true);
+    }
     senders.hidden = true;
     senderNames.replaceChildren();
     body.replaceChildren(emptyManualRow("Couldn't load payments."));

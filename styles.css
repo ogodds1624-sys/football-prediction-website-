@@ -3209,9 +3209,8 @@ button:not(:disabled):not(.toggle-passcode):active,
   gap: 0.5rem;
 }
 
-/* One overview card now: keep it a sensible width */
 .overview-grid {
-  grid-template-columns: minmax(0, 420px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
 /* =====================================================================

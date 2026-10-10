@@ -295,6 +295,21 @@ export function listManualPayments() {
   );
 }
 
+export async function approvedPaymentTotals() {
+  const { rows } = await execute(
+    `SELECT currency, SUM(amount) AS amount, COUNT(*) AS count
+     FROM manual_payments
+     WHERE status = 'confirmed'
+     GROUP BY currency
+     ORDER BY currency`,
+  );
+  return rows.map((row) => ({
+    currency: row.currency,
+    amount: Number(row.amount) / 100,
+    count: Number(row.count),
+  }));
+}
+
 export async function manualReceipt(id) {
   const row = await one("SELECT receipt_data FROM manual_payments WHERE id = ?", [id]);
   const match = row ? String(row.receipt_data).match(RECEIPT_PATTERN) : null;
