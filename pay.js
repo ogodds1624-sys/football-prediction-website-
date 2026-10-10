@@ -131,16 +131,19 @@ function stopWatch() {
   watchTimer = 0;
 }
 
-function showWaiting() {
+function showWaiting(emailNotification) {
   sent = true;
   sending = false;
   form.hidden = true;
   submitButton.disabled = true;
   const done = document.querySelector("#pay-done");
-  done.textContent = WAITING_TEXT;
+  const message = emailNotification === "failed"
+    ? `${WAITING_TEXT} Your receipt is saved, but the admin email alert could not be delivered. No need to resend the receipt.`
+    : WAITING_TEXT;
+  done.textContent = message;
   done.hidden = false;
   confirmTitle.textContent = "Waiting for confirmation";
-  confirmCopy.textContent = WAITING_TEXT;
+  confirmCopy.textContent = message;
   confirmLoader.hidden = false;
   confirmClose.hidden = true;
   if (!confirmDialog.open) {
@@ -172,7 +175,11 @@ async function checkDecision() {
       return;
     }
     const { payment } = await response.json();
-    if (!payment || payment.status === "pending") {
+    if (!payment) {
+      return;
+    }
+    if (payment.status === "pending") {
+      showWaiting(payment.emailNotification);
       return;
     }
     stopWatch();
@@ -211,6 +218,7 @@ async function loadPage() {
   let me;
   let options;
   let paymentStatus = "";
+  let emailNotification = "";
   try {
     const [meResponse, optionsResponse, statusResponse] = await Promise.all([
       fetch("/api/me"),
@@ -225,6 +233,7 @@ async function loadPage() {
     if (statusResponse.ok) {
       const status = await statusResponse.json();
       paymentStatus = status.payment?.status || "";
+      emailNotification = status.payment?.emailNotification || "";
     }
   } catch {
     showProblem("Couldn't load the payment details. Check your connection and try again.");
@@ -247,10 +256,6 @@ async function loadPage() {
     showProblem("Payments are opening soon. Please check back shortly.");
     return;
   }
-  if (paymentStatus === "confirmed") {
-    location.replace("index.html");
-    return;
-  }
   const slotId = planId;
   if (paymentStatus !== "pending" && options.slots?.[slotId] === 0 && me.user.plan !== slotId && !me.user.fullAccess) {
     const name = planId === "weekly" ? "WEEKLY ROLLOVER" : planId === "vvip" ? "VVIP" : planId === "boom" ? "Wake up to boom games" : "VIP";
@@ -266,7 +271,7 @@ async function loadPage() {
     me.user.country,
   );
   if (paymentStatus === "pending") {
-    showWaiting();
+    showWaiting(emailNotification);
   }
 }
 
@@ -328,7 +333,7 @@ form.addEventListener("submit", async (event) => {
       location.replace("index.html");
       return;
     }
-    showWaiting();
+    showWaiting(body.emailNotification);
   } catch (error) {
     errorText.textContent = error.message;
     sending = false;

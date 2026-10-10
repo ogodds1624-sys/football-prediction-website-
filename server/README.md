@@ -16,9 +16,38 @@ Runs on **Vercel** (database: **Turso**) or on your own computer (database: a lo
 In the Control Room's Members section, payment receipts appear above the account
 list. The approval table lists only pending receipts; approved and rejected
 receipts stay saved but no longer appear in that table.
+Past approved receipts do not redirect members away from checkout: they can buy
+again after expiry or renew. A pending receipt still opens the waiting screen,
+and approval of that pending receipt returns the member to the predictions page.
 While the admin page is open, it checks for payments every 10 seconds and
 shows a dismissible alert for new pending receipts across all admin sections.
-It also checks when you return to the tab; closed-page notifications are not enabled.
+It also checks when you return to the tab; closed-page browser notifications are
+not enabled. The Nigerian email alerts below work independently of the admin page.
+
+### Nigerian receipt email alerts
+
+When a Nigerian member taps **I've sent the money** and successfully submits a
+receipt, Gmail SMTP sends a notification to **andrewturkenterprise@gmail.com**.
+This applies to all paid plans. The email includes the member's name/email, plan,
+amount, bank/network, receipt ID and a Control Room link. Receipt files remain
+behind admin login; they are not attached. An email is not proof of payment and
+does not approve a transfer. Repeated clicks on an already pending receipt do not
+send another notification. Other countries do not trigger emails.
+
+To enable delivery on Vercel:
+1. Enable **2-Step Verification** on the Gmail account used as the sender.
+2. Create a Google **App Password** for this website.
+3. Add `GMAIL_USER` (sender Gmail address) and `GMAIL_APP_PASSWORD` in Vercel's
+   project environment variables. Do not use your normal Gmail password or paste
+   either password in chat/source code.
+4. Redeploy, then submit a test Nigerian receipt and check the recipient inbox.
+
+The receipt is saved before email delivery. Missing settings, SMTP errors or a
+rejected recipient leave the receipt available for approval. Delivery status
+is stored and shown beside the admin receipt. Failed delivery also shows a
+warning on the member's confirmation screen, including after a refresh, and
+logs a server error with the receipt ID. Failed alerts are not retried
+automatically; review the Control Room and fix Gmail settings for future alerts.
 
 ```
 package.json          dependencies and npm scripts (run them from the repo root)

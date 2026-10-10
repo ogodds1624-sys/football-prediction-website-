@@ -1339,6 +1339,16 @@ function manualPaymentRow(payment) {
   receipt.rel = "noopener";
   receipt.textContent = "Receipt";
   actions.append(receipt);
+  if (payment.emailNotification) {
+    const emailStatus = document.createElement("span");
+    emailStatus.className = "payment-status";
+    emailStatus.textContent = payment.emailNotification === "sent"
+      ? "Email alert sent"
+      : payment.emailNotification === "failed"
+        ? "Email alert failed - check Gmail settings"
+        : "Email alert sending";
+    actions.append(emailStatus);
+  }
   if (payment.status === "pending") {
     actions.append(
       actionButton("Approve", () => decidePayment(payment, "approve")),

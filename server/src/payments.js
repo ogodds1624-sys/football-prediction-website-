@@ -6,6 +6,7 @@ import { METHODS, methodServes, publicCheckout } from "./gateway.js";
 import { getCountryPlanPrice, getPlan, getPricedPlan, readPlanSlots } from "./plans.js";
 import { getProvider } from "./providers/index.js";
 import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
+import { sendNigeriaPaymentEmail } from "./payment-email.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -225,15 +226,17 @@ export async function submitManualPayment(user, input) {
   const amount = price.amount;
   const currency = price.currency;
 
+  let id;
   try {
     const { rows } = await execute(
       `INSERT INTO manual_payments
-        (user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, email_notification_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
-      [user.id, plan.id, amount, currency, method.id, network, account.number, account.name || "", receipt],
+      [user.id, plan.id, amount, currency, method.id, network, account.number, account.name || "", receipt,
+        pricingCountry === "nigeria" ? "pending" : ""],
     );
-    return finishManualPayment(user, Number(rows[0].id));
+    id = Number(rows[0].id);
   } catch (error) {
     if (/UNIQUE constraint failed/i.test(error.message)) {
       if (hasFullAccess(user)) {
@@ -249,15 +252,30 @@ export async function submitManualPayment(user, input) {
     }
     throw error;
   }
+  if (pricingCountry === "nigeria") {
+    let emailStatus = "sent";
+    try {
+      await sendNigeriaPaymentEmail(user, { id, amount, currency, network }, plan);
+    } catch (error) {
+      emailStatus = "failed";
+      console.error(`Payment receipt ${id} email notification failed: ${error.message}`);
+    }
+    await execute("UPDATE manual_payments SET email_notification_status = ? WHERE id = ?", [emailStatus, id]);
+  }
+  return finishManualPayment(user, id);
 }
 
 // Everyone else waits for the Control Room. This one account is confirmed immediately.
 async function finishManualPayment(user, id) {
+  const row = await one("SELECT email_notification_status FROM manual_payments WHERE id = ?", [id]);
+  const notification = row.email_notification_status
+    ? { emailNotification: row.email_notification_status }
+    : {};
   if (!hasFullAccess(user)) {
-    return { id };
+    return { id, ...notification };
   }
   await confirmManualPayment(id);
-  return { id, status: "confirmed" };
+  return { id, status: "confirmed", ...notification };
 }
 
 // The member's latest receipt for one plan, without the file itself.
@@ -267,7 +285,7 @@ export async function manualPaymentStatus(userId, planId) {
     return null;
   }
   const row = await one(
-    `SELECT id, plan, amount, currency, status
+    `SELECT id, plan, amount, currency, status, email_notification_status
      FROM manual_payments
      WHERE user_id = ? AND plan = ?
      ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC
@@ -283,13 +301,15 @@ export async function manualPaymentStatus(userId, planId) {
     amount: Number(row.amount) / 100,
     currency: row.currency,
     status: row.status,
+    emailNotification: row.email_notification_status || null,
   };
 }
 
 export function listManualPayments() {
   return execute(
     `SELECT manual_payments.id, users.name, users.email, manual_payments.plan, manual_payments.amount,
-            manual_payments.currency, manual_payments.network, manual_payments.status, manual_payments.created_at
+            manual_payments.currency, manual_payments.network, manual_payments.status, manual_payments.created_at,
+            manual_payments.email_notification_status
      FROM manual_payments
      JOIN users ON users.id = manual_payments.user_id
      WHERE manual_payments.status = 'pending'

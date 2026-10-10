@@ -567,6 +567,7 @@ export function createApp({ limitRequests = true } = {}) {
         network: payment.network,
         status: payment.status,
         createdAt: payment.created_at,
+        emailNotification: payment.email_notification_status || null,
       })),
       approvedTotals: await approvedPaymentTotals(),
     });

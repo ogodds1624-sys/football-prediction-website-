@@ -75,6 +75,10 @@ export const config = {
   },
   // Passcode for the Control Room. Admin sign-in is off until it is set.
   adminPasscode: process.env.ADMIN_PASSCODE || "",
+  gmail: {
+    user: process.env.GMAIL_USER || "",
+    appPassword: process.env.GMAIL_APP_PASSWORD || "",
+  },
 };
 
 if (config.sessionSecret && config.sessionSecret.length < 32) {

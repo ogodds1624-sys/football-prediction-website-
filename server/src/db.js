@@ -425,6 +425,13 @@ async function migrate() {
   }
   await allowBoomPlan();
   await allowWeeklyPlan();
+  try {
+    await backend.execute("ALTER TABLE manual_payments ADD COLUMN email_notification_status TEXT NOT NULL DEFAULT ''", []);
+  } catch (error) {
+    if (!/duplicate column/i.test(error.message)) {
+      throw error;
+    }
+  }
 }
 
 async function allowWeeklyPlan() {
