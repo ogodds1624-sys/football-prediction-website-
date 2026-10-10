@@ -62,6 +62,13 @@
       <p class="control-date" id="control-date"></p>
     </div>
 
+    <aside class="payment-alert" id="payment-alert" hidden aria-label="Payment notifications">
+      <p id="payment-alert-text" role="alert" aria-atomic="true"></p>
+      <a class="outline-button" href="#members">Review payments</a>
+      <button type="button" class="control-sign-out" id="payment-alert-dismiss">Dismiss</button>
+    </aside>
+    <p class="form-message" id="payment-watch-message" role="status"></p>
+
     <div class="control-stage">
       <div class="control-panel" data-panel="today">
     <section class="overview-grid" aria-label="Overview">
@@ -196,15 +203,8 @@
       <div class="control-panel" data-panel="members" hidden>
     <section class="control-section" id="members" aria-labelledby="members-title">
       <h2 id="members-title">Members</h2>
-      <p class="form-hint">Everyone who has created an account, most recent visit first.</p>
-      <form class="match-form member-search" id="member-search" role="search">
-        <label>Search members
-          <input id="member-query" type="search" maxlength="80" autocomplete="off" placeholder="Name, email, or plan" enterkeyhint="search">
-        </label>
-      </form>
-      <p class="form-message" id="member-message" role="status"></p>
-      <div id="member-list"></div>
-      <div class="table-wrap">
+      <h3>Payment receipts</h3>
+      <div class="table-wrap" id="payment-table-wrap">
         <div class="payment-senders" id="payment-senders" hidden>
           <h3>Payment senders</h3>
           <ul id="payment-sender-names"></ul>
@@ -223,6 +223,15 @@
         </table>
       </div>
       <p class="form-message" id="manual-payment-message" role="status"></p>
+      <h3>All members</h3>
+      <p class="form-hint">Everyone who has created an account, most recent visit first.</p>
+      <form class="match-form member-search" id="member-search" role="search">
+        <label>Search members
+          <input id="member-query" type="search" maxlength="80" autocomplete="off" placeholder="Name, email, or plan" enterkeyhint="search">
+        </label>
+      </form>
+      <p class="form-message" id="member-message" role="status"></p>
+      <div id="member-list"></div>
     </section>
       </div>
 

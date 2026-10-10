@@ -1364,7 +1364,46 @@ function emptyManualRow(text) {
   return row;
 }
 
+const seenPaymentIds = new Set();
+const alertedPayments = new Map();
+let paymentsLoading = false;
+
+function updatePaymentAlert(payments) {
+  const pending = payments.filter((payment) => payment.status === "pending");
+  const pendingIds = new Set(pending.map((payment) => payment.id));
+  for (const id of alertedPayments.keys()) {
+    if (!pendingIds.has(id)) {
+      alertedPayments.delete(id);
+    }
+  }
+  for (const payment of pending) {
+    if (!seenPaymentIds.has(payment.id)) {
+      alertedPayments.set(payment.id, payment);
+    }
+  }
+  for (const payment of payments) {
+    seenPaymentIds.add(payment.id);
+  }
+  const text = [...alertedPayments.values()].map((payment) =>
+    `${payment.name || payment.email}: ${payment.currency} ${Number(payment.amount).toFixed(2)} (${tierLabel(payment.plan)})`,
+  ).join("; ");
+  const alertText = document.querySelector("#payment-alert-text");
+  const message = text ? `Payments waiting for approval: ${text}` : "";
+  if (alertText.textContent !== message) {
+    alertText.textContent = message;
+  }
+  document.querySelector("#payment-alert").hidden = !text;
+}
+
+document.querySelector("#payment-alert-dismiss").addEventListener("click", () => {
+  alertedPayments.clear();
+  document.querySelector("#payment-alert").hidden = true;
+});
+
 async function loadManualPayments() {
+  if (paymentsLoading) {
+    return;
+  }
   const body = document.querySelector("#payment-table-body");
   const message = document.querySelector("#manual-payment-message");
   const senders = document.querySelector("#payment-senders");
@@ -1372,8 +1411,14 @@ async function loadManualPayments() {
   if (!body) {
     return;
   }
+  paymentsLoading = true;
   try {
     const { payments, approvedTotals } = await adminFetch("/api/admin/manual-payments");
+    updatePaymentAlert(payments);
+    showMessage(document.querySelector("#payment-watch-message"), "");
+    if (message.classList.contains("error")) {
+      showMessage(message, "");
+    }
     const approvedValue = document.querySelector("#ov-approved");
     approvedValue.replaceChildren(...approvedTotals.map((total) => {
       const line = document.createElement("span");
@@ -1415,6 +1460,8 @@ async function loadManualPayments() {
       cell.dataset.label = "";
     }
   } catch (error) {
+    showMessage(document.querySelector("#payment-watch-message"),
+      `Payment alerts cannot update: ${error.message} Retrying automatically.`, true);
     document.querySelector("#ov-approved").textContent = "Unavailable";
     showMessage(document.querySelector("#ov-approved-detail"), error.message, true);
     for (const currency of ["ngn", "usdt"]) {
@@ -1425,6 +1472,8 @@ async function loadManualPayments() {
     senderNames.replaceChildren();
     body.replaceChildren(emptyManualRow("Couldn't load payments."));
     showMessage(message, error.message, true);
+  } finally {
+    paymentsLoading = false;
   }
 }
 
@@ -1456,3 +1505,9 @@ async function decidePayment(payment, decision) {
 }
 
 loadManualPayments();
+window.setInterval(loadManualPayments, 10_000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    loadManualPayments();
+  }
+});
