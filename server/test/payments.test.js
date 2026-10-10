@@ -201,6 +201,82 @@ describe("initialize payment", () => {
   });
 });
 
+describe("weekly rollover", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  async function pay(cookie, plan) {
+    const reference = await startCheckout(cookie, "paystack", plan);
+    providerRecords.set(reference, { status: "success", amount: PLANS[plan].amount, currency: "GHS" });
+    assert.equal((await api(`/api/payments/callback/paystack?reference=${reference}`)).status, 303);
+    const result = await api(`/api/payments/${reference}`, { cookie });
+    assert.equal(result.data.payment.status, "success");
+    return result.data.user;
+  }
+
+  test("replaces VVIP with exactly seven days, protects expiry against daily purchases, and renews", async () => {
+    const { cookie, user } = await newUser();
+    const { execute } = await import("../src/db.js");
+    await execute("UPDATE users SET plan = 'vvip', slot_plan = 'vvip', plan_expires_at = ? WHERE id = ?", [
+      new Date(Date.now() + 3 * DAY).toISOString(), user.id,
+    ]);
+    const before = Date.now();
+    const active = await pay(cookie, "weekly");
+    assert.equal(active.plan, "weekly");
+    const expiry = Date.parse(active.planExpiresAt);
+    assert.ok(expiry >= before + 7 * DAY);
+    assert.ok(expiry <= Date.now() + 7 * DAY);
+    for (const plan of ["vip", "vvip", "boom"]) {
+      const protectedUser = await pay(cookie, plan);
+      assert.equal(protectedUser.plan, "weekly");
+      assert.equal(protectedUser.planExpiresAt, active.planExpiresAt);
+    }
+    const renewed = await pay(cookie, "weekly");
+    assert.equal(Date.parse(renewed.planExpiresAt), expiry + 7 * DAY);
+    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), user.id]);
+    assert.equal((await api("/api/me", { cookie })).data.user.plan, "free");
+    assert.equal((await pay(cookie, "vip")).plan, "vip");
+  });
+
+  test("admin daily activation does not extend weekly access near expiry", async () => {
+    const { cookie, user } = await newUser();
+    const { execute } = await import("../src/db.js");
+    const { activatePlan, todayKey } = await import("../src/recovery.js");
+    const expiry = new Date(Date.now() + 60000).toISOString();
+    await execute("UPDATE users SET plan = 'weekly', slot_plan = 'weekly', plan_expires_at = ? WHERE id = ?", [expiry, user.id]);
+    await activatePlan(user.email, "vip", todayKey());
+    const me = await api("/api/me", { cookie });
+    assert.equal(me.data.user.plan, "weekly");
+    assert.equal(me.data.user.planExpiresAt, expiry);
+    await activatePlan(user.email, "weekly", todayKey());
+    const renewed = await api("/api/me", { cookie });
+    assert.equal(Date.parse(renewed.data.user.planExpiresAt), Date.parse(expiry) + 7 * DAY);
+  });
+
+  test("weekly tips are isolated and full-access accounts can view them", async () => {
+    const { unlockedTiers } = await import("../src/matches.js");
+    const { FULL_ACCESS_EMAIL } = await import("../src/auth.js");
+    assert.equal(unlockedTiers("free", { email: FULL_ACCESS_EMAIL }).has("weekly"), true);
+    assert.deepEqual([...unlockedTiers("weekly")], ["free", "weekly"]);
+    for (const plan of ["vip", "vvip", "boom"]) {
+      assert.equal(unlockedTiers(plan).has("weekly"), false);
+    }
+    const { cookie } = await newUser();
+    await pay(cookie, "weekly");
+    const login = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    const admin = login.headers.get("set-cookie").split(";")[0];
+    const added = await api("/api/admin/matches", {
+      method: "POST", cookie: admin,
+      body: { date: "2027-01-07", tier: "weekly", home: "Weekly Home", away: "Weekly Away", tip: "Over 1.5", odds: "1.25" },
+    });
+    assert.equal(added.status, 201, JSON.stringify(added.data));
+    const visitor = await api("/api/matches?date=2027-01-07");
+    assert.equal(visitor.data.matches.find((match) => match.tier === "weekly").tip, null);
+    const member = await api("/api/matches?date=2027-01-07", { cookie });
+    assert.equal(member.data.matches.find((match) => match.tier === "weekly").tip, "Over 1.5");
+    assert.ok(Object.hasOwn(member.data.oddsTotals, "weekly"));
+  });
+});
+
 describe("verification and upgrade", () => {
   test("paystack success upgrades the user once, even if confirmed twice", async () => {
     const { cookie } = await newUser();
@@ -875,7 +951,7 @@ describe("plan prices", () => {
     const admin = await adminCookie();
     try {
       const before = await api("/api/payments/options");
-      assert.deepEqual(before.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 50], ["vvip", 100], ["boom", 50]]);
+      assert.deepEqual(before.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 50], ["vvip", 100], ["boom", 50], ["weekly", 100]]);
 
       const { cookie } = await newUser();
       const asMember = await api("/api/admin/plans", { method: "POST", cookie, body: { vip: 1, vvip: 2 } });
@@ -886,14 +962,14 @@ describe("plan prices", () => {
 
       const saved = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "75.50", vvip: "120" } });
       assert.equal(saved.status, 200);
-      assert.deepEqual(saved.data.plans, { vip: 75.5, vvip: 120, boom: 50 });
+      assert.deepEqual(saved.data.plans, { vip: 75.5, vvip: 120, boom: 50, weekly: 100 });
 
       const boomPrice = await api("/api/admin/plans", { method: "POST", cookie: admin, body: { vip: "75.50", vvip: "120", boom: "35" } });
       assert.equal(boomPrice.status, 200);
       assert.equal(boomPrice.data.plans.boom, 35);
 
       const after = await api("/api/payments/options");
-      assert.deepEqual(after.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 75.5], ["vvip", 120], ["boom", 35]]);
+      assert.deepEqual(after.data.plans.map((plan) => [plan.id, plan.amount]), [["vip", 75.5], ["vvip", 120], ["boom", 35], ["weekly", 100]]);
 
       await api("/api/admin/gateway/checkout", {
         method: "POST",
@@ -943,7 +1019,7 @@ describe("plan slots", () => {
   test("VIP and VVIP slots show the places left after active plans", async () => {
     const admin = await adminCookie();
     const before = await api("/api/payments/options");
-    assert.deepEqual(before.data.slots, { vip: null, vvip: null, boom: null });
+    assert.deepEqual(before.data.slots, { vip: null, vvip: null, boom: null, weekly: null });
 
     const { cookie } = await newUser();
     const denied = await api("/api/admin/slots", { method: "POST", cookie, body: { vip: 5, vvip: 5 } });
@@ -954,7 +1030,7 @@ describe("plan slots", () => {
 
     const saved = await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: "1000", vvip: "1000" } });
     assert.equal(saved.status, 200);
-    assert.deepEqual(saved.data.caps, { vip: 1000, vvip: 1000, boom: null });
+    assert.deepEqual(saved.data.caps, { vip: 1000, vvip: 1000, boom: null, weekly: null });
     assert.ok(saved.data.available.vip > 0);
     assert.ok(saved.data.available.vvip > 0);
 
@@ -1448,5 +1524,85 @@ describe("country checkout", () => {
     const status = await api("/api/payments/manual?plan=vip", { cookie: kenya.cookie });
     assert.equal(status.data.payment.currency, "USDT");
     assert.equal(status.data.payment.amount, 3.25);
+  });
+
+  test("weekly country prices, pending slots, approval totals and booking codes are wired end-to-end", async () => {
+    const admin = await adminCookie();
+    const checkout = await api("/api/admin/gateway/checkout", {
+      method: "POST", cookie: admin,
+      body: { methods: { usdt: { enabled: true, accounts: [
+        { network: "TRC20", number: "TTESTUSDTTRC20ADDRESS0000000000001", name: "OG USDT" },
+      ] } } },
+    });
+    assert.equal(checkout.status, 200);
+    const saved = await api("/api/admin/plans", {
+      method: "POST", cookie: admin,
+      body: { vip: 50, vvip: 100, boom: 50, weekly: 125, countries: {
+        nigeria: { weekly: 25000 }, kenya: { weekly: 20 },
+        uganda: { weekly: 21 }, international: { weekly: 22 },
+      } },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.plans.weekly, 125);
+    const options = await api("/api/payments/options");
+    const weekly = options.data.plans.find((plan) => plan.id === "weekly");
+    assert.equal(weekly.days, 7);
+    assert.deepEqual(weekly.pricesByCountry.nigeria, { amount: 25000, currency: "NGN" });
+    assert.deepEqual(weekly.pricesByCountry.uganda, { amount: 21, currency: "USDT" });
+    assert.deepEqual(weekly.pricesByCountry.international, { amount: 22, currency: "USDT" });
+
+    const nigeria = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: nigeria.cookie, body: { country: "nigeria" } });
+    await startCheckout(nigeria.cookie, "paystack", "weekly");
+    assert.equal(initializeCalls[0].amount, 2500000);
+    assert.equal(initializeCalls[0].currency, "NGN");
+
+    const { heldPlanCounts } = await import("../src/recovery.js");
+    const cap = (await heldPlanCounts()).weekly + 1;
+    const slots = await api("/api/admin/slots", {
+      method: "POST", cookie: admin,
+      body: { vip: 1000, vvip: 1000, boom: 1000, weekly: cap },
+    });
+    assert.equal(slots.status, 200);
+    assert.equal(slots.data.available.weekly, 1);
+    const kenya = await newUser();
+    await api("/api/me/country", { method: "POST", cookie: kenya.cookie, body: { country: "kenya" } });
+    const sent = await api("/api/payments/manual", {
+      method: "POST", cookie: kenya.cookie,
+      body: { plan: "weekly", methodId: "usdt", accountIndex: 0,
+        receipt: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" },
+    });
+    assert.equal(sent.status, 201, JSON.stringify(sent.data));
+    const waiting = await api("/api/payments/manual?plan=weekly", { cookie: kenya.cookie });
+    assert.equal(waiting.data.payment.currency, "USDT");
+    assert.equal(waiting.data.payment.amount, 20);
+    const full = await api("/api/admin/slots", { cookie: admin });
+    assert.equal(full.data.available.weekly, 0);
+    const stranger = await newUser();
+    const blocked = await api("/api/payments/initialize", {
+      method: "POST", cookie: stranger.cookie, body: { plan: "weekly", provider: "paystack" },
+    });
+    assert.equal(blocked.status, 409);
+    const totalsBefore = await api("/api/admin/manual-payments", { cookie: admin });
+    const approved = await api(`/api/admin/manual-payments/${waiting.data.payment.id}/confirm`, {
+      method: "POST", cookie: admin, body: {},
+    });
+    assert.equal(approved.status, 200);
+    const me = await api("/api/me", { cookie: kenya.cookie });
+    assert.equal(me.data.user.plan, "weekly");
+    assert.ok(Math.abs(Date.parse(me.data.user.planExpiresAt) - Date.now() - 7 * 86400000) < 5000);
+    const after = await api("/api/admin/slots", { cookie: admin });
+    assert.equal(after.data.available.weekly, 0);
+    const totalsAfter = await api("/api/admin/manual-payments", { cookie: admin });
+    const usdt = (data) => data.approvedTotals.find((total) => total.currency === "USDT")?.amount || 0;
+    assert.equal(usdt(totalsAfter.data) - usdt(totalsBefore.data), 20);
+    const members = await api("/api/admin/members", { cookie: admin });
+    assert.equal(members.data.members.find((member) => member.id === kenya.user.id).plan, "weekly");
+    assert.ok(members.data.totals.weekly > 0);
+    const code = await api("/api/admin/booking-code", {
+      method: "POST", cookie: admin, body: { tier: "weekly", date: "2027-01-07", code: "WEEKLY7" },
+    });
+    assert.equal(code.status, 200);
+    assert.equal((await api("/api/booking-code?tier=weekly&date=2027-01-07", { cookie: kenya.cookie })).data.code, "WEEKLY7");
   });
 });

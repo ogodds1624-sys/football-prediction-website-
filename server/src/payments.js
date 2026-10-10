@@ -45,7 +45,7 @@ export function publicPayment(payment) {
 // Creates a pending payment and returns the provider's checkout URL.
 // The price comes from saved server-side plan settings, never from the request.
 // siteUrl is where the provider sends the user back to.
-const PLAN_LABEL = { vip: "VIP", vvip: "VVIP", boom: "Wake up to boom games" };
+const PLAN_LABEL = { vip: "VIP", vvip: "VVIP", boom: "Wake up to boom games", weekly: "WEEKLY ROLLOVER" };
 
 // The place a member is using. Boom is stored as a VIP account with slot_plan boom.
 function heldSlot(user) {
@@ -124,8 +124,10 @@ async function upgradeUser(tx, userId, plan, source) {
   const currentExpiry = user.plan_expires_at ? Date.parse(user.plan_expires_at) : 0;
   const stillActive = user.plan !== "free" && currentExpiry > now;
 
-  const start = stillActive ? currentExpiry : now;
-  const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
+  const start = stillActive && !(plan.id === "weekly" && user.plan !== "weekly") ? currentExpiry : now;
+  const expiresAt = stillActive && user.plan === "weekly" && plan.id !== "weekly"
+    ? user.plan_expires_at
+    : new Date(start + plan.days * DAY_MS).toISOString();
   // Boom opens the same tips as VIP. The account stays VIP, and slot_plan boom uses a boom place.
   const access = plan.id === "boom" ? getPlan("vip") : plan;
   const currentRank = stillActive ? (getPlan(user.plan)?.rank ?? 0) : 0;

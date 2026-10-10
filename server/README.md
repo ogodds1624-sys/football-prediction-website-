@@ -1,6 +1,16 @@
 # Football Predictions – payments server
 
 Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
+**WEEKLY ROLLOVER** is a separate paid prediction table with seven-day access.
+Its initial Ghana price is GHS 100; base and country-specific prices and slot
+limits are editable in the Control Room. It supports screenshot uploads,
+tips, results, total odds, booking codes, online payments and manual receipts.
+Buying Weekly Rollover replaces a daily plan and starts seven days from approval.
+Renewing it while active adds seven days to its expiry. Buying VIP, VVIP or Boom
+while Weekly Rollover is active does not replace or extend weekly access.
+It unlocks only Free and Weekly Rollover tips, not the other paid tables;
+weekly purchases do not qualify for daily VIP/VVIP recovery tickets.
+Existing database tables are migrated transactionally without losing records.
 Runs on **Vercel** (database: **Turso**) or on your own computer (database: a local SQLite file).
 
 In the Control Room's Members section, payment receipts appear above the account

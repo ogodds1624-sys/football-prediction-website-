@@ -203,7 +203,7 @@ function fillSheet(plan, currency, amount, country) {
 }
 
 async function loadPage() {
-  if (planId !== "vip" && planId !== "vvip" && planId !== "boom") {
+  if (planId !== "vip" && planId !== "vvip" && planId !== "boom" && planId !== "weekly") {
     showProblem("Choose a plan from the predictions page.");
     return;
   }
@@ -253,7 +253,7 @@ async function loadPage() {
   }
   const slotId = planId;
   if (paymentStatus !== "pending" && options.slots?.[slotId] === 0 && me.user.plan !== slotId && !me.user.fullAccess) {
-    const name = planId === "vvip" ? "VVIP" : planId === "boom" ? "Wake up to boom games" : "VIP";
+    const name = planId === "weekly" ? "WEEKLY ROLLOVER" : planId === "vvip" ? "VVIP" : planId === "boom" ? "Wake up to boom games" : "VIP";
     showProblem(`${name} slots are full. No places are left for this plan.`);
     return;
   }

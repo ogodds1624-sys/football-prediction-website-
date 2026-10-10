@@ -24,6 +24,7 @@ const tableSections = {
   vip: document.querySelector("#vip"),
   boom: document.querySelector("#boom"),
   vvip: document.querySelector("#vvip"),
+  weekly: document.querySelector("#weekly"),
 };
 // Tables are placed after the day switcher, which always stays on top.
 const leadDivider = document.querySelector(".day-switcher");
@@ -31,10 +32,11 @@ const tableDividers = [
   tableSections.vip.previousElementSibling,
   tableSections.boom.previousElementSibling,
   tableSections.vvip.previousElementSibling,
+  tableSections.weekly.previousElementSibling,
 ];
 
 function arrangeTables(signedIn) {
-  const order = signedIn ? ["vip", "boom", "vvip", "free"] : ["free", "vip", "boom", "vvip"];
+  const order = signedIn ? ["vip", "boom", "vvip", "weekly", "free"] : ["free", "vip", "boom", "vvip", "weekly"];
   let previous = leadDivider;
   order.forEach((id, index) => {
     previous.after(tableSections[id]);
@@ -149,6 +151,7 @@ const tierBodies = {
   vip: document.querySelector("#vip-body"),
   boom: document.querySelector("#boom-body"),
   vvip: document.querySelector("#vvip-body"),
+  weekly: document.querySelector("#weekly-body"),
 };
 // Only the VIP/VVIP buttons; other buttons share the .plan-button look.
 const planButtons = document.querySelectorAll(".plan-button[data-tier]");
@@ -349,7 +352,7 @@ bookingCopy.addEventListener("click", async () => {
 });
 
 function coversTier(tier) {
-  if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip" || tier === "boom")) {
+  if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip" || tier === "boom" || tier === "weekly")) {
     return true;
   }
   if (tier === "boom" || tier === "vip") {
@@ -1134,7 +1137,9 @@ loadOptions()
 function markFullPlans() {
   for (const button of planButtons) {
     const full = planSlots[slotForButton(button)] === 0 && !coversTier(button.dataset.tier);
-    const total = button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
+    const total = button.dataset.tier === "weekly"
+      ? ""
+      : button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
     button.disabled = full;
     button.textContent = `${full ? "SLOTS FULL" : "BUY PLAN"}${total}`;
   }
@@ -1146,6 +1151,7 @@ function showPlanSlots(slots) {
     vip: ["#vip-slots"],
     boom: ["#boom-slots"],
     vvip: ["#vvip-slots"],
+    weekly: ["#weekly-slots"],
   };
   for (const [tier, selectors] of Object.entries(slotLines)) {
     const left = planSlots[tier];
@@ -1232,11 +1238,14 @@ function supportReply(raw) {
   if (asks(/\brecovery\b/)) {
     return { text: "Open Recovery ticket in the menu. It is for a VIP or VVIP ticket that lost, and it stays available for 2 days after that loss. A winning ticket does not qualify. Sign in with the account that bought the plan." };
   }
+  if (asks(/\b(weekly|rollover)\b/)) {
+    return { text: "WEEKLY ROLLOVER has its own tips and booking code with seven-day access. Buy it under the Weekly Rollover table. It replaces a daily plan; daily purchases do not replace or extend an active Weekly Rollover. Renewing Weekly Rollover adds seven days." };
+  }
   if (asks(/\b(pay|payment|receipt|momo|confirm|rejected|approved|spinner)\b/)) {
     return { text: "Sign in, open VIP or VVIP, and press Buy Plan. Pay with the details shown, upload your receipt, and tap I've sent the money once. A spinner stays on the page until we accept or reject the receipt, including after a refresh. If we reject it, you can send another receipt. When we accept it, you come back here and Buy Plan for that plan becomes the booking code." };
   }
   if (asks(/\b(price|prices|cost|how much|fee)\b/)) {
-    return { text: `${planPriceText()} A plan lasts for that day only. The buyer does not type a price.` };
+    return { text: `${planPriceText()} VIP, VVIP and Boom are daily plans; WEEKLY ROLLOVER lasts seven days. The buyer does not type a price.` };
   }
   if (asks(/\b(differ|versus|vs|which plan|only see|unlock)\b/) || (asks(/\bvip\b/) && asks(/\bvvip\b/))) {
     return { text: "VIP and VVIP are separate tables. A VIP plan unlocks free tips and VIP tips only. A VVIP plan unlocks free tips and VVIP tips only, not the VIP table. Each booking code belongs to its own table." };

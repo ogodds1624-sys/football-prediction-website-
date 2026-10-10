@@ -6,6 +6,7 @@ const TIERS = [
   { id: "vip", label: "VIP" },
   { id: "boom", label: "Wake up to boom games" },
   { id: "vvip", label: "VVIP" },
+  { id: "weekly", label: "WEEKLY ROLLOVER" },
 ];
 
 function dateKey(offset = 0) {

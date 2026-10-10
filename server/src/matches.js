@@ -7,7 +7,7 @@ import { HttpError } from "./errors.js";
 // whose plan covers that table, so a locked tip never reaches the browser.
 
 // "recovery" holds bonus tips for recovery tickets; it is never in the public tables.
-export const TIERS = ["free", "vip", "vvip", "boom", "recovery"];
+export const TIERS = ["free", "vip", "vvip", "boom", "weekly", "recovery"];
 const RESULTS = ["pending", "won", "lost"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 // Pictures are shrunk in the browser first; this keeps a runaway upload out.
@@ -29,7 +29,7 @@ function text(value, max = 60) {
 export function matchFrom(body) {
   const tier = String(body?.tier || "");
   if (!TIERS.includes(tier)) {
-    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games or Recovery.");
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games, Weekly Rollover or Recovery.");
   }
   const match = {
     tier,
@@ -55,10 +55,13 @@ export function matchFrom(body) {
 // The one full-access account sees every paid table whether or not a plan is active.
 export function unlockedTiers(plan, user) {
   if (hasFullAccess(user)) {
-    return new Set(["free", "vip", "vvip", "boom"]);
+    return new Set(["free", "vip", "vvip", "boom", "weekly"]);
   }
   if (!plan) {
     return new Set();
+  }
+  if (plan === "weekly") {
+    return new Set(["free", "weekly"]);
   }
   if (plan === "vvip") {
     return new Set(["free", "vvip"]);
@@ -147,7 +150,7 @@ export function oddsTotalFrom(value) {
 
 export async function oddsTotalsFor(date) {
   const { rows } = await execute("SELECT tier, total FROM odds_totals WHERE date = ?", [date]);
-  const totals = { free: null, vip: null, vvip: null, boom: null, recovery: null };
+  const totals = { free: null, vip: null, vvip: null, boom: null, weekly: null, recovery: null };
   for (const row of rows) {
     if (Object.hasOwn(totals, row.tier)) {
       totals[row.tier] = row.total;
@@ -158,7 +161,7 @@ export async function oddsTotalsFor(date) {
 
 export async function saveOddsTotal(date, tier, value) {
   if (!TIERS.includes(tier)) {
-    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games or Recovery.");
+    throw new HttpError(400, "Choose a table: Free, VIP, VVIP, Boom games, Weekly Rollover or Recovery.");
   }
   const total = oddsTotalFrom(value);
   if (!total) {

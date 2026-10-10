@@ -784,7 +784,7 @@ async function loadMembers() {
     const { totals, members } = await adminFetch("/api/admin/members");
     document.querySelector("#ov-members").textContent = totals.users;
     document.querySelector("#ov-members-detail").textContent = totals.users
-      ? `Active today: VIP ${totals.vip} · Boom ${totals.boom} · VVIP ${totals.vvip}`
+      ? `Active today: VIP ${totals.vip} · Boom ${totals.boom} · VVIP ${totals.vvip} · Weekly Rollover ${totals.weekly}`
       : "No accounts yet";
     loadedMembers = members;
     membersLoaded = true;
@@ -1239,6 +1239,7 @@ async function loadPlanPrices() {
   document.querySelector("#price-vip").value = plans.vip;
   document.querySelector("#price-boom").value = plans.boom;
   document.querySelector("#price-vvip").value = plans.vvip;
+  document.querySelector("#price-weekly").value = plans.weekly;
   for (const input of document.querySelectorAll("[data-country-price]")) {
     input.value = countries?.[input.dataset.countryPrice]?.[input.dataset.planPrice] ?? "";
   }
@@ -1257,11 +1258,13 @@ planPricesForm.addEventListener("submit", async (event) => {
       vip: document.querySelector("#price-vip").value,
       boom: document.querySelector("#price-boom").value,
       vvip: document.querySelector("#price-vvip").value,
+      weekly: document.querySelector("#price-weekly").value,
       countries,
     });
     document.querySelector("#price-vip").value = plans.vip;
     document.querySelector("#price-boom").value = plans.boom;
     document.querySelector("#price-vvip").value = plans.vvip;
+    document.querySelector("#price-weekly").value = plans.weekly;
     for (const input of document.querySelectorAll("[data-country-price]")) {
       input.value = savedCountries?.[input.dataset.countryPrice]?.[input.dataset.planPrice] ?? "";
     }
@@ -1289,7 +1292,7 @@ function slotSummary(view) {
     const places = left === 1 ? "1 place" : `${left} places`;
     return `${name} members see ${places} left`;
   };
-  return `${line("vip", "VIP")}. ${line("boom", "Wake up to boom games")}. ${line("vvip", "VVIP")}.`;
+  return `${line("vip", "VIP")}. ${line("boom", "Wake up to boom games")}. ${line("vvip", "VVIP")}. ${line("weekly", "WEEKLY ROLLOVER")}.`;
 }
 
 async function loadPlanSlots() {
@@ -1297,6 +1300,7 @@ async function loadPlanSlots() {
   document.querySelector("#slot-vip").value = view.caps.vip ?? "";
   document.querySelector("#slot-boom").value = view.caps.boom ?? "";
   document.querySelector("#slot-vvip").value = view.caps.vvip ?? "";
+  document.querySelector("#slot-weekly").value = view.caps.weekly ?? "";
   planSlotsMessage.textContent = slotSummary(view);
 }
 
@@ -1308,10 +1312,12 @@ planSlotsForm.addEventListener("submit", async (event) => {
       vip: document.querySelector("#slot-vip").value,
       boom: document.querySelector("#slot-boom").value,
       vvip: document.querySelector("#slot-vvip").value,
+      weekly: document.querySelector("#slot-weekly").value,
     });
     document.querySelector("#slot-vip").value = view.caps.vip;
     document.querySelector("#slot-boom").value = view.caps.boom;
     document.querySelector("#slot-vvip").value = view.caps.vvip;
+    document.querySelector("#slot-weekly").value = view.caps.weekly ?? "";
     showMessage(planSlotsMessage, `Slots saved. ${slotSummary(view)}`);
   } catch (error) {
     showMessage(planSlotsMessage, error.message, true);

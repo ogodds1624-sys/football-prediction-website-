@@ -12,6 +12,7 @@ export const PLANS = {
   vvip: { id: "vvip", name: "VVIP", amount: 10000, days: 1, rank: 2 },
   // Same daily shape as VIP. Rank stays below VIP so buying boom does not replace an active VIP plan.
   boom: { id: "boom", name: "Wake up to boom games", amount: 5000, days: 1, rank: 0 },
+  weekly: { id: "weekly", name: "WEEKLY ROLLOVER", amount: 10000, days: 7, rank: 3 },
 };
 
 const PRICE_KEY = "planPrices";
@@ -171,6 +172,7 @@ export async function savePlanPrices(input) {
     vip: minorUnits(input?.vip ?? current.vip, "VIP"),
     vvip: minorUnits(input?.vvip ?? current.vvip, "VVIP"),
     boom: minorUnits(input?.boom ?? current.boom, "Wake up to boom games"),
+    weekly: minorUnits(input?.weekly ?? current.weekly, "WEEKLY ROLLOVER"),
   };
   const countries = {};
   for (const country of Object.keys(COUNTRY_PRICE_CURRENCIES)) {
@@ -189,7 +191,7 @@ export async function savePlanPrices(input) {
     [PRICE_KEY, JSON.stringify({ ...prices, countries })],
   );
   return {
-    plans: { vip: prices.vip / 100, vvip: prices.vvip / 100, boom: prices.boom / 100 },
+    plans: { vip: prices.vip / 100, vvip: prices.vvip / 100, boom: prices.boom / 100, weekly: prices.weekly / 100 },
     countries: Object.fromEntries(
       Object.entries(countries).map(([country, countryPrices]) => [
         country,
@@ -229,7 +231,7 @@ export async function readPlanSlots() {
     const count = Number(stored[tier]);
     return Number.isInteger(count) && count >= 0 ? count : null;
   };
-  return { vip: slot("vip"), vvip: slot("vvip"), boom: slot("boom") };
+  return { vip: slot("vip"), vvip: slot("vvip"), boom: slot("boom"), weekly: slot("weekly") };
 }
 
 export async function savePlanSlots(input) {
@@ -238,6 +240,7 @@ export async function savePlanSlots(input) {
     vip: wholeSlots(input?.vip, "VIP"),
     vvip: wholeSlots(input?.vvip, "VVIP"),
     boom: input?.boom == null || String(input.boom).trim() === "" ? current.boom : wholeSlots(input.boom, "Wake up to boom games"),
+    weekly: input?.weekly == null || String(input.weekly).trim() === "" ? current.weekly : wholeSlots(input.weekly, "WEEKLY ROLLOVER"),
   };
   await execute(
     `INSERT INTO settings (key, value) VALUES (?, ?)

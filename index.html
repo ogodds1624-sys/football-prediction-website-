@@ -57,6 +57,13 @@
       </svg>
       Wake up to boom games
     </a>
+    <a class="menu-item" href="#weekly">
+      <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2"/>
+        <path d="M7 2v6M17 2v6M3 11h18"/>
+      </svg>
+      WEEKLY ROLLOVER
+    </a>
     <button type="button" class="menu-item" id="menu-recovery">
       <svg class="menu-icon icon-recovery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
@@ -211,6 +218,22 @@
       </div>
     </section>
     <hr>
+    <section id="weekly" aria-labelledby="weekly-title">
+      <table class="weekly-table">
+        <thead><tr><th id="weekly-title" scope="col">WEEKLY ROLLOVER</th></tr></thead>
+        <tbody id="weekly-body"><tr><td class="empty-row">Loading predictions...</td></tr></tbody>
+      </table>
+      <p class="slot-line" id="weekly-slots" hidden></p>
+      <button type="button" class="plan-button weekly-plan table-cta" data-tier="weekly">BUY PLAN</button>
+      <div class="booking-panel plan-code" id="weekly-code" hidden>
+        <p class="booking-text"></p>
+        <div class="booking-code-row" hidden>
+          <span class="booking-code"></span>
+          <button type="button" class="control-sign-out booking-copy">Copy</button>
+        </div>
+      </div>
+    </section>
+    <hr>
     <div class="testimonials testimonials-block" id="testimonials" role="region" aria-roledescription="carousel" aria-labelledby="testimonials-title">
       <h2 class="testimonials-title" id="testimonials-title">What our members say</h2>
       <p class="testimonials-empty" id="testimonials-empty">Be the first member to share your experience.</p>
@@ -268,6 +291,7 @@
           <li><a href="#vip">VIP predictions</a></li>
           <li><a href="#vvip">VVIP predictions</a></li>
           <li><a href="#boom">Wake up to boom games</a></li>
+          <li><a href="#weekly">WEEKLY ROLLOVER</a></li>
           <li><button type="button" id="footer-sign-in">Sign in</button></li>
         </ul>
       </nav>

@@ -458,7 +458,8 @@ main hr {
 #free,
 #vip,
 #vvip,
-#boom {
+#boom,
+#weekly {
   scroll-margin-top: 4.75rem;
 }
 
@@ -659,6 +660,16 @@ thead th.free-heading::after {
 .vvip-table thead th {
   color: #1e0f3a;
   background: #b48cf2;
+}
+
+.weekly-table {
+  border-color: #67d7ef;
+}
+
+.weekly-table thead th,
+.weekly-plan {
+  color: #082e38;
+  background: #67d7ef;
 }
 
 .slot-line {

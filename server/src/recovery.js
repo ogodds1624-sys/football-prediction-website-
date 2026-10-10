@@ -62,11 +62,11 @@ async function ticketOutcome(date, tier) {
  */
 export async function checkRecovery(userId, date) {
   const { rows: purchases } = await execute(
-    "SELECT plan, date FROM purchases WHERE user_id = ? AND date < ? ORDER BY date DESC, id DESC LIMIT 10",
+    "SELECT plan, date FROM purchases WHERE user_id = ? AND plan IN ('vip', 'vvip') AND date < ? ORDER BY date DESC, id DESC LIMIT 10",
     [userId, date],
   );
   if (!purchases.length) {
-    const today = await one("SELECT id FROM purchases WHERE user_id = ? AND date = ?", [userId, date]);
+    const today = await one("SELECT id FROM purchases WHERE user_id = ? AND plan IN ('vip', 'vvip') AND date = ?", [userId, date]);
     return today
       ? { status: "pending", message: "Your ticket from today is still being played. Recovery opens the next day if it loses." }
       : { status: "none", message: "We couldn't find a VIP or VVIP purchase on this account." };
@@ -115,8 +115,8 @@ export async function checkRecovery(userId, date) {
 // Admin: mark a member as paid (e.g. MoMo) for a plan on a day, and unlock their tips.
 export async function activatePlan(email, planId, date) {
   const plan = getPlan(planId);
-  if (!plan || (planId !== "vip" && planId !== "vvip")) {
-    throw new HttpError(400, "Choose VIP or VVIP.");
+  if (!plan || !["vip", "vvip", "weekly"].includes(planId)) {
+    throw new HttpError(400, "Choose VIP, VVIP or Weekly Rollover.");
   }
   const user = await one("SELECT id, email, plan, plan_expires_at, slot_plan FROM users WHERE email = ?", [String(email || "").trim()]);
   if (!user) {
@@ -126,12 +126,14 @@ export async function activatePlan(email, planId, date) {
     await recordPurchase(tx, user.id, plan.id, date, "manual");
     // Purchases for today unlock the member's tips until the end of today (UTC).
     if (date === todayKey()) {
-      const endOfDay = `${shiftDate(date, 1)}T00:00:00.000Z`;
+      const endOfDay = plan.id === "weekly"
+        ? new Date(Math.max(Date.now(), user.plan === "weekly" ? Date.parse(user.plan_expires_at) || 0 : 0) + 7 * DAY_MS).toISOString()
+        : `${shiftDate(date, 1)}T00:00:00.000Z`;
       const keepHigher = user.plan_expires_at > new Date().toISOString() && getPlan(user.plan)?.rank > plan.rank;
       const nextPlan = keepHigher ? user.plan : plan.id;
       await tx.execute("UPDATE users SET plan = ?, plan_expires_at = ?, slot_plan = ? WHERE id = ?", [
         nextPlan,
-        keepHigher && user.plan_expires_at > endOfDay ? user.plan_expires_at : endOfDay,
+        keepHigher && (user.plan === "weekly" || user.plan_expires_at > endOfDay) ? user.plan_expires_at : endOfDay,
         keepHigher ? (user.slot_plan || user.plan) : plan.id,
         user.id,
       ]);
@@ -192,15 +194,17 @@ export async function memberTotals() {
     `SELECT COUNT(*) AS users,
             SUM(plan = 'vip' AND plan_expires_at > ? AND COALESCE(slot_plan, '') != 'boom') AS vip,
             SUM(plan = 'vvip' AND plan_expires_at > ?) AS vvip,
-            SUM(plan = 'vip' AND slot_plan = 'boom' AND plan_expires_at > ?) AS boom
+            SUM(plan = 'vip' AND slot_plan = 'boom' AND plan_expires_at > ?) AS boom,
+            SUM(plan = 'weekly' AND plan_expires_at > ?) AS weekly
      FROM users`,
-    [now, now, now],
+    [now, now, now, now],
   );
   return {
     users: Number(row?.users || 0),
     vip: Number(row?.vip || 0),
     vvip: Number(row?.vvip || 0),
     boom: Number(row?.boom || 0),
+    weekly: Number(row?.weekly || 0),
   };
 }
 
@@ -209,11 +213,11 @@ export async function heldPlanCounts() {
   const totals = await memberTotals();
   const now = new Date().toISOString();
   const pending = await one(
-    `SELECT SUM(plan = 'vip') AS vip, SUM(plan = 'vvip') AS vvip, SUM(plan = 'boom') AS boom
+    `SELECT SUM(plan = 'vip') AS vip, SUM(plan = 'vvip') AS vvip, SUM(plan = 'boom') AS boom, SUM(plan = 'weekly') AS weekly
      FROM (
-       SELECT DISTINCT user_id, plan FROM manual_payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom')
+       SELECT DISTINCT user_id, plan FROM manual_payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom', 'weekly')
        UNION
-       SELECT DISTINCT user_id, plan FROM payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom')
+       SELECT DISTINCT user_id, plan FROM payments WHERE status = 'pending' AND plan IN ('vip', 'vvip', 'boom', 'weekly')
      ) AS waiting
      WHERE NOT EXISTS (
        SELECT 1 FROM users
@@ -223,6 +227,7 @@ export async function heldPlanCounts() {
            (waiting.plan = 'boom' AND users.plan = 'vip' AND users.slot_plan = 'boom')
            OR (waiting.plan = 'vip' AND users.plan = 'vip' AND COALESCE(users.slot_plan, '') != 'boom')
            OR (waiting.plan = 'vvip' AND users.plan = 'vvip')
+           OR (waiting.plan = 'weekly' AND users.plan = 'weekly')
          )
      )`,
     [now],
@@ -231,5 +236,6 @@ export async function heldPlanCounts() {
     vip: totals.vip + Number(pending?.vip || 0),
     vvip: totals.vvip + Number(pending?.vvip || 0),
     boom: totals.boom + Number(pending?.boom || 0),
+    weekly: totals.weekly + Number(pending?.weekly || 0),
   };
 }

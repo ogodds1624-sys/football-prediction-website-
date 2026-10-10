@@ -13,7 +13,7 @@ const SCHEMA = [
     email           TEXT NOT NULL UNIQUE COLLATE NOCASE,
     name            TEXT NOT NULL DEFAULT '',
     password_hash   TEXT NOT NULL,
-    plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip')),
+    plan            TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'vip', 'vvip', 'weekly')),
     plan_expires_at TEXT,
     slot_plan       TEXT NOT NULL DEFAULT '',
     last_seen_at    TEXT,
@@ -26,7 +26,7 @@ const SCHEMA = [
     user_id                 INTEGER NOT NULL REFERENCES users(id),
     provider                TEXT NOT NULL CHECK (provider IN ('paystack', 'flutterwave')),
     reference               TEXT NOT NULL UNIQUE,
-    plan                    TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
+    plan                    TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom', 'weekly')),
     amount                  INTEGER NOT NULL CHECK (amount > 0),
     currency                TEXT NOT NULL,
     status                  TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed')),
@@ -46,7 +46,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS matches (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'weekly', 'recovery')),
     home       TEXT NOT NULL,
     away       TEXT NOT NULL,
     tip        TEXT NOT NULL,
@@ -61,7 +61,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS purchases (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id),
-    plan       TEXT NOT NULL CHECK (plan IN ('vip', 'vvip')),
+    plan       TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'weekly')),
     date       TEXT NOT NULL,
     source     TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -80,14 +80,14 @@ const SCHEMA = [
   // Optional total odds for one table on one day. Blank means multiply the match odds.
   `CREATE TABLE IF NOT EXISTS odds_totals (
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'weekly', 'recovery')),
     total      TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     PRIMARY KEY (date, tier)
   )`,
   `CREATE TABLE IF NOT EXISTS booking_codes (
     date       TEXT NOT NULL,
-    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'recovery')),
+    tier       TEXT NOT NULL CHECK (tier IN ('free', 'vip', 'vvip', 'boom', 'weekly', 'recovery')),
     code       TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     PRIMARY KEY (date, tier)
@@ -96,7 +96,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS manual_payments (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id        INTEGER NOT NULL REFERENCES users(id),
-    plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom')),
+    plan           TEXT NOT NULL CHECK (plan IN ('vip', 'vvip', 'boom', 'weekly')),
     amount         INTEGER NOT NULL CHECK (amount > 0),
     currency       TEXT NOT NULL,
     method_id      TEXT NOT NULL,
@@ -424,6 +424,57 @@ async function migrate() {
     }
   }
   await allowBoomPlan();
+  await allowWeeklyPlan();
+}
+
+async function allowWeeklyPlan() {
+  const names = ["users", "payments", "manual_payments", "purchases", "matches", "odds_totals", "booking_codes"];
+  const { rows: userSchema } = await backend.execute(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'", [],
+  );
+  if (userSchema[0].sql.includes("'weekly'")) {
+    return;
+  }
+  await backend.transaction(async (tx) => {
+    const indexes = [];
+    const sequences = [];
+    for (const name of names) {
+      const { rows } = await tx.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", [name]);
+      const schema = rows[0].sql
+        .replace(new RegExp(`^CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?["\\x60]?${name}["\\x60]?`, "i"), `CREATE TABLE ${name}_weekly`)
+        .replace(/REFERENCES\s+["]?users["]?\s*\(/gi, "REFERENCES users_weekly(")
+        .replace(/CHECK\s*\(\s*(plan|tier)\s+IN\s*\(([^)]+)\)\s*\)/gi,
+          (_, column, values) => `CHECK (${column} IN (${values}, 'weekly'))`);
+      await tx.execute(schema, []);
+      await tx.execute(`INSERT INTO ${name}_weekly SELECT * FROM ${name}`, []);
+      const { rows: savedIndexes } = await tx.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", [name],
+      );
+      indexes.push(...savedIndexes.map((index) => index.sql));
+      const { rows: sequence } = await tx.execute("SELECT seq FROM sqlite_sequence WHERE name = ?", [name]);
+      if (sequence.length) {
+        sequences.push({ name, seq: sequence[0].seq });
+      }
+    }
+    // Remove referencing tables before users, then restore users before its children.
+    for (const name of names.filter((name) => name !== "users")) {
+      await tx.execute(`DROP TABLE ${name}`, []);
+    }
+    await tx.execute("DROP TABLE users", []);
+    for (const name of names) {
+      await tx.execute(`ALTER TABLE ${name}_weekly RENAME TO ${name}`, []);
+    }
+    for (const sql of indexes) {
+      await tx.execute(sql, []);
+    }
+    for (const { name, seq } of sequences) {
+      await tx.execute("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = ?", [seq, name]);
+    }
+    const { rows: violations } = await tx.execute("PRAGMA foreign_key_check", []);
+    if (violations.length) {
+      throw new Error("Weekly Rollover migration failed foreign-key validation.");
+    }
+  });
 }
 
 // Payment rows record which package was bought. Boom is its own price, so older

@@ -13,7 +13,7 @@ function show(heading, message) {
 }
 
 function planName(plan) {
-  return plan === "vvip" ? "VVIP" : "VIP";
+  return plan === "weekly" ? "WEEKLY ROLLOVER" : plan === "boom" ? "Wake up to boom games" : plan === "vvip" ? "VVIP" : "VIP";
 }
 
 // The server confirms with Paystack/Flutterwave itself; this page only asks

@@ -107,6 +107,14 @@
         <p class="stat-label">VVIP matches</p>
         <p class="stat-value" id="stat-vvip">0</p>
       </div>
+      <div class="stat">
+        <p class="stat-label">Boom matches</p>
+        <p class="stat-value" id="stat-boom">0</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">Weekly Rollover matches</p>
+        <p class="stat-value" id="stat-weekly">0</p>
+      </div>
     </section>
       </div>
 
@@ -124,6 +132,7 @@
                 <option value="vip">VIP</option>
                 <option value="boom">Wake up to boom games</option>
                 <option value="vvip">VVIP</option>
+                <option value="weekly">WEEKLY ROLLOVER</option>
                 <option value="recovery">Recovery (bonus tips)</option>
               </select>
             </label>
@@ -368,7 +377,7 @@
 
     <section class="control-section" aria-labelledby="plan-prices-title">
       <h2 id="plan-prices-title">Plan prices</h2>
-      <p class="form-hint">Set each country’s VIP, Wake up to boom games, and VVIP prices. Ghana uses <span id="price-currency">GHS</span>. A blank country price keeps using the current exchange-rate conversion.</p>
+      <p class="form-hint">Set prices for all plans, including WEEKLY ROLLOVER (7-day access). Ghana uses <span id="price-currency">GHS</span>. A blank country price keeps using the current exchange-rate conversion.</p>
       <form class="match-form" id="plan-prices-form" novalidate>
         <label>Ghana — VIP (<span class="price-currency">GHS</span>)
           <input id="price-vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
@@ -378,6 +387,21 @@
         </label>
         <label>Ghana — VVIP (<span class="price-currency">GHS</span>)
           <input id="price-vvip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
+        <label>Ghana — WEEKLY ROLLOVER (<span class="price-currency">GHS</span>)
+          <input id="price-weekly" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" required>
+        </label>
+        <label>Nigeria — WEEKLY ROLLOVER (NGN)
+          <input data-country-price="nigeria" data-plan-price="weekly" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Kenya — WEEKLY ROLLOVER (USDT)
+          <input data-country-price="kenya" data-plan-price="weekly" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>Uganda — WEEKLY ROLLOVER (USDT)
+          <input data-country-price="uganda" data-plan-price="weekly" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
+        </label>
+        <label>International — WEEKLY ROLLOVER (USDT)
+          <input data-country-price="international" data-plan-price="weekly" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
         </label>
         <label>Nigeria — VIP (NGN)
           <input data-country-price="nigeria" data-plan-price="vip" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off" placeholder="Use exchange rate">
@@ -424,7 +448,7 @@
 
     <section class="control-section" aria-labelledby="plan-slots-title">
       <h2 id="plan-slots-title">Available slots</h2>
-      <p class="form-hint">How many VIP, Wake up to boom games, and VVIP places you are offering. Members see the places left on that table. A place is used while the plan is still active.</p>
+      <p class="form-hint">Set the places offered for each plan. Members see places left only when the table has pending predictions. A place is used while the plan is active.</p>
       <form class="match-form" id="plan-slots-form" novalidate>
         <label>VIP slots
           <input id="slot-vip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
@@ -434,6 +458,9 @@
         </label>
         <label>VVIP slots
           <input id="slot-vvip" type="number" min="0" step="1" inputmode="numeric" autocomplete="off" required>
+        </label>
+        <label>WEEKLY ROLLOVER slots
+          <input id="slot-weekly" type="number" min="0" step="1" inputmode="numeric" autocomplete="off">
         </label>
         <div class="form-actions">
           <button type="submit" class="control-primary">Save slots</button>
