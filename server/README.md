@@ -19,6 +19,11 @@ receipts stay saved but no longer appear in that table.
 Past approved receipts do not redirect members away from checkout: they can buy
 again after expiry or renew. A pending receipt still opens the waiting screen,
 and approval of that pending receipt returns the member to the predictions page.
+Account and payment API responses are not cached. An open predictions page
+refreshes signed-in access every ten seconds, when returning to the tab, and
+before opening checkout. Approved members see their owned table's booking code
+instead of another Buy Plan prompt; a failed refresh does not downgrade their
+displayed plan or open checkout.
 While the admin page is open, it checks for payments every 10 seconds and
 shows a dismissible alert for new pending receipts across all admin sections.
 It also checks when you return to the tab; closed-page browser notifications are

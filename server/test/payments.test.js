@@ -1140,6 +1140,10 @@ describe("plan slots", () => {
       assert.equal(confirmed.status, 200);
       const member = await api("/api/me", { cookie: buyer.cookie });
       assert.equal(member.data.user.plan, "boom");
+      assert.equal(member.headers.get("cache-control"), "private, no-store");
+      const refreshed = await api("/api/me", { cookie: buyer.cookie });
+      assert.equal(refreshed.data.user.plan, "boom");
+      assert.equal(refreshed.data.user.planExpiresAt, member.data.user.planExpiresAt);
       const open = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
       const tips = Object.fromEntries(open.data.matches.map((match) => [match.tier, match.tip]));
       assert.equal(tips.vip, "VIP tip");

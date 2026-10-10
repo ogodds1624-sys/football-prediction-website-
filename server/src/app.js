@@ -157,6 +157,7 @@ export function createApp({ limitRequests = true } = {}) {
 
   // Missing settings: answer clearly instead of crashing. The pages still load.
   app.use("/api", (req, res, next) => {
+    res.set("Cache-Control", "private, no-store");
     if (config.problems.length) {
       res.status(503).json({ error: "Server setup incomplete.", problems: config.problems });
       return;

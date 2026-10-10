@@ -64,6 +64,7 @@ function showUser(user) {
   arrangeTables(Boolean(user));
   showPlanTables(user?.plan);
   if (changed) {
+    showOwnedBookingCodes();
     renderPredictions();
   }
   signInButton.textContent = user ? "Sign out" : "Sign in";
@@ -233,7 +234,7 @@ async function renderPredictions() {
   let matches;
   let oddsTotals = {};
   try {
-    const response = await fetch(`/api/matches?date=${date}`);
+    const response = await fetch(`/api/matches?date=${date}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("predictions unavailable");
     }
@@ -994,8 +995,15 @@ async function openPayment(plan) {
 }
 
 for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const plan = planForButton(button);
+    if (!await loadCurrentUser()) {
+      return;
+    }
+    if (coversTier(button.dataset.tier)) {
+      showOwnedBookingCodes();
+      return;
+    }
     if (button.disabled || planSlots[slotForButton(button)] === 0) {
       return;
     }
@@ -1070,27 +1078,60 @@ signInButton.addEventListener("click", () => {
   }
 });
 
-async function loadCurrentUser() {
+let currentUserRequest = null;
+
+function loadCurrentUser() {
+  if (!currentUserRequest) {
+    currentUserRequest = refreshCurrentUser().finally(() => {
+      currentUserRequest = null;
+    });
+  }
+  return currentUserRequest;
+}
+
+async function refreshCurrentUser() {
   if (location.protocol === "file:") {
-    return;
+    return false;
   }
   try {
-    const response = await fetch("/api/me");
+    const response = await fetch("/api/me", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Couldn't check your account. Refresh the page before buying a plan.");
+    }
     const body = await response.json();
     if (body.user && !body.user.country) {
       const file = location.pathname.split("/").pop() || "index.html";
       const next = `${file}${location.search}`;
       location.replace(`country.html?next=${encodeURIComponent(next)}`);
-      return;
+      return false;
     }
     showUser(body.user);
     if (!body.user) {
       showVisitorInvite();
     }
-  } catch {
-    showUser(null);
+    return true;
+  } catch (error) {
+    console.error("Account access refresh failed:", error);
+    popToast("Couldn't refresh your account", "Check your connection and try again before buying a plan.", 5000);
+    return false;
   }
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    loadCurrentUser();
+  }
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    loadCurrentUser();
+  }
+});
+window.setInterval(() => {
+  if (currentUser && !document.hidden) {
+    loadCurrentUser();
+  }
+}, 10000);
 
 loadCurrentUser().then(() => {
   const params = new URLSearchParams(location.search);

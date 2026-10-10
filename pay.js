@@ -170,7 +170,7 @@ function showFormAgain(message) {
 
 async function checkDecision() {
   try {
-    const response = await fetch(`/api/payments/manual?plan=${encodeURIComponent(planId)}`);
+    const response = await fetch(`/api/payments/manual?plan=${encodeURIComponent(planId)}`, { cache: "no-store" });
     if (!response.ok) {
       return;
     }
@@ -221,9 +221,9 @@ async function loadPage() {
   let emailNotification = "";
   try {
     const [meResponse, optionsResponse, statusResponse] = await Promise.all([
-      fetch("/api/me"),
+      fetch("/api/me", { cache: "no-store" }),
       fetch("/api/payments/options"),
-      fetch(`/api/payments/manual?plan=${planId}`),
+      fetch(`/api/payments/manual?plan=${planId}`, { cache: "no-store" }),
     ]);
     me = await meResponse.json();
     if (!optionsResponse.ok) {
