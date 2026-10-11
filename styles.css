@@ -419,6 +419,45 @@ h1 {
 }
 
 /* Clear space between each predictions table */
+.homepage main hr {
+  margin: 1.5rem 0;
+}
+
+.homepage main > section > table th,
+.homepage main > section > table td {
+  padding: 0.65rem 0.8rem;
+}
+
+.homepage main > section > table thead th {
+  font-size: 0.95rem;
+}
+
+.homepage main > section > table thead th.boom-title {
+  font-size: clamp(1.2rem, 4.5vw, 1.5rem);
+}
+
+.homepage .free-heading-text {
+  font-size: clamp(1.2rem, 4.5vw, 1.4rem);
+}
+
+.homepage .free-heading-ball {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.homepage main > section > .plan-button {
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  min-height: 44px;
+  font-size: 0.9rem;
+}
+
+.homepage .slot-line {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+}
+
 main hr {
   margin: 3rem 0;
   border: 0;
