@@ -1022,6 +1022,45 @@ describe("predictions", () => {
     return Object.fromEntries(matches.map((match) => [match.tier, match.tip]));
   }
 
+  for (const [index, plan] of ["vip", "vvip", "boom", "weekly"].entries()) {
+    for (const method of ["online", "manual"]) {
+      test(`${plan} ${method} payment before games are posted unlocks later games without changing expiry`, async () => {
+        const date = `2028-02-${String(index * 2 + (method === "online" ? 1 : 2)).padStart(2, "0")}`;
+        const buyer = await newUser();
+        const admin = await adminCookie();
+        assert.deepEqual((await api(`/api/matches?date=${date}`, { cookie: buyer.cookie })).data.matches, []);
+        if (method === "online") {
+          const reference = await startCheckout(buyer.cookie, "paystack", plan);
+          providerRecords.set(reference, { status: "success", amount: PLANS[plan].amount, currency: "GHS" });
+          assert.equal((await api(`/api/payments/${reference}`, { cookie: buyer.cookie })).status, 200);
+        } else {
+          const { one } = await import("../src/db.js");
+          const receipt = await one(
+            `INSERT INTO manual_payments (user_id,plan,amount,currency,method_id,network,account_number,receipt_data)
+             VALUES (?,?,?,'GHS','momo','MTN','0240000000','data:image/png;base64,aGVsbG8=')
+             RETURNING id`,
+            [buyer.user.id, plan, PLANS[plan].amount],
+          );
+          assert.equal((await api(`/api/admin/manual-payments/${receipt.id}/confirm`,
+            { method: "POST", cookie: admin, body: {} })).status, 200);
+        }
+        const expiry = (await api("/api/me", { cookie: buyer.cookie })).data.user.planExpiresAt;
+        assert.ok(Date.parse(expiry) > Date.now());
+        assert.deepEqual((await api(`/api/matches?date=${date}`, { cookie: buyer.cookie })).data.matches, []);
+        const added = await api("/api/admin/matches", { method: "POST", cookie: admin,
+          body: { date, tier: plan, home: "Later Home", away: "Later Away", tip: "Over 1.5", odds: "1.50" } });
+        assert.equal(added.status, 201);
+        const games = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+        assert.equal(games.data.matches[0].locked, false);
+        assert.equal(games.data.matches[0].tip, "Over 1.5");
+        assert.equal((await api("/api/me", { cookie: buyer.cookie })).data.user.planExpiresAt, expiry);
+        const visitor = await api(`/api/matches?date=${date}`);
+        assert.equal(visitor.data.matches[0].locked, true);
+        assert.equal(visitor.data.matches[0].tip, null);
+      });
+    }
+  }
+
   test("visitors see no tips at all; teams and odds stay visible", async () => {
     const { data } = await api(`/api/matches?date=${DATE}`);
     assert.deepEqual(tipsByTier(data.matches), { free: null, vip: null, boom: null, vvip: null });

@@ -44,6 +44,11 @@ it contains at least one game and every game for the selected day is marked won.
 Empty sections, pending or lost games, and failed prediction loads do not show
 the badge. Results remain visible without unlocking paid tips.
 
+Approved payments unlock the purchased plan even when its games have not been
+posted yet. Games added later are available during the same active subscription,
+without another payment or a change to its expiry. An open paid member's homepage
+refreshes predictions with the existing ten-second account check.
+
 The homepage runs two daily campaigns in GMT (UTC), independent of the browser's
 timezone: Weekly Rollover from 06:00 to 19:59, and Boom night games from 20:00
 through 05:59 the next morning. Signed-in members are invited only if they lack
