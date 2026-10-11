@@ -39,12 +39,18 @@ the current expiry); Weekly Rollover lasts seven days.
 
 ### User management
 
-The homepage invites signed-in members without Weekly Rollover access to join
-the campaign once per page visit. **Join now** checks current access and slots
-before opening Weekly checkout; **Later** (or Escape) dismisses it for that visit.
-Reloading or a new visit allows another invitation. Active Weekly and full-access
-members, visitors, and blocked accounts are excluded. Pending account warnings
-and other open dialogs take priority.
+The homepage runs two daily campaigns in GMT (UTC), independent of the browser's
+timezone: Weekly Rollover from 06:00 to 19:59, and Boom night games from 20:00
+through 05:59 the next morning. Signed-in members are invited only if they lack
+access to that campaign's table; VIP access also excludes the Boom invitation.
+**Join now** checks current access and slots before opening the corresponding
+checkout; **Later** (or Escape) dismisses that campaign for this visit and daily
+window. Reloading or a new visit allows another invitation. An open visible
+page checks every ten seconds and switches campaigns at the next window,
+including on subsequent days. Full-access members, visitors, and blocked
+accounts are excluded. Pending account warnings and other open dialogs take
+priority. The night-game wording is an invitation, not a promise of winnings;
+both prompts disclose the paid subscription and the lack of guaranteed winnings.
 
 The Control Room's **Users** section searches accounts by name or email (up to
 50 results). Select **Manage** to block/unblock the account or send a plain-text

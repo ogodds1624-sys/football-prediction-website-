@@ -1978,6 +1978,32 @@ button {
   line-height: 1.5;
 }
 
+.boom-campaign {
+  background: radial-gradient(ellipse at top, rgba(255, 176, 32, 0.14), transparent 65%), #0c1424;
+  border-color: rgba(255, 176, 32, 0.35);
+}
+
+.boom-campaign .rollover-campaign-icon,
+.boom-campaign .rollover-campaign-benefit {
+  border-color: rgba(255, 176, 32, 0.25);
+  background: rgba(255, 176, 32, 0.06);
+}
+
+.boom-campaign .rollover-campaign-icon,
+.boom-campaign .rollover-campaign-eyebrow,
+.boom-campaign .rollover-campaign-benefit strong {
+  color: #ffb020;
+}
+
+.boom-campaign h2 {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.boom-campaign #boom-join {
+  background: #ffb020;
+  color: #302000;
+}
+
 .fee-confirm-copy {
   margin: 0.85rem 0 0;
   color: var(--muted);
