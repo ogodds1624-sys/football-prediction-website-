@@ -226,9 +226,19 @@ let predictionsRequest = 0;
 let pendingPredictionTiers = new Set();
 let planSlots = {};
 
+function showSectionWon(tier, matches) {
+  const status = document.querySelector(`#${tier}-won`);
+  if (status) {
+    status.hidden = !matches.length || !matches.every((match) => match.result === "won");
+  }
+}
+
 async function renderPredictions() {
   const request = ++predictionsRequest;
   const date = dateKey(selectedOffset);
+  for (const tier of TIERS) {
+    showSectionWon(tier.id, []);
+  }
   pendingPredictionTiers = new Set();
   showPlanSlots(planSlots);
   let matches;
@@ -261,6 +271,7 @@ async function renderPredictions() {
     const tierMatches = matches.filter((match) => match.tier === tier.id);
     const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, Boolean(oddsTotals[tier.id]))) : [emptyRow()];
     tierBodies[tier.id].replaceChildren(...rows);
+    showSectionWon(tier.id, tierMatches);
   }
 
   for (const button of planButtons) {
@@ -1101,6 +1112,7 @@ async function refreshCurrentUser() {
         showUser(null);
         for (const tier of TIERS) {
           tierBodies[tier.id].replaceChildren(messageRow(body.error));
+          showSectionWon(tier.id, []);
         }
         popToast("Account blocked", body.error, 5000);
         return false;

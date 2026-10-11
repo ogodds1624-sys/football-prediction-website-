@@ -420,42 +420,74 @@ h1 {
 
 /* Clear space between each predictions table */
 .homepage main hr {
-  margin: 1.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .homepage main > section > table th,
 .homepage main > section > table td {
-  padding: 0.65rem 0.8rem;
-}
-
-.homepage main > section > table thead th {
-  font-size: 0.95rem;
-}
-
-.homepage main > section > table thead th.boom-title {
-  font-size: clamp(1.2rem, 4.5vw, 1.5rem);
-}
-
-.homepage .free-heading-text {
-  font-size: clamp(1.2rem, 4.5vw, 1.4rem);
-}
-
-.homepage .free-heading-ball {
-  width: 1.3rem;
-  height: 1.3rem;
-}
-
-.homepage main > section > .plan-button {
-  margin-top: 0.5rem;
-  padding-top: 0.6rem;
-  padding-bottom: 0.6rem;
-  min-height: 44px;
+  padding: 0.4rem 0.7rem;
   font-size: 0.9rem;
 }
 
+.homepage main > section > table thead th {
+  font-size: 0.85rem;
+}
+
+.homepage main > section > table thead th.boom-title {
+  font-size: clamp(1.05rem, 4vw, 1.2rem);
+}
+
+.homepage .free-heading-text {
+  font-size: clamp(1.05rem, 4vw, 1.2rem);
+}
+
+.homepage .free-heading-ball {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.homepage .free-heading-inner {
+  gap: 0.4rem;
+}
+
+.homepage main > section .match-meta {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.homepage main > section > .booking-panel {
+  margin-top: 0.4rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.homepage main > section > .plan-button {
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  min-height: 44px;
+  font-size: 0.85rem;
+}
+
 .homepage .slot-line {
-  margin-top: 0.45rem;
+  margin-top: 0.3rem;
   font-size: 0.75rem;
+}
+
+.homepage .section-won {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  color: #6fe9a8;
+  background: #102c20;
+  border: 1px solid #2fc879;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.homepage .section-won[hidden] {
+  display: none;
 }
 
 main hr {

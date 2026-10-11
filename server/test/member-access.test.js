@@ -12,6 +12,58 @@ const clickSource = source.slice(
 );
 const coversSource = source.slice(source.indexOf("function coversTier("), source.indexOf("function planForButton("));
 
+test("section WON badges require every game won and clear on day changes or loading errors", async () => {
+  const tiers = ["free", "vip", "boom", "vvip", "weekly"];
+  const statuses = Object.fromEntries(tiers.map((tier) => [tier, { hidden: true }]));
+  let matches = tiers.flatMap((tier) => [
+    { tier, result: "won", locked: true },
+    { tier, result: "won", locked: true },
+  ]);
+  let fail = false;
+  let release;
+  let pause = false;
+  const context = vm.createContext({
+    document: { querySelector: (selector) => statuses[selector.slice(1, -4)] },
+    TIERS: tiers.map((id) => ({ id })),
+    selectedOffset: 0,
+    dateKey: (offset) => String(offset),
+    tierBodies: Object.fromEntries(tiers.map((tier) => [tier, { replaceChildren() {} }])),
+    planButtons: [],
+    matchRow: (match) => match,
+    emptyRow: () => null,
+    messageRow: (text) => text,
+    showPlanSlots() {}, showOwnedBookingCodes() {}, markFullPlans() {},
+    fetch: async () => {
+      if (pause) {
+        await new Promise((resolve) => { release = resolve; });
+      }
+      return { ok: !fail, json: async () => ({ matches }) };
+    },
+  });
+  vm.runInContext(source.slice(source.indexOf("let predictionsRequest = 0;"),
+    source.indexOf("let codeRequest = 0;")), context);
+  await context.renderPredictions();
+  assert.ok(tiers.every((tier) => statuses[tier].hidden === false));
+  matches = [
+    { tier: "free", result: "won" }, { tier: "free", result: "pending" },
+    { tier: "vip", result: "won" }, { tier: "vip", result: "lost" },
+    { tier: "boom", result: "pending" },
+    { tier: "weekly", result: "won" },
+  ];
+  context.selectedOffset = -1;
+  pause = true;
+  const loading = context.renderPredictions();
+  assert.ok(tiers.every((tier) => statuses[tier].hidden));
+  pause = false;
+  release();
+  await loading;
+  assert.ok(["free", "vip", "boom", "vvip"].every((tier) => statuses[tier].hidden));
+  assert.equal(statuses.weekly.hidden, false);
+  fail = true;
+  await context.renderPredictions();
+  assert.ok(tiers.every((tier) => statuses[tier].hidden));
+});
+
 function memberPage() {
   let user = { id: 1, name: "Test", plan: "free", country: "ghana" };
   let available = true;
@@ -47,6 +99,7 @@ function memberPage() {
     showUser: (value) => { context.currentUser = value; },
     showOwnedBookingCodes: () => { codesShown += 1; },
     showVisitorInvite() {},
+    showSectionWon() {},
     popToast: (...args) => notices.push(args),
     TIERS: ["free", "vip", "vvip", "boom", "weekly"].map((id) => ({ id })),
     tierBodies: Object.fromEntries(["free", "vip", "vvip", "boom", "weekly"].map((id) => [id, { replaceChildren() {} }])),
