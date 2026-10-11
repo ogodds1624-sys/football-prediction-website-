@@ -428,6 +428,32 @@ describe("static files", () => {
 });
 
 describe("members list", () => {
+  test("shows only the latest approval while preserving older receipts and revenue totals", async () => {
+    const { user } = await newUser();
+    const { execute, one } = await import("../src/db.js");
+    const { listMembers } = await import("../src/recovery.js");
+    const { approvedPaymentTotals } = await import("../src/payments.js");
+    const before = await approvedPaymentTotals();
+    const ghs = (totals) => totals.find((item) => item.currency === "GHS")?.amount || 0;
+    const insert = async (plan, amount, status, updatedAt) => execute(
+      `INSERT INTO manual_payments
+       (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,updated_at)
+       VALUES (?,?,?,'GHS','momo','MTN','0240000000','test-receipt',?,?)`,
+      [user.id, plan, amount, status, updatedAt],
+    );
+    await insert("vip", 5500, "confirmed", "2026-10-11T10:00:00.000Z");
+    await insert("boom", 5000, "confirmed", "2026-10-10T10:00:00.000Z");
+    await insert("weekly", 10000, "pending", "2026-10-11T11:00:00.000Z");
+    await insert("vvip", 10000, "rejected", "2026-10-11T12:00:00.000Z");
+    let member = (await listMembers()).find((item) => item.id === user.id);
+    assert.deepEqual(member.payments, [{ plan: "vip", amount: 55, currency: "GHS" }]);
+    await insert("boom", 5000, "confirmed", "2026-10-11T10:00:00.000Z");
+    member = (await listMembers()).find((item) => item.id === user.id);
+    assert.deepEqual(member.payments, [{ plan: "boom", amount: 50, currency: "GHS" }]);
+    assert.equal((await one("SELECT COUNT(*) AS count FROM manual_payments WHERE user_id = ?", [user.id])).count, 5);
+    assert.equal(ghs(await approvedPaymentTotals()) - ghs(before), 155);
+  });
+
   test("lists accounts with name, plan and last visit, for the admin only", async () => {
     const { cookie, user } = await newUser();
     await api("/api/me", { cookie });

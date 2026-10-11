@@ -151,8 +151,12 @@ export async function listMembers() {
   );
   const paid = await execute(
     `SELECT user_id, plan, amount, currency
-     FROM manual_payments
-     WHERE status = 'confirmed'
+     FROM manual_payments AS payment
+     WHERE status = 'confirmed' AND id = (
+       SELECT latest.id FROM manual_payments AS latest
+       WHERE latest.user_id = payment.user_id AND latest.status = 'confirmed'
+       ORDER BY latest.updated_at DESC, latest.id DESC LIMIT 1
+     )
      ORDER BY id DESC`,
   );
   const paymentsByUser = new Map();

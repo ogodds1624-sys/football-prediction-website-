@@ -691,7 +691,7 @@ function showMembers() {
   const shown = membersMatching(query);
   const empty = query.trim() ? "No members match that search." : "No accounts yet.";
   memberList.replaceChildren(
-    simpleTable(["Name", "Email", "Plan", "Amount paid", "Joined", "Last visit"], shown.map(memberRow), empty, "members-table"),
+    simpleTable(["Name", "Email", "Plan", "Latest amount paid", "Joined", "Last visit"], shown.map(memberRow), empty, "members-table"),
   );
 }
 

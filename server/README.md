@@ -16,6 +16,10 @@ Runs on **Vercel** (database: **Turso**) or on your own computer (database: a lo
 In the Control Room's Members section, payment receipts appear above the account
 list. The approval table lists only pending receipts; approved and rejected
 receipts stay saved but no longer appear in that table.
+Each member row shows only the latest approved payment, ordered by approval
+time (receipt ID breaks ties). Older payments remain saved and included in
+all-time approved revenue totals; pending and rejected receipts do not replace
+the latest approved amount.
 Past approved receipts do not redirect members away from checkout: they can buy
 again after expiry or renew. A pending receipt still opens the waiting screen,
 and approval of that pending receipt returns the member to the predictions page.
