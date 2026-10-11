@@ -1098,10 +1098,144 @@ migrateButton.addEventListener("click", async () => {
   }
 });
 
+/* ---------- User management ---------- */
+
+const usersMessage = document.querySelector("#users-message");
+const userQuery = document.querySelector("#user-query");
+const managedUserList = document.querySelector("#managed-user-list");
+const userControls = document.querySelector("#managed-user-controls");
+const userActionMessage = document.querySelector("#user-action-message");
+const blockUserButton = document.querySelector("#user-block");
+const warningSendButton = document.querySelector("#user-warning-send");
+const warningText = document.querySelector("#user-warning-text");
+let selectedManagedUser = null;
+let managedUserRequest = 0;
+let userActionBusy = false;
+
+function selectManagedUser(user) {
+  if (userActionBusy) {
+    return;
+  }
+  selectedManagedUser = user;
+  warningText.value = "";
+  showMessage(userActionMessage, "");
+  updateUserControls();
+}
+
+function updateUserControls() {
+  userControls.hidden = !selectedManagedUser;
+  if (!selectedManagedUser) {
+    return;
+  }
+  document.querySelector("#managed-user-name").textContent = selectedManagedUser.email;
+  document.querySelector("#managed-user-status").textContent = selectedManagedUser.blockedAt
+    ? `Blocked since ${memberTimeLabel(selectedManagedUser.blockedAt)}`
+    : "Account enabled";
+  blockUserButton.textContent = selectedManagedUser.blockedAt ? "Unblock user" : "Block user";
+  blockUserButton.disabled = userActionBusy;
+  warningSendButton.disabled = userActionBusy;
+  for (const button of managedUserList.querySelectorAll("button")) {
+    button.disabled = userActionBusy;
+  }
+}
+
+async function loadManagedUsers() {
+  const request = ++managedUserRequest;
+  try {
+    const { users } = await adminFetch(`/api/admin/users?q=${encodeURIComponent(userQuery.value.trim())}`);
+    if (request !== managedUserRequest) {
+      return;
+    }
+    const rows = users.map((user) => {
+      const row = document.createElement("tr");
+      const warning = user.latestWarning;
+      const action = document.createElement("td");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "outline-button";
+      button.textContent = "Manage";
+      button.disabled = userActionBusy;
+      button.addEventListener("click", () => selectManagedUser(user));
+      action.append(button);
+      row.append(textCell(user.name || "–"), textCell(user.email),
+        textCell(user.blockedAt ? "Blocked" : "Enabled"),
+        textCell(warning
+          ? `${warning.message}\nSent: ${memberTimeLabel(warning.createdAt)}\n${warning.acknowledgedAt ? `Acknowledged: ${memberTimeLabel(warning.acknowledgedAt)}` : "Awaiting acknowledgement"}`
+          : "No warnings"), action);
+      return row;
+    });
+    managedUserList.replaceChildren(simpleTable(
+      ["Name", "Email", "Status", "Latest warning", "Action"], rows, "No matching users.", "admin-table managed-users-table",
+    ));
+    if (selectedManagedUser) {
+      const fresh = users.find((user) => user.id === selectedManagedUser.id);
+      if (fresh) {
+        selectedManagedUser = fresh;
+        updateUserControls();
+      }
+    }
+    showMessage(usersMessage, "");
+  } catch (error) {
+    if (request === managedUserRequest) {
+      showMessage(usersMessage, error.message, true);
+    }
+  }
+}
+
+document.querySelector("#user-search").addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadManagedUsers();
+});
+
+blockUserButton.addEventListener("click", async () => {
+  if (!selectedManagedUser || userActionBusy) {
+    return;
+  }
+  const user = selectedManagedUser;
+  const blocked = !user.blockedAt;
+  if (!window.confirm(`${blocked ? "Block" : "Unblock"} ${user.email}? ${blocked ? "Existing sessions and new sign-ins will be disabled." : "They must sign in again."} Payments and subscription expiry will not change.`)) {
+    return;
+  }
+  userActionBusy = true;
+  updateUserControls();
+  try {
+    await postJson(`/api/admin/users/${user.id}/block`, { blocked });
+    user.blockedAt = blocked ? new Date().toISOString() : null;
+    showMessage(userActionMessage, `${blocked ? "Blocked" : "Unblocked"} ${user.email}.`);
+    await loadManagedUsers();
+  } catch (error) {
+    showMessage(userActionMessage, error.message, true);
+  } finally {
+    userActionBusy = false;
+    updateUserControls();
+  }
+});
+
+document.querySelector("#user-warning-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedManagedUser || userActionBusy) {
+    return;
+  }
+  const user = selectedManagedUser;
+  userActionBusy = true;
+  updateUserControls();
+  try {
+    await postJson(`/api/admin/users/${user.id}/warnings`, { message: warningText.value });
+    warningText.value = "";
+    showMessage(userActionMessage, `Warning saved for ${user.email}. It will appear on their next signed-in visit.`);
+    await loadManagedUsers();
+  } catch (error) {
+    showMessage(userActionMessage, error.message, true);
+  } finally {
+    userActionBusy = false;
+    updateUserControls();
+  }
+});
+
 /* ---------- App navigation (one section at a time, no page scroll) ---------- */
 
 const navLinks = document.querySelectorAll(".app-nav-link");
-const panels = ["today", "matches", "reviews", "members", "gateway"];
+const panels = ["today", "matches", "reviews", "members", "users", "gateway"];
 const dayBar = document.querySelector("#today");
 const controlStage = document.querySelector(".control-stage");
 
@@ -1127,6 +1261,9 @@ function showPanel(id) {
   controlStage.scrollTop = 0;
   if (location.hash !== `#${panel}`) {
     history.replaceState(null, "", `#${panel}`);
+  }
+  if (panel === "users") {
+    loadManagedUsers();
   }
 }
 

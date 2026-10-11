@@ -449,6 +449,26 @@ async function migrate() {
       await tx.execute("INSERT INTO settings (key, value) VALUES ('weekly_daily_access_migrated', 'true')", []);
     }
   });
+  for (const statement of [
+    "ALTER TABLE users ADD COLUMN blocked_at TEXT",
+    "ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0",
+  ]) {
+    try {
+      await backend.execute(statement, []);
+    } catch (error) {
+      if (!/duplicate column/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+  await backend.execute(`CREATE TABLE IF NOT EXISTS user_warnings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    acknowledged_at TEXT
+  )`, []);
+  await backend.execute("CREATE INDEX IF NOT EXISTS user_warnings_user_id ON user_warnings(user_id, id)", []);
 }
 
 async function allowWeeklyPlan() {

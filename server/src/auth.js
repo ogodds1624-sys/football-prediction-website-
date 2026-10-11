@@ -31,7 +31,7 @@ export async function verifyPassword(password, stored) {
 }
 
 export function findUserById(userId) {
-  return one("SELECT id, email, name, plan, slot_plan, plan_expires_at, vip_access_until, vvip_access_until, boom_access_until, country, last_seen_at FROM users WHERE id = ?", [userId]);
+  return one("SELECT id, email, name, plan, slot_plan, plan_expires_at, vip_access_until, vvip_access_until, boom_access_until, country, last_seen_at, blocked_at, session_version FROM users WHERE id = ?", [userId]);
 }
 
 // This account always sees VIP and VVIP. No other account is treated this way.
@@ -62,9 +62,9 @@ function sign(value) {
   return crypto.createHmac("sha256", config.sessionSecret).update(value).digest("base64url");
 }
 
-export function startSession(res, userId) {
+export function startSession(res, userId, version = 0) {
   const expires = Date.now() + SESSION_MS;
-  const value = `${userId}.${expires}`;
+  const value = `${userId}.${expires}.${version}`;
   res.cookie(SESSION_COOKIE, `${value}.${sign(value)}`, {
     httpOnly: true,
     secure: config.isProduction,
@@ -88,16 +88,22 @@ function readCookie(req, name) {
   return null;
 }
 
-function sessionUserId(req) {
+function memberSession(req) {
   const cookie = readCookie(req, SESSION_COOKIE);
-  const [userId, expires, signature] = (cookie || "").split(".");
+  const parts = (cookie || "").split(".");
+  const [userId, expires] = parts;
+  const legacy = parts.length === 3;
+  const version = legacy ? 0 : Number(parts[2]);
+  const signature = legacy ? parts[2] : parts[3];
   if (!userId || !expires || !signature) {
     return null;
   }
-  if (!safeEqual(signature, sign(`${userId}.${expires}`)) || Number(expires) < Date.now()) {
+  const value = legacy ? `${userId}.${expires}` : `${userId}.${expires}.${parts[2]}`;
+  if ((!legacy && parts.length !== 4) || !Number.isSafeInteger(version) || version < 0 ||
+      !safeEqual(signature, sign(value)) || Number(expires) < Date.now()) {
     return null;
   }
-  return Number(userId);
+  return { userId: Number(userId), version };
 }
 
 // Last visits are written at most this often per member, so browsing stays cheap.
@@ -114,8 +120,10 @@ export async function markSeen(user) {
 
 // Attaches req.user (or null) to every request, and notes the member's visit.
 export async function loadUser(req, res, next) {
-  const userId = sessionUserId(req);
-  req.user = userId ? await findUserById(userId) : null;
+  const session = memberSession(req);
+  const user = session ? await findUserById(session.userId) : null;
+  req.blockedUser = Boolean(user?.blocked_at);
+  req.user = user && !user.blocked_at && user.session_version === session.version ? user : null;
   if (req.user) {
     await markSeen(req.user);
   }

@@ -58,6 +58,7 @@ import {
   savePlanSlots,
 } from "./plans.js";
 import { enabledProviders, getProvider } from "./providers/index.js";
+import { acknowledgeWarning, managedUsers, pendingWarnings, sendUserWarning, setUserBlocked, userIdFrom } from "./moderation.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -177,6 +178,13 @@ export function createApp({ limitRequests = true } = {}) {
     (req.path.startsWith("/api/admin/matches") || req.path === "/api/payments/manual" ? largeJson : smallJson)(req, res, next),
   );
   app.use(loadUser);
+  app.use("/api", (req, res, next) => {
+    if (req.blockedUser && !req.path.startsWith("/admin/") && req.path !== "/auth/logout") {
+      res.status(403).json({ error: "Your account is blocked. Contact support for help.", code: "ACCOUNT_BLOCKED" });
+      return;
+    }
+    next();
+  });
 
   // Browsers cannot send cross-site JSON without a CORS preflight (which we
   // never allow), so requiring JSON on writes blocks CSRF from other sites.
@@ -232,8 +240,11 @@ export function createApp({ limitRequests = true } = {}) {
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       throw new HttpError(401, "Wrong email or password.");
     }
+    if (user.blocked_at) {
+      throw new HttpError(403, "Your account is blocked. Contact support for help.");
+    }
     await markSeen(user);
-    startSession(res, user.id);
+    startSession(res, user.id, user.session_version);
     res.json({ user: publicUser(await findUserById(user.id)) });
   });
 
@@ -244,6 +255,23 @@ export function createApp({ limitRequests = true } = {}) {
 
   app.get("/api/me", (req, res) => {
     res.json({ user: req.user ? publicUser(req.user) : null });
+  });
+  app.get("/api/me/warnings", requireUser, async (req, res) => {
+    res.json({ warnings: await pendingWarnings(req.user.id) });
+  });
+  app.post("/api/me/warnings/:id/acknowledge", requireUser, async (req, res) => {
+    await acknowledgeWarning(req.user.id, userIdFrom(req.params.id));
+    res.json({ ok: true });
+  });
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    res.json({ users: await managedUsers(req.query.q) });
+  });
+  app.post("/api/admin/users/:id/block", requireAdmin, async (req, res) => {
+    await setUserBlocked(userIdFrom(req.params.id), req.body?.blocked);
+    res.json({ ok: true });
+  });
+  app.post("/api/admin/users/:id/warnings", requireAdmin, async (req, res) => {
+    res.status(201).json({ warning: await sendUserWarning(userIdFrom(req.params.id), req.body?.message) });
   });
 
   // Accounts made before sign-up asked for a name add one here.

@@ -15,6 +15,7 @@ const coversSource = source.slice(source.indexOf("function coversTier("), source
 function memberPage() {
   let user = { id: 1, name: "Test", plan: "free", country: "ghana" };
   let available = true;
+  let blocked = false;
   let interval;
   let resolveFetch;
   let paused = false;
@@ -47,13 +48,17 @@ function memberPage() {
     showOwnedBookingCodes: () => { codesShown += 1; },
     showVisitorInvite() {},
     popToast: (...args) => notices.push(args),
+    TIERS: ["free", "vip", "vvip", "boom", "weekly"].map((id) => ({ id })),
+    tierBodies: Object.fromEntries(["free", "vip", "vvip", "boom", "weekly"].map((id) => [id, { replaceChildren() {} }])),
+    messageRow: (message) => message,
     console: { error: (...args) => errors.push(args) },
     fetch: async (url, options) => {
       requests.push({ url, options });
       if (paused) {
         await new Promise((resolve) => { resolveFetch = resolve; });
       }
-      return { ok: available, json: async () => ({ user }) };
+      return { ok: available && !blocked, status: blocked ? 403 : available ? 200 : 500,
+        json: async () => blocked ? { code: "ACCOUNT_BLOCKED", error: "Your account is blocked." } : { user } };
     },
   });
   vm.runInContext(coversSource + refreshSource + clickSource, context);
@@ -61,6 +66,7 @@ function memberPage() {
     context, requests, events, clicks, errors, notices,
     setUser: (value) => { user = value; },
     fail: () => { available = false; },
+    block: () => { blocked = true; },
     tick: () => interval(),
     pause: () => { paused = true; },
     resume: () => { paused = false; resolveFetch(); },
@@ -130,6 +136,18 @@ test("failed account refresh preserves paid access and never opens another check
   assert.equal(page.context.location.href, "");
   assert.equal(page.errors.length, 1);
   assert.equal(page.notices.length, 1);
+});
+
+test("an explicitly blocked account loses displayed membership and cannot start another checkout", async () => {
+  const page = memberPage();
+  page.setUser({ id: 1, plan: "weekly", country: "ghana" });
+  await page.context.loadCurrentUser();
+  page.block();
+  await page.clicks.get("weekly")();
+  assert.equal(page.context.currentUser, null);
+  assert.equal(page.context.location.href, "");
+  assert.equal(page.notices[0][0], "Account blocked");
+  assert.equal(page.errors.length, 0);
 });
 
 test("an unpaid user still opens checkout and concurrent refreshes share one request", async () => {

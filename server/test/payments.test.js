@@ -175,6 +175,149 @@ describe("accounts", () => {
   });
 });
 
+describe("user management", () => {
+  async function adminCookie() {
+    const login = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    assert.equal(login.status, 200);
+    return login.headers.get("set-cookie").split(";")[0];
+  }
+
+  test("only admin can search, block or warn users; input and missing accounts are rejected", async () => {
+    const { cookie, user } = await newUser();
+    for (const target of [undefined, cookie]) {
+      assert.equal((await api("/api/admin/users", { cookie: target })).status, 401);
+      assert.equal((await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: target, body: { blocked: true } })).status, 401);
+      assert.equal((await api(`/api/admin/users/${user.id}/warnings`, { method: "POST", cookie: target, body: { message: "Test" } })).status, 401);
+    }
+    const admin = await adminCookie();
+    const found = await api(`/api/admin/users?q=${encodeURIComponent(user.email.toUpperCase())}`, { cookie: admin });
+    assert.equal(found.status, 200);
+    assert.equal(found.data.users.length, 1);
+    assert.equal(found.data.users[0].id, user.id);
+    assert.equal(found.data.users[0].blockedAt, null);
+    assert.equal(found.data.users[0].latestWarning, null);
+    assert.equal((await api(`/api/admin/users?q=${"a".repeat(201)}`, { cookie: admin })).status, 400);
+    for (const id of ["bad", "0", "-1", "1.5"]) {
+      assert.equal((await api(`/api/admin/users/${id}/block`, { method: "POST", cookie: admin, body: { blocked: true } })).status, 400);
+    }
+    assert.equal((await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: "true" } })).status, 400);
+    for (const message of ["", "   ", "a".repeat(1001), 23]) {
+      assert.equal((await api(`/api/admin/users/${user.id}/warnings`, { method: "POST", cookie: admin, body: { message } })).status, 400);
+    }
+    for (const action of ["block", "warnings"]) {
+      assert.equal((await api(`/api/admin/users/999999/${action}`, {
+        method: "POST", cookie: admin, body: { blocked: true, message: "Test" },
+      })).status, 404);
+    }
+  });
+
+  test("blocking revokes all member access and old sessions while preserving payments and plan expiry", async () => {
+    const { cookie, user } = await newUser();
+    const admin = await adminCookie();
+    const { execute, one } = await import("../src/db.js");
+    const { FULL_ACCESS_EMAIL } = await import("../src/auth.js");
+    const expiry = new Date(Date.now() + 7 * 86400000).toISOString();
+    await execute("UPDATE users SET plan = 'weekly', plan_expires_at = ?, vip_access_until = ? WHERE id = ?", [expiry, expiry, user.id]);
+    await execute("INSERT INTO purchases (user_id,plan,date,source) VALUES (?,'weekly','2026-10-11','test')", [user.id]);
+    await execute(`INSERT INTO manual_payments
+      (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status)
+      VALUES (?,'weekly',10000,'GHS','momo','MTN','0240000000','test','confirmed')`, [user.id]);
+    const userBefore = await one("SELECT plan,plan_expires_at,vip_access_until FROM users WHERE id = ?", [user.id]);
+    const receiptBefore = await one("SELECT * FROM manual_payments WHERE user_id = ?", [user.id]);
+    const block = () => api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
+    assert.equal((await block()).status, 200);
+    const first = await one("SELECT blocked_at,session_version FROM users WHERE id = ?", [user.id]);
+    assert.ok(first.blocked_at);
+    assert.equal(first.session_version, 1);
+    assert.equal((await block()).status, 200);
+    assert.equal((await one("SELECT session_version FROM users WHERE id = ?", [user.id])).session_version, 1);
+    for (const route of ["/api/me", "/api/me/warnings", "/api/matches?date=2026-10-11", "/api/booking-code?date=2026-10-11&tier=weekly",
+      "/api/payments/manual?plan=vip", "/api/payments/options"]) {
+      const denied = await api(route, { cookie });
+      assert.equal(denied.status, 403, route);
+      assert.equal(denied.data.code, "ACCOUNT_BLOCKED");
+    }
+    for (const route of ["/api/payments/initialize", "/api/payments/manual", "/api/recovery", "/api/me/name"]) {
+      assert.equal((await api(route, { method: "POST", cookie, body: {} })).status, 403, route);
+    }
+    assert.equal((await api("/api/auth/login", { method: "POST", body: { email: user.email, password: "correct horse battery" } })).status, 403);
+    assert.equal((await api("/api/admin/users", { cookie: `${cookie}; ${admin}` })).status, 200, "admin session remains independent");
+    await execute("UPDATE users SET email = ? WHERE id = ?", [FULL_ACCESS_EMAIL, user.id]);
+    assert.equal((await api("/api/me", { cookie })).status, 403, "full-access status never bypasses a block");
+    await execute("UPDATE users SET email = ? WHERE id = ?", [user.email, user.id]);
+    assert.equal((await api("/api/auth/logout", { method: "POST", cookie, body: {} })).status, 200);
+    assert.deepEqual(await one("SELECT plan,plan_expires_at,vip_access_until FROM users WHERE id = ?", [user.id]), userBefore);
+    assert.deepEqual(await one("SELECT * FROM manual_payments WHERE user_id = ?", [user.id]), receiptBefore);
+    assert.equal((await one("SELECT COUNT(*) AS count FROM purchases WHERE user_id = ?", [user.id])).count, 1);
+    assert.equal((await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: false } })).status, 200);
+    assert.equal((await api("/api/me", { cookie })).data.user, null, "old cookie stays invalid after unblocking");
+    assert.equal((await api("/api/me/warnings", { cookie })).status, 401);
+    const login = await api("/api/auth/login", { method: "POST", body: { email: user.email, password: "correct horse battery" } });
+    assert.equal(login.status, 200);
+    const fresh = login.headers.get("set-cookie").split(";")[0];
+    const me = await api("/api/me", { cookie: fresh });
+    assert.equal(me.data.user.plan, "weekly");
+    assert.equal(me.data.user.planExpiresAt, expiry);
+    assert.equal(me.data.user.plans.length, 2);
+  });
+
+  test("legacy signed sessions still work until the account is blocked", async () => {
+    const { user } = await newUser();
+    const value = `${user.id}.${Date.now() + 86400000}`;
+    const signature = crypto.createHmac("sha256", process.env.SESSION_SECRET).update(value).digest("base64url");
+    const cookie = `session=${encodeURIComponent(`${value}.${signature}`)}`;
+    assert.equal((await api("/api/me", { cookie })).data.user.id, user.id);
+    const admin = await adminCookie();
+    await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
+    await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: false } });
+    assert.equal((await api("/api/me", { cookie })).data.user, null);
+  });
+
+  test("warnings are private, persist until explicit acknowledgement, and show acknowledgement to admin", async () => {
+    const admin = await adminCookie();
+    const buyer = await newUser();
+    const stranger = await newUser();
+    assert.equal((await api("/api/me/warnings")).status, 401);
+    const send = (message) => api(`/api/admin/users/${buyer.user.id}/warnings`, { method: "POST", cookie: admin, body: { message } });
+    const first = await send("  Please follow our rules.  ");
+    assert.equal(first.status, 201);
+    assert.equal(first.data.warning.message, "Please follow our rules.");
+    const second = await send("<img src=x onerror=alert(1)>");
+    assert.equal(second.status, 201);
+    const check = () => api("/api/me/warnings", { cookie: buyer.cookie });
+    assert.equal((await check()).data.warnings.length, 2);
+    assert.equal((await check()).data.warnings.length, 2, "reading never acknowledges");
+    assert.equal((await api("/api/me/warnings", { cookie: stranger.cookie })).data.warnings.length, 0);
+    const ack = (id, cookie) => api(`/api/me/warnings/${id}/acknowledge`, { method: "POST", cookie, body: {} });
+    assert.equal((await ack(first.data.warning.id, stranger.cookie)).status, 404);
+    assert.equal((await ack("bad", buyer.cookie)).status, 400);
+    assert.equal((await ack(first.data.warning.id, buyer.cookie)).status, 200);
+    assert.equal((await ack(first.data.warning.id, buyer.cookie)).status, 200);
+    const remaining = (await check()).data.warnings;
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].id, second.data.warning.id);
+    assert.equal((await ack(second.data.warning.id, buyer.cookie)).status, 200);
+    const managed = await api(`/api/admin/users?q=${buyer.user.email}`, { cookie: admin });
+    assert.ok(managed.data.users[0].latestWarning.acknowledgedAt);
+    assert.equal(managed.data.users[0].latestWarning.message, "<img src=x onerror=alert(1)>");
+    await api(`/api/admin/users/${buyer.user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
+    assert.equal((await send("Warning while blocked.")).status, 201);
+    await api(`/api/admin/users/${buyer.user.id}/block`, { method: "POST", cookie: admin, body: { blocked: false } });
+    const login = await api("/api/auth/login", { method: "POST", body: { email: buyer.user.email, password: "correct horse battery" } });
+    const fresh = login.headers.get("set-cookie").split(";")[0];
+    assert.equal((await api("/api/me/warnings", { cookie: fresh })).data.warnings[0].message, "Warning while blocked.");
+  });
+
+  test("member notice script is included and served on all member pages", async () => {
+    for (const page of ["index", "account", "country", "pay", "payment-result"]) {
+      const response = await api(`/${page}.html`);
+      assert.equal(response.status, 200);
+      assert.match(response.data, /src="member-notices.js"/);
+    }
+    assert.equal((await api("/member-notices.js")).status, 200);
+  });
+});
+
 describe("initialize payment", () => {
   test("requires sign-in", async () => {
     const result = await api("/api/payments/initialize", { method: "POST", body: { provider: "paystack", plan: "vip" } });

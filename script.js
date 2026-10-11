@@ -1095,6 +1095,17 @@ async function refreshCurrentUser() {
   }
   try {
     const response = await fetch("/api/me", { cache: "no-store" });
+    if (response.status === 403) {
+      const body = await response.json();
+      if (body.code === "ACCOUNT_BLOCKED") {
+        showUser(null);
+        for (const tier of TIERS) {
+          tierBodies[tier.id].replaceChildren(messageRow(body.error));
+        }
+        popToast("Account blocked", body.error, 5000);
+        return false;
+      }
+    }
     if (!response.ok) {
       throw new Error("Couldn't check your account. Refresh the page before buying a plan.");
     }
@@ -1120,6 +1131,11 @@ async function refreshCurrentUser() {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     loadCurrentUser();
+  }
+});
+window.addEventListener("member-blocked", () => {
+  if (currentUser) {
+    showUser(null);
   }
 });
 window.addEventListener("pageshow", (event) => {

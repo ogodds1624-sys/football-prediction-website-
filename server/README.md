@@ -36,6 +36,28 @@ labelled "Expired" and remain visible even when the current plan shows Free.
 An approved receipt is historical payment evidence, not proof that access is
 still active. Daily plans last 24 hours from approval (active renewals extend
 the current expiry); Weekly Rollover lasts seven days.
+
+### User management
+
+The Control Room's **Users** section searches accounts by name or email (up to
+50 results). Select **Manage** to block/unblock the account or send a plain-text
+warning of up to 1,000 characters. Only an authenticated admin can do this.
+Blocking immediately denies member API access and new sign-ins, including for
+the full-access account. Existing session versions are revoked, so unblocking
+requires a fresh sign-in; older sessions do not become valid again. An already
+open member page checks at ten-second intervals or when returning to the tab.
+Blocking does not delete payments, alter subscription expiry, or pause its clock.
+The independent admin session remains usable.
+
+Warnings appear in a modal on the member's next signed-in visit to the home,
+account, country, checkout or payment-result page and are checked every ten
+seconds while visible. They remain pending until **I acknowledge this warning**
+succeeds; merely viewing or closing the browser does not acknowledge them.
+Multiple warnings are presented oldest first. Blocked users see their warnings
+after unblocking and signing in again. The Users table displays the latest
+warning and its acknowledgement time. No warning emails are sent. Server and
+connection errors are shown explicitly; a failed acknowledgement can be retried.
+
 Past approved receipts do not redirect members away from checkout: they can buy
 again after expiry or renew. A pending receipt still opens the waiting screen,
 and approval of that pending receipt returns the member to the predictions page.
