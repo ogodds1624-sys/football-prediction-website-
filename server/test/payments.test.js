@@ -224,6 +224,8 @@ describe("user management", () => {
     const documentRoute = routes.find((route) => route.dest === "/api/index.js" && new RegExp(route.src).test("/index.html"));
     assert.ok(documentRoute, "Vercel must check public documents through server");
     assert.ok(routes.indexOf(documentRoute) < routes.findIndex((route) => route.handle === "filesystem"));
+    const deployment = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"));
+    assert.equal(deployment.functions["api/index.js"].includeFiles, "*.html", "server-served HTML must be bundled on Vercel");
   });
 
   test("a blocked login remembers the browser even without an existing member session", async () => {

@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "*.html"
+    }
+  },
   "routes": [
     { "src": "/(server|node_modules)(/.*)?", "status": 404 },
     { "src": "/(package\\.json|package-lock\\.json|vercel\\.json|\\.gitignore)", "status": 404 },

@@ -54,6 +54,9 @@ checkout, with HTTP 403 and private/no-store caching. Vercel routes public
 documents through the server so the block cannot be bypassed by direct static
 HTML delivery. Open member pages redirect to the blocked-only page when their
 next access check detects a block.
+The Vercel function explicitly includes root HTML files via `functions.includeFiles`;
+without those files in the function bundle, document routes cannot serve the
+homepage. Stylesheets, images and browser scripts remain static assets.
 
 A random, HttpOnly, one-year browser cookie remembers devices used to register
 or sign in; only its SHA-256 hash and associated user IDs are stored. Existing
