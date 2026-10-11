@@ -10,6 +10,7 @@ import {
   loadUser,
   markSeen,
   publicUser,
+  rememberDevice,
   requireAdmin,
   requireUser,
   safeEqual,
@@ -178,9 +179,22 @@ export function createApp({ limitRequests = true } = {}) {
     (req.path.startsWith("/api/admin/matches") || req.path === "/api/payments/manual" ? largeJson : smallJson)(req, res, next),
   );
   app.use(loadUser);
+  app.use((req, res, next) => {
+    const adminPage = ["/admin", "/admin/", "/admin.html", "/control-room.html"].includes(req.path);
+    const publicDocument = req.path === "/" || !path.extname(req.path) || /\.html$/i.test(req.path);
+    if (req.blockedUser && !req.path.startsWith("/api/") && publicDocument && !adminPage) {
+      res.set("Cache-Control", "private, no-store");
+      res.status(403).sendFile(path.join(config.siteDir, "blocked.html"));
+      return;
+    }
+    if (publicDocument) {
+      res.set("Cache-Control", "private, no-store");
+    }
+    next();
+  });
   app.use("/api", (req, res, next) => {
     if (req.blockedUser && !req.path.startsWith("/admin/") && req.path !== "/auth/logout") {
-      res.status(403).json({ error: "Your account is blocked. Contact support for help.", code: "ACCOUNT_BLOCKED" });
+      res.status(403).json({ error: "You've been blocked from this site.", code: "ACCOUNT_BLOCKED" });
       return;
     }
     next();
@@ -230,6 +244,7 @@ export function createApp({ limitRequests = true } = {}) {
       [email, name, await hashPassword(password)],
     );
     startSession(res, user.id);
+    await rememberDevice(req, res, user.id);
     res.status(201).json({ user: publicUser(user) });
   });
 
@@ -241,10 +256,12 @@ export function createApp({ limitRequests = true } = {}) {
       throw new HttpError(401, "Wrong email or password.");
     }
     if (user.blocked_at) {
-      throw new HttpError(403, "Your account is blocked. Contact support for help.");
+      await rememberDevice(req, res, user.id);
+      throw new HttpError(403, "You've been blocked from this site.");
     }
     await markSeen(user);
     startSession(res, user.id, user.session_version);
+    await rememberDevice(req, res, user.id);
     res.json({ user: publicUser(await findUserById(user.id)) });
   });
 

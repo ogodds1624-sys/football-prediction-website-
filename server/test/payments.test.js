@@ -182,6 +182,62 @@ describe("user management", () => {
     return login.headers.get("set-cookie").split(";")[0];
   }
 
+  test("remembered blocked browsers receive only the blocked page after refresh, logout and switching accounts", async () => {
+    const admin = await adminCookie();
+    const registration = await api("/api/auth/register", {
+      method: "POST", body: { name: "Blocked browser", email: `device${++userCount}@example.com`, password: "correct horse battery" },
+    });
+    assert.equal(registration.status, 201);
+    const cookies = registration.headers.getSetCookie().map((value) => value.split(";")[0]);
+    const device = cookies.find((cookie) => cookie.startsWith("member_device="));
+    const session = cookies.find((cookie) => cookie.startsWith("session="));
+    assert.ok(device);
+    const deviceHeader = registration.headers.getSetCookie().find((cookie) => cookie.startsWith("member_device="));
+    assert.match(deviceHeader, /HttpOnly/i);
+    assert.match(deviceHeader, /SameSite=Lax/i);
+    const { one } = await import("../src/db.js");
+    const stored = await one("SELECT token_hash FROM user_devices WHERE user_id = ?", [registration.data.user.id]);
+    assert.equal(stored.token_hash.length, 64);
+    assert.notEqual(stored.token_hash, device.split("=")[1]);
+    await api(`/api/admin/users/${registration.data.user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
+    const other = await newUser();
+    for (const cookie of [device, `${session}; ${device}`, `${other.cookie}; ${device}`]) {
+      for (const route of ["/", "/index.html", "/account.html", "/country.html", "/pay.html?plan=vip", "/payment-result.html", "/blocked.html"]) {
+        const response = await api(route, { cookie });
+        assert.equal(response.status, 403, route);
+        assert.equal(response.headers.get("cache-control"), "private, no-store");
+        assert.match(response.data, /You've been blocked from this site\./);
+        assert.doesNotMatch(response.data, /FREE PREDICTIONS|BUY PLAN|account-form|member-notices.js/);
+      }
+      assert.equal((await api("/api/me", { cookie })).status, 403);
+      assert.equal((await api("/api/auth/register", { method: "POST", cookie, body: {} })).status, 403);
+    }
+    assert.equal((await api("/api/auth/logout", { method: "POST", cookie: `${session}; ${device}`, body: {} })).status, 200);
+    assert.equal((await api("/", { cookie: device })).status, 403, "logout cannot remove remembered-device block");
+    assert.equal((await api("/admin.html", { cookie: device })).status, 200);
+    assert.equal((await api("/api/admin/users", { cookie: `${device}; ${admin}` })).status, 200);
+    assert.equal((await api("/")).status, 200, "unrelated browsers are not blocked");
+    await api(`/api/admin/users/${registration.data.user.id}/block`, { method: "POST", cookie: admin, body: { blocked: false } });
+    assert.equal((await api("/", { cookie: device })).status, 200);
+    assert.equal((await api("/api/me", { cookie: `${session}; ${device}` })).data.user, null);
+    const routes = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8")).routes;
+    const documentRoute = routes.find((route) => route.dest === "/api/index.js" && new RegExp(route.src).test("/index.html"));
+    assert.ok(documentRoute, "Vercel must check public documents through server");
+    assert.ok(routes.indexOf(documentRoute) < routes.findIndex((route) => route.handle === "filesystem"));
+  });
+
+  test("a blocked login remembers the browser even without an existing member session", async () => {
+    const admin = await adminCookie();
+    const { user } = await newUser();
+    await api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
+    const result = await api("/api/auth/login", { method: "POST",
+      body: { email: user.email, password: "correct horse battery" } });
+    assert.equal(result.status, 403);
+    const device = result.headers.getSetCookie().find((cookie) => cookie.startsWith("member_device="))?.split(";")[0];
+    assert.ok(device);
+    assert.equal((await api("/", { cookie: device })).status, 403);
+  });
+
   test("only admin can search, block or warn users; input and missing accounts are rejected", async () => {
     const { cookie, user } = await newUser();
     for (const target of [undefined, cookie]) {

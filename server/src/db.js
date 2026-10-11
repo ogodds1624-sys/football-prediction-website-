@@ -469,6 +469,11 @@ async function migrate() {
     acknowledged_at TEXT
   )`, []);
   await backend.execute("CREATE INDEX IF NOT EXISTS user_warnings_user_id ON user_warnings(user_id, id)", []);
+  await backend.execute(`CREATE TABLE IF NOT EXISTS user_devices (
+    token_hash TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    PRIMARY KEY (token_hash, user_id)
+  )`, []);
 }
 
 async function allowWeeklyPlan() {

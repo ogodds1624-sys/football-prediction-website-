@@ -34,7 +34,7 @@ function noticePage() {
   };
   const context = vm.createContext({
     document, Event: class { constructor(type) { this.type = type; } },
-    location: { protocol: "http:", href: "" },
+    location: { protocol: "http:", href: "", replace(value) { this.href = value; } },
     console: { error: (...args) => errors.push(args) },
     window: {
       addEventListener: (name, callback) => events.set(name, callback),
@@ -99,18 +99,18 @@ test("failed acknowledgement remains visible and shows the server error without 
   assert.equal(page.errors.length, 1);
 });
 
-test("blocked account shows a blocking notice and requires logout before returning to sign-in", async () => {
+test("blocked account redirects to the blocked-only page without a sign-in or logout escape", async () => {
   const page = noticePage();
   await page.flush();
   page.setCode(403);
   await page.tick();
-  assert.equal(page.dialog.open, true);
-  assert.equal(page.heading.textContent, "Account blocked");
+  assert.equal(page.dialog.open, false);
+  assert.equal(page.context.location.href, "blocked.html");
   assert.ok(page.dispatched.includes("member-blocked"));
   page.setCode(200);
   await page.click();
-  assert.equal(page.requests.some((request) => request.url === "/api/auth/logout"), true);
-  assert.equal(page.context.location.href, "account.html");
+  assert.equal(page.requests.some((request) => request.url === "/api/auth/logout"), false);
+  assert.equal(page.context.location.href, "blocked.html");
 });
 
 test("signed-out users do not see warnings; polling errors are explicit but do not block the page", async () => {

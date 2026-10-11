@@ -48,6 +48,24 @@ requires a fresh sign-in; older sessions do not become valid again. An already
 open member page checks at ten-second intervals or when returning to the tab.
 Blocking does not delete payments, alter subscription expiry, or pause its clock.
 The independent admin session remains usable.
+Blocked member browsers now receive only **You've been blocked from this site.**
+on every public document request, including the home page, account page and
+checkout, with HTTP 403 and private/no-store caching. Vercel routes public
+documents through the server so the block cannot be bypassed by direct static
+HTML delivery. Open member pages redirect to the blocked-only page when their
+next access check detects a block.
+
+A random, HttpOnly, one-year browser cookie remembers devices used to register
+or sign in; only its SHA-256 hash and associated user IDs are stored. Existing
+signed sessions also register their browser on their next request. Any blocked
+account associated with a remembered browser blocks public access from that
+browser, even after logout or switching accounts. Unblocking the account restores
+public browsing, but revoked member sessions still require sign-in. Admin pages
+and authenticated admin APIs remain accessible to avoid locking out the admin.
+No IP addresses or invasive device fingerprints are collected. Clearing cookies,
+using private browsing, or using another browser/device can bypass browser
+recognition, but the blocked account still cannot sign in. A browser that never
+contacted the server while identifiable cannot be retrospectively recognized.
 
 Warnings appear in a modal on the member's next signed-in visit to the home,
 account, country, checkout or payment-result page and are checked every ten

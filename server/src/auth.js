@@ -8,6 +8,30 @@ const scrypt = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
 const SESSION_COOKIE = "session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const DEVICE_COOKIE = "member_device";
+const DEVICE_MS = 365 * 24 * 60 * 60 * 1000;
+
+export async function rememberDevice(req, res, userId) {
+  let token = readCookie(req, DEVICE_COOKIE);
+  if (/^[a-f0-9]{64}$/.test(token || "")) {
+    const known = await one("SELECT user_id FROM user_devices WHERE token_hash = ? AND user_id = ?", [
+      crypto.createHash("sha256").update(token).digest("hex"), userId,
+    ]);
+    if (known) {
+      return;
+    }
+  }
+  if (!/^[a-f0-9]{64}$/.test(token || "")) {
+    token = crypto.randomBytes(32).toString("hex");
+  }
+  res.cookie(DEVICE_COOKIE, token, {
+    httpOnly: true, secure: config.isProduction, sameSite: "lax",
+    maxAge: DEVICE_MS, path: "/",
+  });
+  await execute("INSERT OR IGNORE INTO user_devices (token_hash, user_id) VALUES (?, ?)", [
+    crypto.createHash("sha256").update(token).digest("hex"), userId,
+  ]);
+}
 
 export function safeEqual(a, b) {
   const left = Buffer.from(String(a));
@@ -122,8 +146,17 @@ export async function markSeen(user) {
 export async function loadUser(req, res, next) {
   const session = memberSession(req);
   const user = session ? await findUserById(session.userId) : null;
-  req.blockedUser = Boolean(user?.blocked_at);
-  req.user = user && !user.blocked_at && user.session_version === session.version ? user : null;
+  if (user) {
+    await rememberDevice(req, res, user.id);
+  }
+  const token = readCookie(req, DEVICE_COOKIE);
+  const blockedDevice = /^[a-f0-9]{64}$/.test(token || "")
+    ? await one(`SELECT users.id FROM user_devices JOIN users ON users.id = user_devices.user_id
+       WHERE token_hash = ? AND users.blocked_at IS NOT NULL LIMIT 1`,
+      [crypto.createHash("sha256").update(token).digest("hex")])
+    : null;
+  req.blockedUser = Boolean(user?.blocked_at || blockedDevice);
+  req.user = user && !req.blockedUser && user.session_version === session.version ? user : null;
   if (req.user) {
     await markSeen(req.user);
   }

@@ -1193,7 +1193,7 @@ blockUserButton.addEventListener("click", async () => {
   }
   const user = selectedManagedUser;
   const blocked = !user.blockedAt;
-  if (!window.confirm(`${blocked ? "Block" : "Unblock"} ${user.email}? ${blocked ? "Existing sessions and new sign-ins will be disabled." : "They must sign in again."} Payments and subscription expiry will not change.`)) {
+  if (!window.confirm(`${blocked ? "Block" : "Unblock"} ${user.email}? ${blocked ? "The account and its remembered browsers will lose public site access, including free and paid games." : "Public browsing will resume, but they must sign in again."} Payments and subscription expiry will not change.`)) {
     return;
   }
   userActionBusy = true;

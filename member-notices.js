@@ -27,9 +27,9 @@
   dialog.addEventListener("cancel", (event) => event.preventDefault());
 
   function showNotice() {
-    heading.textContent = blocked ? "Account blocked" : "Warning from the administrator";
-    message.textContent = blocked ? "Your account is blocked. Contact support for help. Payments and subscription expiry have not changed." : warning.message;
-    button.textContent = blocked ? "Go to sign-in" : "I acknowledge this warning";
+    heading.textContent = "Warning from the administrator";
+    message.textContent = warning.message;
+    button.textContent = "I acknowledge this warning";
     if (!dialog.open) {
       dialog.showModal();
     }
@@ -50,7 +50,7 @@
         blocked = true;
         warning = null;
         window.dispatchEvent(new Event("member-blocked"));
-        showNotice();
+        location.replace("blocked.html");
         return;
       }
       if (response.status === 401) {
@@ -84,7 +84,7 @@
   }
 
   button.addEventListener("click", async () => {
-    if (acting || loading) {
+    if (acting || loading || blocked) {
       return;
     }
     if (!blocked && !warning) {
@@ -95,15 +95,11 @@
     button.disabled = true;
     status.textContent = "";
     try {
-      const url = blocked ? "/api/auth/logout" : `/api/me/warnings/${warning.id}/acknowledge`;
+      const url = `/api/me/warnings/${warning.id}/acknowledge`;
       const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const body = await response.json();
       if (!response.ok) {
         throw new Error(body.error || "Couldn't save your acknowledgement.");
-      }
-      if (blocked) {
-        location.href = "account.html";
-        return;
       }
       warning = null;
       dialog.close();
