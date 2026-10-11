@@ -257,7 +257,7 @@ async function loadPage() {
     return;
   }
   const slotId = planId;
-  if (paymentStatus !== "pending" && options.slots?.[slotId] === 0 && me.user.plan !== slotId && !me.user.fullAccess) {
+  if (paymentStatus !== "pending" && options.slots?.[slotId] === 0 && me.user.plan !== slotId && !me.user.plans?.some((access) => access.plan === slotId) && !me.user.fullAccess) {
     const name = planId === "weekly" ? "WEEKLY ROLLOVER" : planId === "vvip" ? "VVIP" : planId === "boom" ? "Wake up to boom games" : "VIP";
     showProblem(`${name} slots are full. No places are left for this plan.`);
     return;

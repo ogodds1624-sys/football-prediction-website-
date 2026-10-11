@@ -1,6 +1,7 @@
 import { hasFullAccess } from "./auth.js";
 import { execute, one } from "./db.js";
 import { HttpError } from "./errors.js";
+import { activeAccess } from "./access.js";
 
 // Predictions managed in the Control Room and shown on the front page.
 // Free tips need a (free) account. VIP/VVIP tips are only sent to members
@@ -56,6 +57,16 @@ export function matchFrom(body) {
 export function unlockedTiers(plan, user) {
   if (hasFullAccess(user)) {
     return new Set(["free", "vip", "vvip", "boom", "weekly"]);
+  }
+  const additional = activeAccess(user);
+  if (additional.length) {
+    const unlocked = new Set();
+    for (const access of additional) {
+      for (const tier of unlockedTiers(access.plan)) {
+        unlocked.add(tier);
+      }
+    }
+    return unlocked;
   }
   if (!plan) {
     return new Set();

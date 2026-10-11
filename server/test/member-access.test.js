@@ -104,6 +104,22 @@ test("Buy Plan rechecks approval before checkout and shows the owned booking cod
   assert.equal(page.codesShown(), 1);
 });
 
+for (const plan of ["vip", "vvip", "boom"]) {
+  test(`Weekly member with approved ${plan} access sees the owned button instead of buying again`, async () => {
+    const page = memberPage();
+    page.setUser({ id: 1, plan: "weekly", country: "ghana", plans: [
+      { plan: "weekly", expiresAt: "2099-01-01T00:00:00.000Z" },
+      { plan, expiresAt: "2099-01-01T00:00:00.000Z" },
+    ] });
+    await page.context.loadCurrentUser();
+    await page.clicks.get(plan)();
+    assert.equal(page.context.location.href, "");
+    assert.equal(page.codesShown(), 1);
+    assert.equal(page.context.coversTier("weekly"), true);
+    assert.equal(page.context.coversTier(plan), true);
+  });
+}
+
 test("failed account refresh preserves paid access and never opens another checkout", async () => {
   const page = memberPage();
   page.setUser({ id: 1, plan: "boom", country: "ghana" });

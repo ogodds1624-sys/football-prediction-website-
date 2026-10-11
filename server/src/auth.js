@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { config } from "./config.js";
 import { execute, one } from "./db.js";
+import { activeAccess } from "./access.js";
 
 const scrypt = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
@@ -30,7 +31,7 @@ export async function verifyPassword(password, stored) {
 }
 
 export function findUserById(userId) {
-  return one("SELECT id, email, name, plan, slot_plan, plan_expires_at, country, last_seen_at FROM users WHERE id = ?", [userId]);
+  return one("SELECT id, email, name, plan, slot_plan, plan_expires_at, vip_access_until, vvip_access_until, boom_access_until, country, last_seen_at FROM users WHERE id = ?", [userId]);
 }
 
 // This account always sees VIP and VVIP. No other account is treated this way.
@@ -41,14 +42,15 @@ export function hasFullAccess(user) {
 }
 
 export function publicUser(user) {
-  const active = user.plan !== "free" && user.plan_expires_at && user.plan_expires_at > new Date().toISOString();
-  const plan = !active ? "free" : user.plan === "vip" && user.slot_plan === "boom" ? "boom" : user.plan;
+  const plans = activeAccess(user);
+  const plan = plans[0]?.plan || "free";
   return {
     id: user.id,
     email: user.email,
     name: user.name || "",
     plan,
-    planExpiresAt: active ? user.plan_expires_at : null,
+    planExpiresAt: plans[0]?.expiresAt || null,
+    plans,
     country: user.country || "",
     fullAccess: hasFullAccess(user),
   };

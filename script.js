@@ -49,7 +49,7 @@ function arrangeTables(signedIn) {
 }
 
 function showPlanTables(plan) {
-  const hideVip = plan === "vvip" && !currentUser?.fullAccess;
+  const hideVip = plan === "vvip" && !currentUser?.fullAccess && !coversTier("vip");
   tableSections.vip.hidden = hideVip;
   tableSections.boom.hidden = hideVip;
   for (const link of document.querySelectorAll('a[href="#vip"], a[href="#boom"]')) {
@@ -85,10 +85,10 @@ function showUser(user) {
     userLabel.dataset.plan = "both";
     userLabel.title = `${who} · VIP and VVIP`;
   } else {
-    planBadge.textContent = user.plan.toUpperCase();
+    planBadge.textContent = (user.plans?.length ? user.plans.map((access) => access.plan) : [user.plan]).join(" + ").toUpperCase();
     planBadge.className = `user-plan plan-${user.plan}`;
     userLabel.dataset.plan = user.plan;
-    userLabel.title = user.plan === "free" ? who : `${who} · ${user.plan.toUpperCase()} member`;
+    userLabel.title = user.plan === "free" ? who : `${who} · ${planBadge.textContent} member`;
   }
   showWelcome(user);
 }
@@ -356,10 +356,10 @@ function coversTier(tier) {
   if (currentUser?.fullAccess && (tier === "vip" || tier === "vvip" || tier === "boom" || tier === "weekly")) {
     return true;
   }
-  if (tier === "boom" || tier === "vip") {
-    return currentUser?.plan === "vip" || currentUser?.plan === "boom";
-  }
-  return currentUser?.plan === tier;
+  const plans = currentUser?.plans?.map((access) => access.plan) || [currentUser?.plan];
+  return tier === "boom" || tier === "vip"
+    ? plans.includes("vip") || plans.includes("boom")
+    : plans.includes(tier);
 }
 
 function planForButton(button) {

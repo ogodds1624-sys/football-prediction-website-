@@ -1,6 +1,7 @@
 import { execute, one, transaction } from "./db.js";
 import { HttpError } from "./errors.js";
 import { getPlan } from "./plans.js";
+import { activeAccess, grantDailyAccess } from "./access.js";
 
 // Recovery tickets: a member who bought a VIP/VVIP ticket that LOST gets the
 // admin's bonus ("recovery") tips. A recovery is valid for the 2 days after
@@ -118,17 +119,25 @@ export async function activatePlan(email, planId, date) {
   if (!plan || !["vip", "vvip", "weekly"].includes(planId)) {
     throw new HttpError(400, "Choose VIP, VVIP or Weekly Rollover.");
   }
-  const user = await one("SELECT id, email, plan, plan_expires_at, slot_plan FROM users WHERE email = ?", [String(email || "").trim()]);
-  if (!user) {
+  const recipient = await one("SELECT id, email FROM users WHERE email = ?", [String(email || "").trim()]);
+  if (!recipient) {
     throw new HttpError(404, "No account uses that email. Ask the member to create an account first.");
   }
   await transaction(async (tx) => {
+    const user = (await tx.execute("SELECT * FROM users WHERE id = ?", [recipient.id])).rows[0];
     await recordPurchase(tx, user.id, plan.id, date, "manual");
     // Purchases for today unlock the member's tips until the end of today (UTC).
     if (date === todayKey()) {
       const endOfDay = plan.id === "weekly"
         ? new Date(Math.max(Date.now(), user.plan === "weekly" ? Date.parse(user.plan_expires_at) || 0 : 0) + 7 * DAY_MS).toISOString()
         : `${shiftDate(date, 1)}T00:00:00.000Z`;
+      if (user.plan === "weekly" && plan.id !== "weekly") {
+        await grantDailyAccess(tx, user, plan, Date.now(), endOfDay);
+        return;
+      }
+      if (plan.id === "weekly" && !(user.plan === "weekly" && user.plan_expires_at > new Date().toISOString())) {
+        await tx.execute("UPDATE users SET vip_access_until = NULL, vvip_access_until = NULL, boom_access_until = NULL WHERE id = ?", [user.id]);
+      }
       const keepHigher = user.plan_expires_at > new Date().toISOString() && getPlan(user.plan)?.rank > plan.rank;
       const nextPlan = keepHigher ? user.plan : plan.id;
       await tx.execute("UPDATE users SET plan = ?, plan_expires_at = ?, slot_plan = ? WHERE id = ?", [
@@ -139,18 +148,18 @@ export async function activatePlan(email, planId, date) {
       ]);
     }
   });
-  return { email: user.email, plan: plan.id, date };
+  return { email: recipient.email, plan: plan.id, date };
 }
 
 // Everyone with an account, most recent visitor first. Plan is "free" once a paid plan has run out.
 export async function listMembers() {
   const now = new Date().toISOString();
   const { rows } = await execute(
-    `SELECT id, name, email, plan, slot_plan, plan_expires_at, created_at, last_seen_at
+    `SELECT id, name, email, plan, slot_plan, plan_expires_at, vip_access_until, vvip_access_until, boom_access_until, created_at, last_seen_at
      FROM users ORDER BY COALESCE(last_seen_at, created_at) DESC, id DESC LIMIT 500`,
   );
   const paid = await execute(
-    `SELECT user_id, plan, amount, currency
+    `SELECT user_id, plan, amount, currency, updated_at
      FROM manual_payments AS payment
      WHERE status = 'confirmed' AND id = (
        SELECT latest.id FROM manual_payments AS latest
@@ -167,6 +176,7 @@ export async function listMembers() {
       plan: payment.plan,
       amount: payment.amount / 100,
       currency: payment.currency,
+      confirmedAt: payment.updated_at,
     });
     paymentsByUser.set(userId, list);
   }
@@ -175,6 +185,8 @@ export async function listMembers() {
     name: user.name || "",
     email: user.email,
     plan: visiblePlan(user, now),
+    plans: activeAccess(user, now),
+    planExpiresAt: user.plan_expires_at || null,
     joinedAt: user.created_at,
     lastSeenAt: user.last_seen_at || null,
     payments: paymentsByUser.get(Number(user.id)) || [],
@@ -182,26 +194,19 @@ export async function listMembers() {
 }
 
 function visiblePlan(user, now) {
-  const active = user.plan !== "free" && user.plan_expires_at > now;
-  if (!active) {
-    return "free";
-  }
-  if (user.plan === "vip" && user.slot_plan === "boom") {
-    return "boom";
-  }
-  return user.plan;
+  return activeAccess(user, now)[0]?.plan || "free";
 }
 
 export async function memberTotals() {
   const now = new Date().toISOString();
   const row = await one(
     `SELECT COUNT(*) AS users,
-            SUM(plan = 'vip' AND plan_expires_at > ? AND COALESCE(slot_plan, '') != 'boom') AS vip,
-            SUM(plan = 'vvip' AND plan_expires_at > ?) AS vvip,
-            SUM(plan = 'vip' AND slot_plan = 'boom' AND plan_expires_at > ?) AS boom,
+            SUM((plan = 'vip' AND plan_expires_at > ? AND COALESCE(slot_plan, '') != 'boom') OR vip_access_until > ?) AS vip,
+            SUM((plan = 'vvip' AND plan_expires_at > ?) OR vvip_access_until > ?) AS vvip,
+            SUM((plan = 'vip' AND slot_plan = 'boom' AND plan_expires_at > ?) OR boom_access_until > ?) AS boom,
             SUM(plan = 'weekly' AND plan_expires_at > ?) AS weekly
      FROM users`,
-    [now, now, now, now],
+    [now, now, now, now, now, now, now],
   );
   return {
     users: Number(row?.users || 0),
@@ -226,15 +231,19 @@ export async function heldPlanCounts() {
      WHERE NOT EXISTS (
        SELECT 1 FROM users
        WHERE users.id = waiting.user_id
-         AND users.plan_expires_at > ?
          AND (
-           (waiting.plan = 'boom' AND users.plan = 'vip' AND users.slot_plan = 'boom')
-           OR (waiting.plan = 'vip' AND users.plan = 'vip' AND COALESCE(users.slot_plan, '') != 'boom')
-           OR (waiting.plan = 'vvip' AND users.plan = 'vvip')
-           OR (waiting.plan = 'weekly' AND users.plan = 'weekly')
+           (waiting.plan = 'vip' AND users.vip_access_until > ?)
+           OR (waiting.plan = 'vvip' AND users.vvip_access_until > ?)
+           OR (waiting.plan = 'boom' AND users.boom_access_until > ?)
+           OR (users.plan_expires_at > ? AND (
+             (waiting.plan = 'boom' AND users.plan = 'vip' AND users.slot_plan = 'boom')
+             OR (waiting.plan = 'vip' AND users.plan = 'vip' AND COALESCE(users.slot_plan, '') != 'boom')
+             OR (waiting.plan = 'vvip' AND users.plan = 'vvip')
+             OR (waiting.plan = 'weekly' AND users.plan = 'weekly')
+           ))
          )
      )`,
-    [now],
+    [now, now, now, now],
   );
   return {
     vip: totals.vip + Number(pending?.vip || 0),

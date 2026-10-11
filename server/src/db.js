@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
+import { restoreWeeklyDailyAccess } from "./access.js";
 
 // One small async interface over two backends:
 //   - Turso (libsql://...) in production on Vercel, via the pure-JS web client
@@ -432,6 +433,22 @@ async function migrate() {
       throw error;
     }
   }
+  for (const column of ["vip_access_until", "vvip_access_until", "boom_access_until"]) {
+    try {
+      await backend.execute(`ALTER TABLE users ADD COLUMN ${column} TEXT`, []);
+    } catch (error) {
+      if (!/duplicate column/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+  await backend.transaction(async (tx) => {
+    const { rows } = await tx.execute("SELECT key FROM settings WHERE key = 'weekly_daily_access_migrated'", []);
+    if (!rows.length) {
+      await restoreWeeklyDailyAccess(tx);
+      await tx.execute("INSERT INTO settings (key, value) VALUES ('weekly_daily_access_migrated', 'true')", []);
+    }
+  });
 }
 
 async function allowWeeklyPlan() {

@@ -234,7 +234,7 @@ export function createApp({ limitRequests = true } = {}) {
     }
     await markSeen(user);
     startSession(res, user.id);
-    res.json({ user: publicUser(user) });
+    res.json({ user: publicUser(await findUserById(user.id)) });
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -252,7 +252,7 @@ export function createApp({ limitRequests = true } = {}) {
       "UPDATE users SET name = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at, country",
       [readName(req.body), req.user.id],
     );
-    res.json({ user: publicUser(user) });
+    res.json({ user: publicUser(await findUserById(user.id)) });
   });
 
   // Chosen on country.html after the account is created.
@@ -265,7 +265,7 @@ export function createApp({ limitRequests = true } = {}) {
       "UPDATE users SET country = ? WHERE id = ? RETURNING id, email, name, plan, plan_expires_at, country",
       [country, req.user.id],
     );
-    res.json({ user: publicUser(user) });
+    res.json({ user: publicUser(await findUserById(user.id)) });
   });
 
   /* ---------- Booking codes ---------- */

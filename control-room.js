@@ -691,7 +691,7 @@ function showMembers() {
   const shown = membersMatching(query);
   const empty = query.trim() ? "No members match that search." : "No accounts yet.";
   memberList.replaceChildren(
-    simpleTable(["Name", "Email", "Plan", "Latest amount paid", "Joined", "Last visit"], shown.map(memberRow), empty, "members-table"),
+    simpleTable(["Name", "Email", "Plan", "Latest amount paid", "Approved at", "Access expires", "Joined", "Last visit"], shown.map(memberRow), empty, "members-table"),
   );
 }
 
@@ -739,11 +739,11 @@ function visitLabel(iso) {
   return when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function planCell(plan) {
+function planCell(plan, plans = []) {
   const cell = document.createElement("td");
   const pill = document.createElement("span");
   pill.className = `plan-pill plan-${plan}`;
-  pill.textContent = tierLabel(plan);
+  pill.textContent = plans.length > 1 ? plans.map((access) => tierLabel(access.plan)).join(" + ") : tierLabel(plan);
   cell.append(pill);
   return cell;
 }
@@ -764,13 +764,29 @@ function amountCell(member) {
   return cell;
 }
 
+function memberTimeLabel(iso) {
+  if (!iso) {
+    return "–";
+  }
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  });
+}
+
 function memberRow(member) {
   const row = document.createElement("tr");
   row.append(
     textCell(member.name || "–"),
     textCell(member.email),
-    planCell(member.plan),
+    planCell(member.plan, member.plans),
     amountCell(member),
+    textCell(memberTimeLabel(member.payments?.[0]?.confirmedAt)),
+    textCell(member.plans?.length
+      ? member.plans.map((access) => `${access.plan.toUpperCase()}: ${memberTimeLabel(access.expiresAt)}`).join("; ")
+      : member.planExpiresAt
+      ? `${Date.parse(member.planExpiresAt) <= Date.now() ? "Expired: " : ""}${memberTimeLabel(member.planExpiresAt)}`
+      : "–"),
     textCell(visitLabel(member.joinedAt)),
     // Accounts that haven't been back since signing up count their sign-up as the visit.
     textCell(visitLabel(member.lastSeenAt || member.joinedAt)),

@@ -7,9 +7,19 @@ limits are editable in the Control Room. It supports screenshot uploads,
 tips, results, total odds, booking codes, online payments and manual receipts.
 Buying Weekly Rollover replaces a daily plan and starts seven days from approval.
 Renewing it while active adds seven days to its expiry. Buying VIP, VVIP or Boom
-while Weekly Rollover is active does not replace or extend weekly access.
-It unlocks only Free and Weekly Rollover tips, not the other paid tables;
-weekly purchases do not qualify for daily VIP/VVIP recovery tickets.
+while Weekly Rollover is active grants separate daily access from approval without
+replacing or extending weekly access. Daily renewals extend their own expiry.
+Weekly alone unlocks only Free and Weekly Rollover; separately approved daily
+plans unlock their own tables alongside it (VIP/Boom unlock both VIP and Boom).
+Daily access may outlast Weekly and remains valid until its own expiry.
+Starting a new Weekly subscription replaces daily access; renewing an active
+Weekly subscription preserves separately purchased daily access.
+Weekly purchases do not qualify for daily VIP/VVIP recovery tickets, but separately
+purchased daily plans do. Admin same-day daily activation retains its existing
+end-of-day UTC expiry while preserving Weekly.
+Deployment restores still-valid daily approvals made after a recorded Weekly
+purchase, using the latest daily approval plus 24 hours. It does not approve
+pending receipts, revive expired payments, or extend Weekly.
 Existing database tables are migrated transactionally without losing records.
 Runs on **Vercel** (database: **Turso**) or on your own computer (database: a local SQLite file).
 
@@ -20,6 +30,12 @@ Each member row shows only the latest approved payment, ordered by approval
 time (receipt ID breaks ties). Older payments remain saved and included in
 all-time approved revenue totals; pending and rejected receipts do not replace
 the latest approved amount.
+The Members table also shows that payment's approval timestamp and the account's
+access expiry, with times in the admin browser's timezone. Past expiry times are
+labelled "Expired" and remain visible even when the current plan shows Free.
+An approved receipt is historical payment evidence, not proof that access is
+still active. Daily plans last 24 hours from approval (active renewals extend
+the current expiry); Weekly Rollover lasts seven days.
 Past approved receipts do not redirect members away from checkout: they can buy
 again after expiry or renew. A pending receipt still opens the waiting screen,
 and approval of that pending receipt returns the member to the predictions page.

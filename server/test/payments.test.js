@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { after, before, beforeEach, describe, test } from "node:test";
 
 // Configure before the app is imported. Values here are fake test settings.
@@ -229,10 +231,20 @@ describe("weekly rollover", () => {
       const protectedUser = await pay(cookie, plan);
       assert.equal(protectedUser.plan, "weekly");
       assert.equal(protectedUser.planExpiresAt, active.planExpiresAt);
+      const access = protectedUser.plans.find((entry) => entry.plan === plan);
+      assert.ok(Date.parse(access.expiresAt) >= Date.now() + DAY - 5000);
+      assert.ok(Date.parse(access.expiresAt) <= Date.now() + DAY);
     }
     const renewed = await pay(cookie, "weekly");
     assert.equal(Date.parse(renewed.planExpiresAt), expiry + 7 * DAY);
     await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), user.id]);
+    const dailyOnly = (await api("/api/me", { cookie })).data.user;
+    assert.equal(dailyOnly.plans.some((entry) => entry.plan === "weekly"), false);
+    assert.equal(dailyOnly.plans.length, 3);
+    const restarted = await pay(cookie, "weekly");
+    assert.deepEqual(restarted.plans.map((entry) => entry.plan), ["weekly"], "a new Weekly plan replaces daily access");
+    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), user.id]);
+    await execute("UPDATE users SET vip_access_until = NULL, vvip_access_until = NULL, boom_access_until = NULL WHERE id = ?", [user.id]);
     assert.equal((await api("/api/me", { cookie })).data.user.plan, "free");
     assert.equal((await pay(cookie, "vip")).plan, "vip");
   });
@@ -247,9 +259,46 @@ describe("weekly rollover", () => {
     const me = await api("/api/me", { cookie });
     assert.equal(me.data.user.plan, "weekly");
     assert.equal(me.data.user.planExpiresAt, expiry);
+    assert.ok(me.data.user.plans.some((entry) => entry.plan === "vip"));
     await activatePlan(user.email, "weekly", todayKey());
     const renewed = await api("/api/me", { cookie });
     assert.equal(Date.parse(renewed.data.user.planExpiresAt), Date.parse(expiry) + 7 * DAY);
+  });
+
+  test("restores only unexpired daily approvals after Weekly and never repeats or extends them", async () => {
+    const { execute, one, transaction } = await import("../src/db.js");
+    const { restoreWeeklyDailyAccess } = await import("../src/access.js");
+    const now = new Date().toISOString();
+    const time = (hours) => new Date(Date.parse(now) + hours * 3600000).toISOString();
+    for (const plan of ["vip", "vvip", "boom"]) {
+      for (const scenario of ["eligible", "before-weekly", "expired", "pending", "online"]) {
+        const { user, cookie } = await newUser();
+        await execute("UPDATE users SET plan = 'weekly', slot_plan = 'weekly', plan_expires_at = ? WHERE id = ?", [time(120), user.id]);
+        const insert = (id, status, when) => execute(
+          `INSERT INTO manual_payments (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,updated_at)
+           VALUES (?,?,5000,'GHS','momo','MTN','0240000000','test',?,?)`,
+          [user.id, id, status, when]);
+        await insert("weekly", "confirmed", time(scenario === "expired" ? -72 : -3));
+        const approvedAt = time(scenario === "before-weekly" ? -4 : scenario === "expired" ? -48 : -2);
+        if (scenario === "online") {
+          await execute(
+            `INSERT INTO payments (user_id,provider,reference,plan,amount,currency,status,paid_at)
+             VALUES (?,'paystack',?, ?,5000,'GHS','success',?)`,
+            [user.id, `restore-${user.id}`, plan, approvedAt]);
+        } else {
+          await insert(plan, scenario === "pending" ? "pending" : "confirmed", approvedAt);
+        }
+        await transaction((tx) => restoreWeeklyDailyAccess(tx, now));
+        const stored = await one(`SELECT ${plan}_access_until AS expiry, plan_expires_at FROM users WHERE id = ?`, [user.id]);
+        const eligible = scenario === "eligible" || scenario === "online";
+        assert.equal(stored.expiry, eligible ? time(22) : null, `${plan}: ${scenario}`);
+        assert.equal(stored.plan_expires_at, time(120));
+        const me = (await api("/api/me", { cookie })).data.user;
+        assert.equal(me.plans.some((entry) => entry.plan === plan), eligible);
+        await transaction((tx) => restoreWeeklyDailyAccess(tx, now));
+        assert.equal((await one(`SELECT ${plan}_access_until AS expiry FROM users WHERE id = ?`, [user.id])).expiry, stored.expiry);
+      }
+    }
   });
 
   test("weekly tips are isolated and full-access accounts can view them", async () => {
@@ -428,6 +477,36 @@ describe("static files", () => {
 });
 
 describe("members list", () => {
+  test("renders approval time and active or expired access without listing payment history", () => {
+    const script = readFileSync(new URL("../../control-room.js", import.meta.url), "utf8");
+    const start = script.indexOf("function memberTimeLabel(");
+    const end = script.indexOf("// Registered accounts", start);
+    assert.ok(start >= 0 && end > start);
+    const context = vm.createContext({
+      Date,
+      document: { createElement: () => ({ cells: [], append(...cells) { this.cells.push(...cells); } }) },
+      textCell: (value) => value,
+      planCell: (value) => value,
+      amountCell: (member) => member.payments?.[0]?.amount || "–",
+      visitLabel: (value) => value,
+    });
+    vm.runInContext(script.slice(start, end), context);
+    const confirmedAt = "2026-10-11T10:00:00.000Z";
+    const member = { name: "Test Member", email: "test@example.com", plan: "boom",
+      joinedAt: confirmedAt, payments: [{ amount: 50, confirmedAt }] };
+    for (const active of [true, false]) {
+      member.planExpiresAt = new Date(Date.now() + (active ? 1 : -1) * 86_400_000).toISOString();
+      const row = context.memberRow(member);
+      assert.equal(row.cells.length, 8);
+      assert.equal(row.cells[4], context.memberTimeLabel(confirmedAt));
+      assert.equal(row.cells[5], `${active ? "" : "Expired: "}${context.memberTimeLabel(member.planExpiresAt)}`);
+    }
+    const free = context.memberRow({ ...member, plan: "free", planExpiresAt: null, payments: [] });
+    assert.equal(free.cells[4], "–");
+    assert.equal(free.cells[5], "–");
+    assert.match(script, /"Approved at", "Access expires"/);
+  });
+
   test("shows only the latest approval while preserving older receipts and revenue totals", async () => {
     const { user } = await newUser();
     const { execute, one } = await import("../src/db.js");
@@ -446,10 +525,10 @@ describe("members list", () => {
     await insert("weekly", 10000, "pending", "2026-10-11T11:00:00.000Z");
     await insert("vvip", 10000, "rejected", "2026-10-11T12:00:00.000Z");
     let member = (await listMembers()).find((item) => item.id === user.id);
-    assert.deepEqual(member.payments, [{ plan: "vip", amount: 55, currency: "GHS" }]);
+    assert.deepEqual(member.payments, [{ plan: "vip", amount: 55, currency: "GHS", confirmedAt: "2026-10-11T10:00:00.000Z" }]);
     await insert("boom", 5000, "confirmed", "2026-10-11T10:00:00.000Z");
     member = (await listMembers()).find((item) => item.id === user.id);
-    assert.deepEqual(member.payments, [{ plan: "boom", amount: 50, currency: "GHS" }]);
+    assert.deepEqual(member.payments, [{ plan: "boom", amount: 50, currency: "GHS", confirmedAt: "2026-10-11T10:00:00.000Z" }]);
     assert.equal((await one("SELECT COUNT(*) AS count FROM manual_payments WHERE user_id = ?", [user.id])).count, 5);
     assert.equal(ghs(await approvedPaymentTotals()) - ghs(before), 155);
   });
@@ -468,10 +547,34 @@ describe("members list", () => {
     const member = data.members.find((entry) => entry.email === user.email);
     assert.equal(member.name, "Kwame Mensah");
     assert.equal(member.plan, "free");
+    assert.equal(member.planExpiresAt, null);
     assert.deepEqual(member.payments, []);
     assert.ok(member.joinedAt);
     assert.ok(member.lastSeenAt, "visiting the site records a last visit");
     assert.equal(data.members[0].email, user.email, "most recent visitor comes first");
+  });
+
+  test("exposes active and expired access timestamps without changing subscriptions", async () => {
+    const { user, cookie } = await newUser();
+    const { execute, one } = await import("../src/db.js");
+    const login = await api("/api/admin/login", { method: "POST", body: { passcode: "8057" } });
+    const admin = login.headers.get("set-cookie").split(";")[0];
+    for (const plan of ["vip", "vvip", "boom", "weekly"]) {
+      for (const active of [true, false]) {
+        const expiresAt = new Date(Date.now() + (active ? 1 : -1) * 86_400_000).toISOString();
+        await execute("UPDATE users SET plan = ?, slot_plan = ?, plan_expires_at = ? WHERE id = ?",
+          [plan === "boom" ? "vip" : plan, plan, expiresAt, user.id]);
+        const result = await api("/api/admin/members", { cookie: admin });
+        assert.equal(result.status, 200);
+        const member = result.data.members.find((entry) => entry.id === user.id);
+        assert.equal(member.plan, active ? plan : "free");
+        assert.equal(member.planExpiresAt, expiresAt);
+        const me = await api("/api/me", { cookie });
+        assert.equal(me.data.user.plan, member.plan);
+        assert.equal(me.data.user.planExpiresAt, active ? expiresAt : null);
+        assert.equal((await one("SELECT plan_expires_at FROM users WHERE id = ?", [user.id])).plan_expires_at, expiresAt);
+      }
+    }
   });
 });
 
@@ -1192,6 +1295,73 @@ describe("manual plan payment", () => {
     return result.headers.get("set-cookie").split(";")[0];
   }
 
+  for (const planId of ["vip", "vvip", "boom"]) {
+    test(`approved ${planId} payment alongside Weekly unlocks tips, renews separately and holds its own slot`, async () => {
+      const admin = await adminCookie();
+      const { execute, one } = await import("../src/db.js");
+      const { memberTotals, heldPlanCounts, todayKey } = await import("../src/recovery.js");
+      const { confirmManualPayment } = await import("../src/payments.js");
+      const buyer = await newUser();
+      const weeklyExpiry = new Date(Date.now() + 7 * 86400000).toISOString();
+      await execute("UPDATE users SET plan = 'weekly', slot_plan = 'weekly', plan_expires_at = ? WHERE id = ?", [weeklyExpiry, buyer.user.id]);
+      await api("/api/admin/slots", { method: "POST", cookie: admin, body: { vip: 1000, vvip: 1000, boom: 1000, weekly: 1000 } });
+      await api("/api/admin/gateway/checkout", {
+        method: "POST", cookie: admin,
+        body: { methods: { momo: { enabled: true, accounts: [{ network: "MTN", number: "0240000000", name: "Test" }] } } },
+      });
+      const before = await memberTotals();
+      const heldBefore = await heldPlanCounts();
+      const date = todayKey();
+      for (const tier of ["vip", "vvip", "boom", "weekly"]) {
+        await api("/api/admin/matches", { method: "POST", cookie: admin,
+          body: { date, tier, home: `${planId} Coexist ${tier}`, away: "Away", tip: "Over 1.5", odds: "1.25" } });
+      }
+      const submit = async () => {
+        const sent = await api("/api/payments/manual", { method: "POST", cookie: buyer.cookie,
+          body: { plan: planId, methodId: "momo", accountIndex: 0, receipt } });
+        assert.equal(sent.status, 201);
+        return sent.data.id;
+      };
+      const id = await submit();
+      const approved = await api(`/api/admin/manual-payments/${id}/confirm`, { method: "POST", cookie: admin, body: {} });
+      assert.equal(approved.status, 200);
+      const member = (await api("/api/me", { cookie: buyer.cookie })).data.user;
+      assert.equal(member.planExpiresAt, weeklyExpiry);
+      assert.equal(member.plan, "weekly");
+      const dailyExpiry = member.plans.find((entry) => entry.plan === planId).expiresAt;
+      const matches = (await api(`/api/matches?date=${date}`, { cookie: buyer.cookie })).data.matches;
+      for (const tier of ["vip", "vvip", "boom", "weekly"]) {
+        const open = tier === "weekly" || (planId === "vvip" ? tier === "vvip" : tier === "vip" || tier === "boom");
+        assert.ok(matches.filter((match) => match.tier === tier).every((match) => match.locked === !open));
+      }
+      assert.equal((await memberTotals())[planId], before[planId] + 1);
+      assert.equal((await heldPlanCounts())[planId], heldBefore[planId] + 1);
+      const renewalId = await submit();
+      assert.equal((await heldPlanCounts())[planId], heldBefore[planId] + 1, "pending renewal does not use a second slot");
+      await confirmManualPayment(renewalId);
+      const renewed = (await api("/api/me", { cookie: buyer.cookie })).data.user;
+      assert.equal(renewed.planExpiresAt, weeklyExpiry);
+      assert.equal(Date.parse(renewed.plans.find((entry) => entry.plan === planId).expiresAt), Date.parse(dailyExpiry) + 86400000);
+      assert.equal((await one("SELECT plan FROM purchases WHERE user_id = ? ORDER BY id DESC LIMIT 1", [buyer.user.id])).plan,
+        planId === "boom" ? "vip" : planId);
+      const renamed = await api("/api/me/name", { method: "POST", cookie: buyer.cookie, body: { name: "Coexist Buyer" } });
+      assert.equal(renamed.data.user.plans.length, 2);
+      const login = await api("/api/auth/login", { method: "POST", body: { email: buyer.user.email, password: "correct horse battery" } });
+      assert.equal(login.status, 200);
+      assert.equal(login.data.user.plans.length, 2);
+      await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), buyer.user.id]);
+      const remaining = (await api("/api/me", { cookie: buyer.cookie })).data.user;
+      assert.equal(remaining.plan, planId);
+      assert.equal(remaining.plans.length, 1, "daily access remains valid after Weekly expires");
+      await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [weeklyExpiry, buyer.user.id]);
+      await execute(`UPDATE users SET ${planId}_access_until = ? WHERE id = ?`, [new Date(Date.now() - 1000).toISOString(), buyer.user.id]);
+      const expired = (await api("/api/me", { cookie: buyer.cookie })).data.user;
+      assert.equal(expired.plans.length, 1);
+      assert.equal(expired.plan, "weekly");
+      assert.equal(expired.planExpiresAt, weeklyExpiry);
+    });
+  }
+
   for (const planId of ["vip", "vvip", "boom", "weekly"]) {
   test(`yesterday's expired ${planId} buyer can buy again today and today's approval unlocks tips`, async () => {
     const admin = await adminCookie();
@@ -1314,7 +1484,11 @@ describe("manual plan payment", () => {
     const member = members.data.members.find((entry) => entry.email === user.email);
     assert.equal(member.name, user.name);
     assert.equal(member.plan, "vip");
-    assert.deepEqual(member.payments, [{ plan: "vip", amount: 50, currency: "GHS" }]);
+    assert.equal(member.payments.length, 1);
+    const { confirmedAt, ...paidAmount } = member.payments[0];
+    assert.deepEqual(paidAmount, { plan: "vip", amount: 50, currency: "GHS" });
+    assert.ok(Number.isFinite(Date.parse(confirmedAt)));
+    assert.equal(member.planExpiresAt, me.data.user.planExpiresAt);
   });
 
   test("rejecting a payment leaves the plan unchanged and allows another receipt", async () => {

@@ -7,6 +7,7 @@ import { getCountryPlanPrice, getPlan, getPricedPlan, readPlanSlots } from "./pl
 import { getProvider } from "./providers/index.js";
 import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
 import { sendNigeriaPaymentEmail } from "./payment-email.js";
+import { activeAccess, grantDailyAccess } from "./access.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -23,7 +24,7 @@ const SQL = {
     UPDATE payments
     SET status = 'success', provider_transaction_id = ?, paid_at = ${NOW}, updated_at = ${NOW}
     WHERE reference = ? AND status = 'pending'`,
-  findUser: "SELECT id, plan, plan_expires_at, slot_plan FROM users WHERE id = ?",
+  findUser: "SELECT id, plan, plan_expires_at, slot_plan, vip_access_until, vvip_access_until, boom_access_until FROM users WHERE id = ?",
   updateUserPlan: "UPDATE users SET plan = ?, plan_expires_at = ?, slot_plan = ? WHERE id = ?",
 };
 
@@ -71,6 +72,10 @@ export async function assertSlotsOpen(user, planId) {
     ? await one("SELECT plan, plan_expires_at, slot_plan FROM users WHERE id = ?", [user.id])
     : user;
   if (heldSlot(row) === planId) {
+    return;
+  }
+  const current = await one(SQL.findUser, [user.id]);
+  if (activeAccess(current).some((access) => access.plan === planId)) {
     return;
   }
   const waiting = await one(
@@ -124,11 +129,14 @@ async function upgradeUser(tx, userId, plan, source) {
   const now = Date.now();
   const currentExpiry = user.plan_expires_at ? Date.parse(user.plan_expires_at) : 0;
   const stillActive = user.plan !== "free" && currentExpiry > now;
+  if (user.plan === "weekly" && plan.id !== "weekly") {
+    await grantDailyAccess(tx, user, plan, now);
+    await recordPurchase(tx, userId, plan.id === "boom" ? "vip" : plan.id, todayKey(), source);
+    return;
+  }
 
   const start = stillActive && !(plan.id === "weekly" && user.plan !== "weekly") ? currentExpiry : now;
-  const expiresAt = stillActive && user.plan === "weekly" && plan.id !== "weekly"
-    ? user.plan_expires_at
-    : new Date(start + plan.days * DAY_MS).toISOString();
+  const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
   // Boom opens the same tips as VIP. The account stays VIP, and slot_plan boom uses a boom place.
   const access = plan.id === "boom" ? getPlan("vip") : plan;
   const currentRank = stillActive ? (getPlan(user.plan)?.rank ?? 0) : 0;
@@ -136,6 +144,9 @@ async function upgradeUser(tx, userId, plan, source) {
   const keepCurrent = currentRank > access.rank || alreadyVip;
   const nextPlan = keepCurrent ? user.plan : access.id;
   const nextSlot = keepCurrent ? (user.slot_plan || user.plan) : plan.id;
+  if (plan.id === "weekly" && !(stillActive && user.plan === "weekly")) {
+    await tx.execute("UPDATE users SET vip_access_until = NULL, vvip_access_until = NULL, boom_access_until = NULL WHERE id = ?", [userId]);
+  }
   await tx.execute(SQL.updateUserPlan, [nextPlan, expiresAt, nextSlot, userId]);
   await recordPurchase(tx, userId, nextPlan, todayKey(), source);
 }
