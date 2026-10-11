@@ -39,6 +39,13 @@ the current expiry); Weekly Rollover lasts seven days.
 
 ### User management
 
+The homepage invites signed-in members without Weekly Rollover access to join
+the campaign once per page visit. **Join now** checks current access and slots
+before opening Weekly checkout; **Later** (or Escape) dismisses it for that visit.
+Reloading or a new visit allows another invitation. Active Weekly and full-access
+members, visitors, and blocked accounts are excluded. Pending account warnings
+and other open dialogs take priority.
+
 The Control Room's **Users** section searches accounts by name or email (up to
 50 results). Select **Manage** to block/unblock the account or send a plain-text
 warning of up to 1,000 characters. Only an authenticated admin can do this.

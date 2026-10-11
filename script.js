@@ -1198,7 +1198,8 @@ function markFullPlans() {
       ? ""
       : button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
     button.disabled = full;
-    button.textContent = `${full ? "SLOTS FULL" : "BUY PLAN"}${total}`;
+    const label = button.dataset.tier === "weekly" ? "Tap to subscribe" : "BUY PLAN";
+    button.textContent = `${full ? "SLOTS FULL" : label}${total}`;
   }
 }
 
