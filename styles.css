@@ -1868,6 +1868,116 @@ button {
   font-size: 1.4rem;
 }
 
+.rollover-campaign {
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+  background: radial-gradient(ellipse at top, rgba(103, 215, 239, 0.14), transparent 65%), #0c1424;
+  border: 1px solid rgba(103, 215, 239, 0.35);
+  border-radius: 28px;
+  color: #f3f7ff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.rollover-campaign::backdrop {
+  background: rgba(3, 8, 18, 0.85);
+  backdrop-filter: blur(5px);
+}
+
+.rollover-campaign-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.25rem;
+  color: #67d7ef;
+  border: 1px solid rgba(103, 215, 239, 0.3);
+  border-radius: 22px;
+  background: rgba(103, 215, 239, 0.08);
+}
+
+.rollover-campaign-icon svg {
+  width: 44px;
+  height: 44px;
+}
+
+.rollover-campaign-eyebrow {
+  margin: 0 0 0.75rem;
+  color: #67d7ef;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.rollover-campaign h2 {
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.rollover-campaign h2 span {
+  color: #67d7ef;
+}
+
+.rollover-campaign-description {
+  margin: 1rem 0 1.5rem;
+  color: #b6c4d8;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.rollover-campaign-benefit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(103, 215, 239, 0.18);
+  border-radius: 16px;
+  background: rgba(103, 215, 239, 0.05);
+  text-align: left;
+}
+
+.rollover-campaign-benefit strong {
+  flex-shrink: 0;
+  color: #67d7ef;
+  font-size: 1.1rem;
+}
+
+.rollover-campaign-benefit span {
+  color: #b6c4d8;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.rollover-campaign-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.rollover-campaign-actions .plan-button {
+  width: 100%;
+  margin: 0;
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.rollover-campaign-actions .control-sign-out {
+  min-height: 44px;
+  border-radius: 14px;
+  color: #c5d1e3;
+}
+
+.rollover-campaign-note {
+  margin: 1rem 0 0;
+  color: #98a9c0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
 .fee-confirm-copy {
   margin: 0.85rem 0 0;
   color: var(--muted);
