@@ -4,6 +4,7 @@ const empty = document.querySelector("#pay-empty");
 const sheet = document.querySelector("#pay-sheet");
 const form = document.querySelector("#pay-form");
 const fileInput = document.querySelector("#pay-file");
+const senderNameInput = document.querySelector("#pay-sender-name");
 const errorText = document.querySelector("#pay-error");
 const submitButton = document.querySelector("#pay-submit");
 const picker = document.querySelector("#pay-picker");
@@ -159,6 +160,7 @@ function showFormAgain(message) {
   form.hidden = false;
   submitButton.disabled = false;
   fileInput.value = "";
+  senderNameInput.value = "";
   document.querySelector("#pay-file-label").textContent = "Upload payment receipt";
   document.querySelector("#pay-file-hint").textContent = "Image or PDF · required to confirm transfer";
   document.querySelector("#pay-done").hidden = true;
@@ -323,6 +325,7 @@ form.addEventListener("submit", async (event) => {
         methodId: account.methodId,
         accountIndex: account.accountIndex,
         receipt,
+        senderName: senderNameInput.value.trim(),
       }),
     });
     const body = await response.json().catch(() => ({}));

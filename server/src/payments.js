@@ -222,6 +222,10 @@ export async function submitManualPayment(user, input) {
   if (!account?.number) {
     throw new HttpError(400, "Choose a payment account.");
   }
+  const senderName = typeof input?.senderName === "string" ? input.senderName.trim() : "";
+  if (!senderName || senderName.length > 100) {
+    throw new HttpError(400, "Enter the name on the account you used to pay (up to 100 characters).");
+  }
 
   const match = String(input?.receipt || "").match(RECEIPT_PATTERN);
   if (!match) {
@@ -243,10 +247,10 @@ export async function submitManualPayment(user, input) {
   try {
     const { rows } = await execute(
       `INSERT INTO manual_payments
-        (user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, email_notification_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (user_id, plan, amount, currency, method_id, network, account_number, account_name, sender_name, receipt_data, email_notification_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
-      [user.id, plan.id, amount, currency, method.id, network, account.number, account.name || "", receipt,
+      [user.id, plan.id, amount, currency, method.id, network, account.number, account.name || "", senderName, receipt,
         pricingCountry === "nigeria" ? "pending" : ""],
     );
     id = Number(rows[0].id);
@@ -268,7 +272,7 @@ export async function submitManualPayment(user, input) {
   if (pricingCountry === "nigeria") {
     let emailStatus = "sent";
     try {
-      await sendNigeriaPaymentEmail(user, { id, amount, currency, network }, plan);
+      await sendNigeriaPaymentEmail(user, { id, amount, currency, network, senderName }, plan);
     } catch (error) {
       emailStatus = "failed";
       console.error(`Payment receipt ${id} email notification failed: ${error.message}`);
@@ -320,7 +324,7 @@ export async function manualPaymentStatus(userId, planId) {
 
 export function listManualPayments() {
   return execute(
-    `SELECT manual_payments.id, users.name, users.email, manual_payments.plan, manual_payments.amount,
+    `SELECT manual_payments.id, users.name, users.email, manual_payments.sender_name, manual_payments.plan, manual_payments.amount,
             manual_payments.currency, manual_payments.network, manual_payments.status, manual_payments.created_at,
             manual_payments.email_notification_status
      FROM manual_payments

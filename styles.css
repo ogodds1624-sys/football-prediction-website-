@@ -4660,26 +4660,31 @@ html:has(body.control-room) {
 
 #payment-table-wrap th:nth-child(1),
 #payment-table-wrap td:nth-child(1) {
-  width: 18%;
+  width: 14%;
 }
 
 #payment-table-wrap th:nth-child(2),
 #payment-table-wrap td:nth-child(2) {
-  width: 28%;
+  width: 16%;
 }
 
 #payment-table-wrap th:nth-child(3),
 #payment-table-wrap td:nth-child(3) {
-  width: 12%;
+  width: 24%;
 }
 
 #payment-table-wrap th:nth-child(4),
 #payment-table-wrap td:nth-child(4) {
-  width: 18%;
+  width: 10%;
 }
 
 #payment-table-wrap th:nth-child(5),
 #payment-table-wrap td:nth-child(5) {
+  width: 14%;
+}
+
+#payment-table-wrap th:nth-child(6),
+#payment-table-wrap td:nth-child(6) {
   width: 24%;
 }
 
@@ -5016,6 +5021,32 @@ html:has(body.control-room) {
 
 .fee-upload small {
   color: var(--muted);
+}
+
+.fee-sender-name {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.fee-sender-name input {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--text);
+  background: rgba(12, 20, 36, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.fee-sender-name small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
 }
 
 .fee-arrow {

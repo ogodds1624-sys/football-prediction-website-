@@ -86,6 +86,11 @@
           </span>
           <span class="fee-arrow" aria-hidden="true">→</span>
         </label>
+        <label class="fee-sender-name" for="pay-sender-name">
+          Name on the account you used to pay
+          <input id="pay-sender-name" name="senderName" type="text" maxlength="100" autocomplete="name" placeholder="Name registered to the sending account" required>
+          <small>For MoMo, enter the name registered to the sending account.</small>
+        </label>
         <p class="fee-error" id="pay-error" role="alert"></p>
         <button type="submit" class="fee-send" id="pay-submit">I've sent the money <span aria-hidden="true">→</span></button>
       </form>

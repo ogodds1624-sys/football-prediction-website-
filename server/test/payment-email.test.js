@@ -62,7 +62,7 @@ async function member(country) {
   return { cookie, user: result.data.user };
 }
 
-const transfer = (plan = "vip", methodId = "ngBank") => ({ plan, methodId, accountIndex: 0, receipt });
+const transfer = (plan = "vip", methodId = "ngBank") => ({ plan, methodId, accountIndex: 0, receipt, senderName: "Test Sender" });
 
 before(async () => {
   server = createApp({ limitRequests: false }).listen(0);
@@ -104,10 +104,12 @@ test("Nigerian receipts for every paid plan email the fixed recipient once after
     const payment = await one("SELECT * FROM manual_payments WHERE id = ?", [result.data.id]);
     assert.equal(payment.status, "pending");
     assert.equal(payment.email_notification_status, "sent");
+    assert.equal(payment.sender_name, "Test Sender");
     const message = messages.at(-1);
     assert.equal(message.to, "andrewturkenterprise@gmail.com");
     assert.equal(message.from, config.gmail.user);
     assert.match(message.text, new RegExp(user.email.replace(/\./g, "\\.")));
+    assert.match(message.text, /Sender name: Test Sender/);
     assert.ok(message.text.includes(`Receipt ID: ${result.data.id}`));
     assert.ok(message.text.includes(`Amount: NGN ${(payment.amount / 100).toFixed(2)}`));
     assert.ok(message.text.includes("http://localhost:3000/control-room.html#members"));

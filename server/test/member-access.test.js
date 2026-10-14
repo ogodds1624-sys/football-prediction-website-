@@ -28,6 +28,11 @@ test("section WON badges require every game won and clear on day changes or load
     selectedOffset: 0,
     dateKey: (offset) => String(offset),
     tierBodies: Object.fromEntries(tiers.map((tier) => [tier, { replaceChildren() {} }])),
+    tableSections: Object.fromEntries(tiers.map((tier) => [tier, { hidden: true }])),
+    planHiddenSections: new Set(),
+    populatedTiers: new Set(),
+    currentUser: null,
+    arrangeTables() {},
     planButtons: [],
     matchRow: (match) => match,
     emptyRow: () => null,
@@ -44,6 +49,7 @@ test("section WON badges require every game won and clear on day changes or load
     source.indexOf("let codeRequest = 0;")), context);
   await context.renderPredictions();
   assert.ok(tiers.every((tier) => statuses[tier].hidden === false));
+  assert.ok(tiers.every((tier) => context.tableSections[tier].hidden === false));
   matches = [
     { tier: "free", result: "won" }, { tier: "free", result: "pending" },
     { tier: "vip", result: "won" }, { tier: "vip", result: "lost" },
@@ -59,9 +65,14 @@ test("section WON badges require every game won and clear on day changes or load
   await loading;
   assert.ok(["free", "vip", "boom", "vvip"].every((tier) => statuses[tier].hidden));
   assert.equal(statuses.weekly.hidden, false);
+  assert.deepEqual(
+    tiers.filter((tier) => context.tableSections[tier].hidden),
+    ["vvip"],
+  );
   fail = true;
   await context.renderPredictions();
   assert.ok(tiers.every((tier) => statuses[tier].hidden));
+  assert.ok(tiers.every((tier) => context.tableSections[tier].hidden === false));
 });
 
 function memberPage() {

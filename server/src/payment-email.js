@@ -23,6 +23,7 @@ export async function sendNigeriaPaymentEmail(user, payment, plan) {
     `Plan: ${plan.name}`,
     `Amount: ${payment.currency} ${(payment.amount / 100).toFixed(2)}`,
     `Bank / network: ${payment.network}`,
+    `Sender name: ${payment.senderName}`,
     "",
     config.appUrl
       ? `Review the receipt in the Control Room: ${config.appUrl}/control-room.html#members`

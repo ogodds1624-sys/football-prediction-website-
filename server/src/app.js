@@ -611,6 +611,7 @@ export function createApp({ limitRequests = true } = {}) {
       payments: rows.map((payment) => ({
         id: Number(payment.id),
         name: payment.name || "",
+        senderName: payment.sender_name || "",
         email: payment.email,
         plan: payment.plan,
         amount: payment.amount / 100,

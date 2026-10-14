@@ -1516,6 +1516,7 @@ function manualPaymentRow(payment) {
   }
   row.append(
     textCell(payment.name || "—"),
+    textCell(payment.senderName || "—"),
     textCell(payment.email),
     textCell(String(payment.plan).toUpperCase()),
     textCell(`${payment.currency} ${Number(payment.amount).toFixed(2)}`),
@@ -1527,7 +1528,7 @@ function manualPaymentRow(payment) {
 function emptyManualRow(text) {
   const row = document.createElement("tr");
   const cell = document.createElement("td");
-  cell.colSpan = 5;
+  cell.colSpan = 6;
   cell.textContent = text;
   row.append(cell);
   return row;

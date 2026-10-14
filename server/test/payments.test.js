@@ -80,15 +80,19 @@ beforeEach(() => {
 });
 
 async function api(path, { method = "GET", body, cookie, headers = {} } = {}) {
+  const requestBody = path === "/api/payments/manual" && body && typeof body === "object" &&
+    !Array.isArray(body) && !Object.hasOwn(body, "senderName")
+    ? { ...body, senderName: "Test Sender" }
+    : body;
   const response = await realFetch(`${baseUrl}${path}`, {
     method,
     redirect: "manual",
     headers: {
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(requestBody !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
+    body: requestBody === undefined ? undefined : typeof requestBody === "string" ? requestBody : JSON.stringify(requestBody),
   });
   const text = await response.text();
   let data = null;
@@ -1725,9 +1729,15 @@ describe("manual plan payment", () => {
     const sent = await api("/api/payments/manual", {
       method: "POST",
       cookie,
-      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt },
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt, senderName: "Akosua Owusu" },
     });
     assert.equal(sent.status, 201);
+    const missingSender = await api("/api/payments/manual", {
+      method: "POST",
+      cookie,
+      body: { plan: "vip", methodId: "momo", accountIndex: 0, receipt, senderName: " " },
+    });
+    assert.equal(missingSender.status, 400);
 
     const again = await api("/api/payments/manual", {
       method: "POST",
@@ -1749,6 +1759,7 @@ describe("manual plan payment", () => {
     assert.equal(payment.plan, "vip");
     assert.equal(payment.amount, 50);
     assert.equal(payment.network, "Telecel Cash");
+    assert.equal(payment.senderName, "Akosua Owusu");
 
     const proof = await api(`/api/admin/manual-payments/${payment.id}/receipt`, { cookie: admin });
     assert.equal(proof.status, 200);

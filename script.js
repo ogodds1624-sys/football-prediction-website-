@@ -26,6 +26,8 @@ const tableSections = {
   vvip: document.querySelector("#vvip"),
   weekly: document.querySelector("#weekly"),
 };
+let populatedTiers = new Set();
+const planHiddenSections = new Set();
 // Tables are placed after the day switcher, which always stays on top.
 const leadDivider = document.querySelector(".day-switcher");
 const tableDividers = [
@@ -37,21 +39,42 @@ const tableDividers = [
 
 function arrangeTables(signedIn) {
   const order = signedIn ? ["vip", "boom", "vvip", "weekly", "free"] : ["free", "vip", "boom", "vvip", "weekly"];
+  const visibleOrder = order.filter((id) => !tableSections[id].hidden);
+  const hiddenOrder = order.filter((id) => tableSections[id].hidden);
   let previous = leadDivider;
-  order.forEach((id, index) => {
+  visibleOrder.forEach((id, index) => {
     previous.after(tableSections[id]);
     previous = tableSections[id];
-    if (index < tableDividers.length) {
-      previous.after(tableDividers[index]);
+    if (index < visibleOrder.length - 1) {
+      const divider = tableDividers[index];
+      divider.hidden = false;
+      previous.after(divider);
       previous = tableDividers[index];
     }
   });
+  hiddenOrder.forEach((id) => {
+    previous.after(tableSections[id]);
+    previous = tableSections[id];
+  });
+  for (let index = visibleOrder.length - 1; index < tableDividers.length; index += 1) {
+    const divider = tableDividers[index];
+    divider.hidden = true;
+    previous.after(divider);
+    previous = divider;
+  }
 }
 
 function showPlanTables(plan) {
   const hideVip = plan === "vvip" && !currentUser?.fullAccess && !coversTier("vip");
-  tableSections.vip.hidden = hideVip;
-  tableSections.boom.hidden = hideVip;
+  for (const tier of ["vip", "boom"]) {
+    if (hideVip) {
+      planHiddenSections.add(tier);
+    } else {
+      planHiddenSections.delete(tier);
+    }
+    tableSections[tier].hidden = !populatedTiers.has(tier) || planHiddenSections.has(tier);
+  }
+  arrangeTables(Boolean(currentUser));
   for (const link of document.querySelectorAll('a[href="#vip"], a[href="#boom"]')) {
     const target = link.closest(".footer-list li") || link;
     target.hidden = hideVip;
@@ -253,9 +276,12 @@ async function renderPredictions() {
     oddsTotals = body.oddsTotals || {};
   } catch {
     if (request === predictionsRequest) {
+      populatedTiers = new Set(TIERS.map((tier) => tier.id));
       for (const tier of TIERS) {
         tierBodies[tier.id].replaceChildren(messageRow("Couldn't load predictions. Refresh the page to try again."));
+        tableSections[tier.id].hidden = planHiddenSections.has(tier.id);
       }
+      arrangeTables(Boolean(currentUser));
     }
     return;
   }
@@ -266,13 +292,16 @@ async function renderPredictions() {
   pendingPredictionTiers = new Set(
     matches.filter((match) => match.result !== "won" && match.result !== "lost").map((match) => match.tier),
   );
+  populatedTiers = new Set(matches.map((match) => match.tier));
   showPlanSlots(planSlots);
   for (const tier of TIERS) {
     const tierMatches = matches.filter((match) => match.tier === tier.id);
     const rows = tierMatches.length ? tierMatches.map((match) => matchRow(match, tier.id, Boolean(oddsTotals[tier.id]))) : [emptyRow()];
     tierBodies[tier.id].replaceChildren(...rows);
+    tableSections[tier.id].hidden = !tierMatches.length || planHiddenSections.has(tier.id);
     showSectionWon(tier.id, tierMatches);
   }
+  arrangeTables(Boolean(currentUser));
 
   for (const button of planButtons) {
     const override = oddsTotals[button.dataset.tier];

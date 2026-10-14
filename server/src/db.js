@@ -104,6 +104,7 @@ const SCHEMA = [
     network        TEXT NOT NULL,
     account_number TEXT NOT NULL,
     account_name   TEXT NOT NULL DEFAULT '',
+    sender_name    TEXT NOT NULL DEFAULT '',
     receipt_data   TEXT NOT NULL,
     status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
     created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -245,6 +246,8 @@ const MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN last_seen_at TEXT",
   // Which paid place this account is using. Boom access is stored as VIP, and this marks the boom place.
   "ALTER TABLE users ADD COLUMN slot_plan TEXT NOT NULL DEFAULT ''",
+  // Name entered by the member who sent a manual payment.
+  "ALTER TABLE manual_payments ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''",
 ];
 
 // SQLite can't change a CHECK rule in place, so tables made before the
@@ -406,14 +409,15 @@ async function migrate() {
         network        TEXT NOT NULL,
         account_number TEXT NOT NULL,
         account_name   TEXT NOT NULL DEFAULT '',
+        sender_name    TEXT NOT NULL DEFAULT '',
         receipt_data   TEXT NOT NULL,
         status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
         created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       )`,
       `INSERT INTO manual_payments_new
-        (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at)
-       SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at
+        (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, sender_name, receipt_data, status, created_at, updated_at)
+       SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, sender_name, receipt_data, status, created_at, updated_at
        FROM manual_payments`,
       "DROP TABLE manual_payments",
       "ALTER TABLE manual_payments_new RENAME TO manual_payments",
@@ -562,14 +566,15 @@ async function allowBoomPlan() {
       network        TEXT NOT NULL,
       account_number TEXT NOT NULL,
       account_name   TEXT NOT NULL DEFAULT '',
+      sender_name    TEXT NOT NULL DEFAULT '',
       receipt_data   TEXT NOT NULL,
       status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
       created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
       updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     )`,
     `INSERT INTO manual_payments_boom
-      (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at)
-     SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, receipt_data, status, created_at, updated_at
+      (id, user_id, plan, amount, currency, method_id, network, account_number, account_name, sender_name, receipt_data, status, created_at, updated_at)
+     SELECT id, user_id, plan, amount, currency, method_id, network, account_number, account_name, sender_name, receipt_data, status, created_at, updated_at
      FROM manual_payments`,
     [`CREATE UNIQUE INDEX IF NOT EXISTS manual_payments_one_pending
       ON manual_payments(user_id, plan) WHERE status = 'pending'`],
