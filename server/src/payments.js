@@ -7,7 +7,7 @@ import { getCountryPlanPrice, getPlan, getPricedPlan, readPlanSlots } from "./pl
 import { getProvider } from "./providers/index.js";
 import { heldPlanCounts, recordPurchase, todayKey } from "./recovery.js";
 import { sendNigeriaPaymentEmail } from "./payment-email.js";
-import { activeAccess, grantDailyAccess } from "./access.js";
+import { activeAccess, endOfUtcDay, grantDailyAccess } from "./access.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -122,8 +122,8 @@ export async function startPayment(user, providerName, planId, siteUrl) {
   }
 }
 
-// Extends from the current expiry if the plan is still running, so renewing
-// early never loses days. A higher plan replaces a lower one.
+// Weekly access extends from its current expiry. Daily access runs through
+// the approval date. A higher plan replaces a lower one.
 async function upgradeUser(tx, userId, plan, source) {
   const user = (await tx.execute(SQL.findUser, [userId])).rows[0];
   const now = Date.now();
@@ -136,7 +136,9 @@ async function upgradeUser(tx, userId, plan, source) {
   }
 
   const start = stillActive && !(plan.id === "weekly" && user.plan !== "weekly") ? currentExpiry : now;
-  const expiresAt = new Date(start + plan.days * DAY_MS).toISOString();
+  const expiresAt = plan.days === 1
+    ? endOfUtcDay(now)
+    : new Date(start + plan.days * DAY_MS).toISOString();
   // Boom opens the same tips as VIP. The account stays VIP, and slot_plan boom uses a boom place.
   const access = plan.id === "boom" ? getPlan("vip") : plan;
   const currentRank = stillActive ? (getPlan(user.plan)?.rank ?? 0) : 0;

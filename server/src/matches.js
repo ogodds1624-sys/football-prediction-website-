@@ -85,14 +85,17 @@ export function unlockedTiers(plan, user) {
 
 export async function matchesForDate(date) {
   const { rows } = await execute(
-    "SELECT id, date, tier, home, away, tip, odds, image, result FROM matches WHERE date = ? ORDER BY id",
+    "SELECT id, date, tier, home, away, tip, odds, image, result, created_at FROM matches WHERE date = ? ORDER BY id",
     [date],
   );
   return rows;
 }
 
 export function publicMatch(match, unlocked) {
-  const open = unlocked.has(match.tier);
+  const purchasePlan = match.tier === "vip" || match.tier === "boom" ? "vip" : match.tier;
+  const approvedAt = unlocked.purchaseTimes?.get(purchasePlan);
+  const wasAvailableAtPurchase = !approvedAt || !match.created_at || match.created_at <= approvedAt;
+  const open = unlocked.has(match.tier) && wasAvailableAtPurchase;
   return {
     tier: match.tier,
     home: match.home,
@@ -104,6 +107,14 @@ export function publicMatch(match, unlocked) {
     // Pictures (often betting slips) would reveal locked tips.
     image: open ? match.image || "" : "",
   };
+}
+
+export async function purchaseTimesForUser(userId) {
+  const { rows } = await execute(
+    "SELECT plan, MAX(created_at) AS approved_at FROM purchases WHERE user_id = ? GROUP BY plan",
+    [userId],
+  );
+  return new Map(rows.map((row) => [row.plan, row.approved_at]));
 }
 
 export async function createMatches(date, matches) {

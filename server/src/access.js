@@ -4,6 +4,12 @@ export const DAILY_ACCESS_COLUMNS = {
   boom: "boom_access_until",
 };
 
+export function endOfUtcDay(now = Date.now()) {
+  const end = new Date(now);
+  end.setUTCHours(24, 0, 0, 0);
+  return end.toISOString();
+}
+
 export function activeAccess(user, now = new Date().toISOString()) {
   if (!user) {
     return [];
@@ -26,10 +32,7 @@ export async function grantDailyAccess(tx, user, plan, now = Date.now(), expires
   if (!column) {
     throw new Error(`Cannot grant additional access for ${plan.id}.`);
   }
-  const start = Math.max(now, Date.parse(user[column]) || 0);
-  const until = expiresAt
-    ? new Date(Math.max(Date.parse(expiresAt), Date.parse(user[column]) || 0)).toISOString()
-    : new Date(start + plan.days * 86_400_000).toISOString();
+  const until = expiresAt || endOfUtcDay(now);
   await tx.execute(`UPDATE users SET ${column} = ? WHERE id = ?`, [until, user.id]);
 }
 
@@ -42,7 +45,7 @@ export async function restoreWeeklyDailyAccess(tx, now = new Date().toISOString(
         UNION ALL
         SELECT user_id, plan, paid_at AS approved_at FROM payments WHERE status = 'success'
       ), eligible AS (
-        SELECT daily.user_id, strftime('%Y-%m-%dT%H:%M:%fZ', MAX(daily.approved_at), '+1 day') AS expires_at
+        SELECT daily.user_id, strftime('%Y-%m-%dT00:00:00.000Z', MAX(daily.approved_at), 'start of day', '+1 day') AS expires_at
         FROM approved AS daily
         WHERE daily.plan = ? AND daily.approved_at > (
           SELECT MAX(weekly.approved_at) FROM approved AS weekly

@@ -28,6 +28,12 @@ function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function endOfUtcDay(now = Date.now()) {
+  const end = new Date(now);
+  end.setUTCHours(24, 0, 0, 0);
+  return end.getTime();
+}
+
 globalThis.fetch = async (url, options = {}) => {
   const target = String(url);
   if (target.startsWith("https://api.paystack.co")) {
@@ -429,12 +435,12 @@ describe("weekly rollover", () => {
     assert.ok(expiry >= before + 7 * DAY);
     assert.ok(expiry <= Date.now() + 7 * DAY);
     for (const plan of ["vip", "vvip", "boom"]) {
+      const approvedAt = Date.now();
       const protectedUser = await pay(cookie, plan);
       assert.equal(protectedUser.plan, "weekly");
       assert.equal(protectedUser.planExpiresAt, active.planExpiresAt);
       const access = protectedUser.plans.find((entry) => entry.plan === plan);
-      assert.ok(Date.parse(access.expiresAt) >= Date.now() + DAY - 5000);
-      assert.ok(Date.parse(access.expiresAt) <= Date.now() + DAY);
+      assert.equal(Date.parse(access.expiresAt), endOfUtcDay(approvedAt));
     }
     const renewed = await pay(cookie, "weekly");
     assert.equal(Date.parse(renewed.planExpiresAt), expiry + 7 * DAY);
@@ -492,7 +498,7 @@ describe("weekly rollover", () => {
         await transaction((tx) => restoreWeeklyDailyAccess(tx, now));
         const stored = await one(`SELECT ${plan}_access_until AS expiry, plan_expires_at FROM users WHERE id = ?`, [user.id]);
         const eligible = scenario === "eligible" || scenario === "online";
-        assert.equal(stored.expiry, eligible ? time(22) : null, `${plan}: ${scenario}`);
+        assert.equal(stored.expiry, eligible ? new Date(endOfUtcDay(Date.parse(approvedAt))).toISOString() : null, `${plan}: ${scenario}`);
         assert.equal(stored.plan_expires_at, time(120));
         const me = (await api("/api/me", { cookie })).data.user;
         assert.equal(me.plans.some((entry) => entry.plan === plan), eligible);
@@ -521,7 +527,10 @@ describe("weekly rollover", () => {
     assert.equal(added.status, 201, JSON.stringify(added.data));
     const visitor = await api("/api/matches?date=2027-01-07");
     assert.equal(visitor.data.matches.find((match) => match.tier === "weekly").tip, null);
-    const member = await api("/api/matches?date=2027-01-07", { cookie });
+    let member = await api("/api/matches?date=2027-01-07", { cookie });
+    assert.equal(member.data.matches.find((match) => match.tier === "weekly").tip, null);
+    await pay(cookie, "weekly");
+    member = await api("/api/matches?date=2027-01-07", { cookie });
     assert.equal(member.data.matches.find((match) => match.tier === "weekly").tip, "Over 1.5");
     assert.ok(Object.hasOwn(member.data.oddsTotals, "weekly"));
   });
@@ -1024,7 +1033,7 @@ describe("predictions", () => {
 
   for (const [index, plan] of ["vip", "vvip", "boom", "weekly"].entries()) {
     for (const method of ["online", "manual"]) {
-      test(`${plan} ${method} payment before games are posted unlocks later games without changing expiry`, async () => {
+      test(`${plan} ${method} payment requires repurchase for games posted afterward`, async () => {
         const date = `2028-02-${String(index * 2 + (method === "online" ? 1 : 2)).padStart(2, "0")}`;
         const buyer = await newUser();
         const admin = await adminCookie();
@@ -1050,10 +1059,32 @@ describe("predictions", () => {
         const added = await api("/api/admin/matches", { method: "POST", cookie: admin,
           body: { date, tier: plan, home: "Later Home", away: "Later Away", tip: "Over 1.5", odds: "1.50" } });
         assert.equal(added.status, 201);
-        const games = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+        let games = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
+        assert.equal(games.data.matches[0].locked, true);
+        assert.equal(games.data.matches[0].tip, null);
+        if (method === "online") {
+          const reference = await startCheckout(buyer.cookie, "paystack", plan);
+          providerRecords.set(reference, { status: "success", amount: PLANS[plan].amount, currency: "GHS" });
+          assert.equal((await api(`/api/payments/${reference}`, { cookie: buyer.cookie })).status, 200);
+        } else {
+          const { one } = await import("../src/db.js");
+          const receipt = await one(
+            `INSERT INTO manual_payments (user_id,plan,amount,currency,method_id,network,account_number,receipt_data)
+             VALUES (?,?,?,'GHS','momo','MTN','0240000000','data:image/png;base64,aGVsbG8=') RETURNING id`,
+            [buyer.user.id, plan, PLANS[plan].amount],
+          );
+          assert.equal((await api(`/api/admin/manual-payments/${receipt.id}/confirm`,
+            { method: "POST", cookie: admin, body: {} })).status, 200);
+        }
+        games = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
         assert.equal(games.data.matches[0].locked, false);
         assert.equal(games.data.matches[0].tip, "Over 1.5");
-        assert.equal((await api("/api/me", { cookie: buyer.cookie })).data.user.planExpiresAt, expiry);
+        const renewedExpiry = (await api("/api/me", { cookie: buyer.cookie })).data.user.planExpiresAt;
+        if (plan === "weekly") {
+          assert.ok(Date.parse(renewedExpiry) > Date.parse(expiry));
+        } else {
+          assert.equal(renewedExpiry, expiry);
+        }
         const visitor = await api(`/api/matches?date=${date}`);
         assert.equal(visitor.data.matches[0].locked, true);
         assert.equal(visitor.data.matches[0].tip, null);
@@ -1214,6 +1245,7 @@ describe("recovery tickets", async () => {
         await api("/api/admin/matches/result", { method: "POST", cookie: admin, body: { id: data.matches[index].id, result } });
       }
     }
+    return data.matches;
   }
   async function memberWho(boughtPlan, onDate) {
     const member = await newUser();
@@ -1262,6 +1294,17 @@ describe("recovery tickets", async () => {
     assert.equal(data.lostDate, YESTERDAY);
     assert.equal(data.validUntil, shiftDate(YESTERDAY, 2));
     assert.equal(data.tips[0].home, "Bonus FC");
+  });
+
+  test("a game posted after purchase does not change the purchased ticket's recovery outcome", async () => {
+    const member = await memberWho("vip", YESTERDAY);
+    const admin = await adminCookie();
+    const [lateGame] = await addTicket(admin, YESTERDAY, "vip", ["pending"]);
+    const { data } = await check(member);
+    assert.equal(data.status, "eligible");
+    await api("/api/admin/matches/result", {
+      method: "POST", cookie: admin, body: { id: lateGame.id, result: "lost" },
+    });
   });
 
   test("a ticket that won does not qualify", async () => {
@@ -1563,6 +1606,7 @@ describe("manual plan payment", () => {
         return sent.data.id;
       };
       const id = await submit();
+      const approvedAt = Date.now();
       const approved = await api(`/api/admin/manual-payments/${id}/confirm`, { method: "POST", cookie: admin, body: {} });
       assert.equal(approved.status, 200);
       const member = (await api("/api/me", { cookie: buyer.cookie })).data.user;
@@ -1581,7 +1625,8 @@ describe("manual plan payment", () => {
       await confirmManualPayment(renewalId);
       const renewed = (await api("/api/me", { cookie: buyer.cookie })).data.user;
       assert.equal(renewed.planExpiresAt, weeklyExpiry);
-      assert.equal(Date.parse(renewed.plans.find((entry) => entry.plan === planId).expiresAt), Date.parse(dailyExpiry) + 86400000);
+      assert.equal(renewed.plans.find((entry) => entry.plan === planId).expiresAt, dailyExpiry);
+      assert.equal(Date.parse(dailyExpiry), endOfUtcDay(approvedAt));
       assert.equal((await one("SELECT plan FROM purchases WHERE user_id = ? ORDER BY id DESC LIMIT 1", [buyer.user.id])).plan,
         planId === "boom" ? "vip" : planId);
       const renamed = await api("/api/me/name", { method: "POST", cookie: buyer.cookie, body: { name: "Coexist Buyer" } });
@@ -1639,12 +1684,17 @@ describe("manual plan payment", () => {
     const pending = await api(`/api/payments/manual?plan=${planId}`, { cookie: buyer.cookie });
     assert.equal(pending.data.payment.id, sent.data.id);
     assert.equal(pending.data.payment.status, "pending");
+    const approvedAt = Date.now();
     const approved = await api(`/api/admin/manual-payments/${sent.data.id}/confirm`, { method: "POST", cookie: admin, body: {} });
     assert.equal(approved.status, 200);
     const me = await api("/api/me", { cookie: buyer.cookie });
     assert.equal(me.data.user.plan, planId);
     assert.ok(Date.parse(me.data.user.planExpiresAt) > Date.now());
-    assert.ok(Math.abs(Date.parse(me.data.user.planExpiresAt) - Date.now() - PLANS[planId].days * 86400000) < 5000);
+    if (planId === "weekly") {
+      assert.ok(Math.abs(Date.parse(me.data.user.planExpiresAt) - Date.now() - PLANS[planId].days * 86400000) < 5000);
+    } else {
+      assert.equal(Date.parse(me.data.user.planExpiresAt), endOfUtcDay(approvedAt));
+    }
     const after = await api(`/api/matches?date=${date}`, { cookie: buyer.cookie });
     assert.equal(after.data.plan, planId);
     const match = after.data.matches.find((item) => item.home === `${planId} Renewal Home`);

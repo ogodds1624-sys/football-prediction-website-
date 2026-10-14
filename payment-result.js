@@ -35,12 +35,9 @@ async function check(attempt = 1) {
       return;
     }
 
-    const { payment, user } = body;
+    const { payment } = body;
     if (payment.status === "success") {
-      const access = user.plans?.find((entry) => entry.plan === payment.plan);
-      const expiresAt = access?.expiresAt || (user.plan === payment.plan ? user.planExpiresAt : null);
-      const until = expiresAt ? new Date(expiresAt).toLocaleString() : "";
-      show("Payment successful", `Your ${planName(payment.plan)} payment is approved${until ? ` and access is active until ${until}` : ""}. View your available predictions on the home page.`);
+      show("Payment successful", `Your ${planName(payment.plan)} payment is approved. View your available predictions on the home page.`);
       return;
     }
     if (payment.status === "failed") {

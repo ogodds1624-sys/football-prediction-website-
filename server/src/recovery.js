@@ -36,11 +36,11 @@ export async function recordPurchase(runner, userId, planId, date, source) {
 
 // How a ticket (one table on one day) ended: "lost" if any tip lost,
 // "won" if every tip is decided and none lost, otherwise "pending".
-async function ticketOutcome(date, tier) {
+async function ticketOutcome(date, tier, approvedAt) {
   const row = await one(
     `SELECT COUNT(*) AS total, SUM(result = 'lost') AS lost, SUM(result = 'pending') AS pending
-     FROM matches WHERE date = ? AND tier = ?`,
-    [date, tier],
+     FROM matches WHERE date = ? AND tier = ? AND created_at <= ?`,
+    [date, tier, approvedAt],
   );
   const total = Number(row?.total || 0);
   if (Number(row?.lost || 0) > 0) {
@@ -63,7 +63,7 @@ async function ticketOutcome(date, tier) {
  */
 export async function checkRecovery(userId, date) {
   const { rows: purchases } = await execute(
-    "SELECT plan, date FROM purchases WHERE user_id = ? AND plan IN ('vip', 'vvip') AND date < ? ORDER BY date DESC, id DESC LIMIT 10",
+    "SELECT plan, date, created_at FROM purchases WHERE user_id = ? AND plan IN ('vip', 'vvip') AND date < ? ORDER BY date DESC, id DESC LIMIT 10",
     [userId, date],
   );
   if (!purchases.length) {
@@ -80,7 +80,7 @@ export async function checkRecovery(userId, date) {
     if (age > RECOVERY_DAYS) {
       break;
     }
-    const outcome = await ticketOutcome(purchase.date, purchase.plan);
+    const outcome = await ticketOutcome(purchase.date, purchase.plan, purchase.created_at);
     if (outcome === "lost") {
       const { rows: tips } = await execute(
         "SELECT home, away, tip, odds, result FROM matches WHERE date = ? AND tier = 'recovery' ORDER BY id",

@@ -276,8 +276,10 @@ async function renderPredictions() {
 
   for (const button of planButtons) {
     const override = oddsTotals[button.dataset.tier];
-    const total = override ? Number(override) : totalOdds(matches.filter((match) => match.tier === button.dataset.tier));
+    const tierMatches = matches.filter((match) => match.tier === button.dataset.tier);
+    const total = override ? Number(override) : totalOdds(tierMatches);
     button.dataset.totalOdds = total ? total.toFixed(2) : "";
+    button.dataset.needsRepurchase = String(tierMatches.some((match) => match.locked) && coversTier(button.dataset.tier));
   }
   showOwnedBookingCodes();
   markFullPlans();
@@ -381,24 +383,26 @@ function slotForButton(button) {
   return planForButton(button);
 }
 
-// A paid member sees the day's SportyBet code where Buy Plan used to be.
+// Active members can buy again if a newly posted game is still locked.
 async function showOwnedBookingCodes() {
   const request = ++codeRequest;
   const owned = [...planButtons].filter((button) => coversTier(button.dataset.tier));
   for (const button of planButtons) {
     const slot = document.querySelector(`#${button.dataset.tier}-code`);
     const ownedTier = coversTier(button.dataset.tier);
-    button.hidden = ownedTier;
-    if (!ownedTier && slot) {
+    const needsRepurchase = button.dataset.needsRepurchase === "true";
+    button.hidden = ownedTier && !needsRepurchase;
+    if ((!ownedTier || needsRepurchase) && slot) {
       slot.hidden = true;
     }
   }
-  if (!owned.length) {
+  const codeEligible = owned.filter((button) => button.dataset.needsRepurchase !== "true");
+  if (!codeEligible.length) {
     return;
   }
 
   const dayName = DAY_NAMES[selectedOffset] ?? shortDayLabel(selectedOffset);
-  await Promise.all(owned.map(async (button) => {
+  await Promise.all(codeEligible.map(async (button) => {
     let code = "";
     let failed = false;
     try {
@@ -1011,7 +1015,7 @@ for (const button of document.querySelectorAll(".plan-button[data-tier]")) {
     if (!await loadCurrentUser()) {
       return;
     }
-    if (coversTier(button.dataset.tier)) {
+    if (coversTier(button.dataset.tier) && button.dataset.needsRepurchase !== "true") {
       showOwnedBookingCodes();
       return;
     }
@@ -1210,7 +1214,9 @@ function markFullPlans() {
       ? ""
       : button.dataset.totalOdds ? ` (total odds ${button.dataset.totalOdds})` : " (total odds)";
     button.disabled = full;
-    const label = button.dataset.tier === "weekly" ? "Tap to subscribe" : "BUY PLAN";
+    const label = button.dataset.needsRepurchase === "true"
+      ? "BUY AGAIN"
+      : button.dataset.tier === "weekly" ? "Tap to subscribe" : "BUY PLAN";
     button.textContent = `${full ? "SLOTS FULL" : label}${total}`;
   }
 }

@@ -153,14 +153,16 @@ test("returning to the tab or restoring a page refreshes membership", async () =
   assert.equal(page.context.currentUser.plan, "free");
 });
 
-test("Buy Plan rechecks approval before checkout and shows the owned booking code instead", async () => {
+test("Buy Plan allows repurchase when a new game remains locked", async () => {
   const page = memberPage();
   await page.context.loadCurrentUser();
   page.setUser({ id: 1, plan: "boom", country: "ghana" });
+  const boomButton = page.context.document.querySelectorAll()[2];
+  boomButton.dataset.needsRepurchase = "true";
   await page.clicks.get("boom")();
-  assert.equal(page.context.location.href, "");
+  assert.equal(page.context.location.href, "pay.html?plan=boom");
   assert.equal(page.context.currentUser.plan, "boom");
-  assert.equal(page.codesShown(), 1);
+  assert.equal(page.codesShown(), 0);
 });
 
 for (const plan of ["vip", "vvip", "boom"]) {
