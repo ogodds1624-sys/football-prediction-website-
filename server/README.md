@@ -17,6 +17,16 @@ Weekly subscription preserves separately purchased daily access.
 Weekly purchases do not qualify for daily VIP/VVIP recovery tickets, but separately
 purchased daily plans do. Admin same-day daily activation retains its existing
 end-of-day UTC expiry while preserving Weekly.
+Active Weekly subscriptions include Weekly games posted after payment, without
+requiring another purchase during the paid period.
+Deployment runs a one-time repair for all non-blocked accounts with remaining
+Weekly time evidenced by confirmed manual or successful online payments, even
+if their account is now labelled Free or a daily plan. The repair replays each
+approval in order: seven days from approval or the preceding paid expiry,
+whichever is later. It preserves longer stored Weekly expiries and daily access.
+Pending, rejected, failed and genuinely expired payments grant no access.
+Signed-in access checks use the same repair; they never start seven new days
+from the time of repair.
 Deployment restores still-valid daily approvals made after a recorded Weekly
 purchase, using the latest daily approval plus 24 hours. It does not approve
 pending receipts, revive expired payments, or extend Weekly.

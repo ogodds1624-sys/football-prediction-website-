@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { config } from "./config.js";
-import { execute, one } from "./db.js";
-import { activeAccess } from "./access.js";
+import { execute, one, transaction } from "./db.js";
+import { activeAccess, restorePaidWeeklyAccess } from "./access.js";
 
 const scrypt = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
@@ -144,6 +144,10 @@ export async function markSeen(user) {
 }
 
 async function restoreWeeklyExpiry(user) {
+  const restored = await transaction((tx) => restorePaidWeeklyAccess(tx, user.id));
+  if (restored) {
+    Object.assign(user, await findUserById(user.id));
+  }
   if (user.plan !== "weekly") {
     return;
   }

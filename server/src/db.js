@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
-import { restoreWeeklyDailyAccess } from "./access.js";
+import { restorePaidWeeklyAccess, restoreWeeklyDailyAccess } from "./access.js";
 
 // One small async interface over two backends:
 //   - Turso (libsql://...) in production on Vercel, via the pure-JS web client
@@ -478,6 +478,13 @@ async function migrate() {
     user_id INTEGER NOT NULL REFERENCES users(id),
     PRIMARY KEY (token_hash, user_id)
   )`, []);
+  await backend.transaction(async (tx) => {
+    const { rows } = await tx.execute("SELECT key FROM settings WHERE key = 'paid_weekly_access_restored_v1'", []);
+    if (!rows.length) {
+      await restorePaidWeeklyAccess(tx);
+      await tx.execute("INSERT INTO settings (key, value) VALUES ('paid_weekly_access_restored_v1', 'true')", []);
+    }
+  });
 }
 
 async function allowWeeklyPlan() {

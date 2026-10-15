@@ -94,7 +94,7 @@ export async function matchesForDate(date) {
 export function publicMatch(match, unlocked) {
   const purchasePlan = match.tier === "vip" || match.tier === "boom" ? "vip" : match.tier;
   const approvedAt = unlocked.purchaseTimes?.get(purchasePlan);
-  const wasAvailableAtPurchase = !approvedAt || !match.created_at || match.created_at <= approvedAt;
+  const wasAvailableAtPurchase = match.tier === "weekly" || !approvedAt || !match.created_at || match.created_at <= approvedAt;
   const open = unlocked.has(match.tier) && wasAvailableAtPurchase;
   return {
     tier: match.tier,

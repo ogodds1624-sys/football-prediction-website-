@@ -77,3 +77,49 @@ test("weekly migration preserves populated legacy tables, indexes, references an
     fs.rmdirSync(directory);
   }
 });
+
+test("server startup persists the bulk Weekly repair once across restarts", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "weekly-repair-"));
+  const file = path.join(directory, "repair.db");
+  const env = {
+    ...process.env,
+    TURSO_DATABASE_URL: "",
+    VERCEL: "",
+    DATABASE_FILE: file,
+    SESSION_SECRET: "weekly-repair-test-secret-at-least-32-chars",
+  };
+  const migrate = () => {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e",
+      `import { dbReady } from ${JSON.stringify(new URL("../src/db.js", import.meta.url).href)}; await dbReady();`],
+    { env, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+  };
+  let db;
+  try {
+    migrate();
+    db = new DatabaseSync(file);
+    const approvedAt = new Date(Date.now() - 3 * 86400000).toISOString();
+    const expectedExpiry = new Date(Date.parse(approvedAt) + 7 * 86400000).toISOString();
+    db.prepare("INSERT INTO users (id,email,password_hash) VALUES (1,'repair@example.com','hash')").run();
+    db.prepare(`INSERT INTO manual_payments
+      (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,updated_at)
+      VALUES (1,'weekly',10000,'GHS','momo','MTN','number','receipt','confirmed',?)`).run(approvedAt);
+    db.exec("DELETE FROM settings WHERE key = 'paid_weekly_access_restored_v1'");
+    db.close();
+    db = null;
+    migrate();
+    migrate();
+    db = new DatabaseSync(file);
+    const member = db.prepare("SELECT plan,plan_expires_at FROM users WHERE id = 1").get();
+    assert.equal(member.plan, "weekly");
+    assert.equal(member.plan_expires_at, expectedExpiry);
+    assert.equal(db.prepare("SELECT value FROM settings WHERE key = 'paid_weekly_access_restored_v1'").get().value, "true");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM manual_payments").get().count, 1);
+  } finally {
+    db?.close();
+    fs.rmSync(file, { force: true });
+    fs.rmSync(`${file}-wal`, { force: true });
+    fs.rmSync(`${file}-shm`, { force: true });
+    fs.rmdirSync(directory);
+  }
+});
