@@ -1123,6 +1123,7 @@ signInButton.addEventListener("click", () => {
 });
 
 let currentUserRequest = null;
+let accountRefreshFailed = false;
 
 function loadCurrentUser() {
   if (!currentUserRequest) {
@@ -1137,11 +1138,13 @@ async function refreshCurrentUser() {
   if (location.protocol === "file:") {
     return false;
   }
+  let failureMessage = "Can't reach the account server. Check your connection and try again.";
   try {
     const response = await fetch("/api/me", { cache: "no-store" });
+    const body = await response.json();
     if (response.status === 403) {
-      const body = await response.json();
       if (body.code === "ACCOUNT_BLOCKED") {
+        accountRefreshFailed = false;
         showUser(null);
         for (const tier of TIERS) {
           tierBodies[tier.id].replaceChildren(messageRow(body.error));
@@ -1152,15 +1155,21 @@ async function refreshCurrentUser() {
       }
     }
     if (!response.ok) {
-      throw new Error("Couldn't check your account. Refresh the page before buying a plan.");
+      const setupProblems = Array.isArray(body.problems) ? body.problems.join(" ") : "";
+      failureMessage = body.error === "Server setup incomplete."
+        ? `The account service needs server setup before it can connect. ${setupProblems}`.trim()
+        : response.status >= 500
+          ? "The account server is having a problem. Please try again shortly."
+          : body.error || "Couldn't check your account. Please try again before buying a plan.";
+      throw new Error(failureMessage);
     }
-    const body = await response.json();
     if (body.user && !body.user.country) {
       const file = location.pathname.split("/").pop() || "index.html";
       const next = `${file}${location.search}`;
       location.replace(`country.html?next=${encodeURIComponent(next)}`);
       return false;
     }
+    accountRefreshFailed = false;
     showUser(body.user);
     if (!body.user) {
       showVisitorInvite();
@@ -1168,7 +1177,10 @@ async function refreshCurrentUser() {
     return true;
   } catch (error) {
     console.error("Account access refresh failed:", error);
-    popToast("Couldn't refresh your account", "Check your connection and try again before buying a plan.", 5000);
+    if (!accountRefreshFailed) {
+      popToast("Couldn't refresh your account", failureMessage, 5000);
+    }
+    accountRefreshFailed = true;
     return false;
   }
 }
@@ -1189,7 +1201,7 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 window.setInterval(() => {
-  if (currentUser && !document.hidden) {
+  if ((currentUser || accountRefreshFailed) && !document.hidden) {
     loadCurrentUser();
   }
 }, 10000);

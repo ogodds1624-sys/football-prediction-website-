@@ -337,6 +337,7 @@ Then **Deployments → ⋯ → Redeploy**. Variables only apply to new deploymen
 **4. Check it**
 
 - Open `https://<project>.vercel.app/api/payments/options`. It should list your plans and providers. If a setting is missing, it lists exactly which ones instead (the website pages keep working either way).
+- If the homepage says it cannot refresh an account, check `https://<project>.vercel.app/api/me`. A `503` response means Vercel is missing required server settings (the homepage now shows which ones); a browser network error means the request could not reach the deployment.
 - If something fails, open **Deployments → the deployment → Logs**. A missing variable is named in the error, e.g. *"Missing environment variable TURSO_DATABASE_URL"*.
 - Webhook URLs become `https://<project>.vercel.app/api/webhooks/paystack` and `.../flutterwave`.
 

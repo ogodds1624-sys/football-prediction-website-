@@ -79,6 +79,7 @@ function memberPage() {
   let user = { id: 1, name: "Test", plan: "free", country: "ghana" };
   let available = true;
   let blocked = false;
+  let setupIncomplete = false;
   let interval;
   let resolveFetch;
   let paused = false;
@@ -121,8 +122,14 @@ function memberPage() {
       if (paused) {
         await new Promise((resolve) => { resolveFetch = resolve; });
       }
-      return { ok: available && !blocked, status: blocked ? 403 : available ? 200 : 500,
-        json: async () => blocked ? { code: "ACCOUNT_BLOCKED", error: "Your account is blocked." } : { user } };
+      return { ok: available && !blocked, status: blocked ? 403 : available ? 200 : 503,
+        json: async () => blocked
+          ? { code: "ACCOUNT_BLOCKED", error: "Your account is blocked." }
+          : available
+            ? { user }
+            : setupIncomplete
+              ? { error: "Server setup incomplete.", problems: ["Missing environment variable TURSO_DATABASE_URL."] }
+              : { error: "Something went wrong. Please try again." } };
     },
   });
   vm.runInContext(coversSource + refreshSource + clickSource, context);
@@ -130,6 +137,8 @@ function memberPage() {
     context, requests, events, clicks, errors, notices,
     setUser: (value) => { user = value; },
     fail: () => { available = false; },
+    recover: () => { available = true; },
+    setupIncomplete: () => { available = false; setupIncomplete = true; },
     block: () => { blocked = true; },
     tick: () => interval(),
     pause: () => { paused = true; },
@@ -137,6 +146,26 @@ function memberPage() {
     codesShown: () => codesShown,
   };
 }
+
+test("account checks distinguish server setup failures from network issues", async () => {
+  const page = memberPage();
+  page.setupIncomplete();
+  assert.equal(await page.context.loadCurrentUser(), false);
+  assert.match(page.notices[0][1], /Missing environment variable TURSO_DATABASE_URL/);
+});
+
+test("a failed visitor account check retries automatically and recovers", async () => {
+  const page = memberPage();
+  page.fail();
+  assert.equal(await page.context.loadCurrentUser(), false);
+  assert.equal(page.notices.length, 1);
+
+  page.recover();
+  page.tick();
+  await page.context.loadCurrentUser();
+  assert.equal(page.context.currentUser.plan, "free");
+  assert.equal(page.notices.length, 1);
+});
 
 test("an open Free member page refreshes to Boom after approval and bypasses cached account data", async () => {
   const page = memberPage();
