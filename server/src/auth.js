@@ -10,6 +10,7 @@ const SESSION_COOKIE = "session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const DEVICE_COOKIE = "member_device";
 const DEVICE_MS = 365 * 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function rememberDevice(req, res, userId) {
   let token = readCookie(req, DEVICE_COOKIE);
@@ -142,6 +143,47 @@ export async function markSeen(user) {
   await execute("UPDATE users SET last_seen_at = ? WHERE id = ?", [user.last_seen_at, user.id]);
 }
 
+async function restoreWeeklyExpiry(user) {
+  if (user.plan !== "weekly") {
+    return;
+  }
+  const approval = await one(
+    `SELECT MAX(approved_at) AS approved_at FROM (
+       SELECT updated_at AS approved_at FROM manual_payments
+       WHERE user_id = ? AND plan = 'weekly' AND status = 'confirmed'
+       UNION ALL
+       SELECT paid_at AS approved_at FROM payments
+       WHERE user_id = ? AND plan = 'weekly' AND status = 'success'
+       UNION ALL
+       SELECT created_at AS approved_at FROM purchases
+       WHERE user_id = ? AND plan = 'weekly' AND date = substr(created_at, 1, 10)
+     )`,
+    [user.id, user.id, user.id],
+  );
+  const approvedAt = Date.parse(approval?.approved_at || "");
+  if (!Number.isFinite(approvedAt)) {
+    return;
+  }
+  const minimumExpiry = new Date(approvedAt + WEEK_MS).toISOString();
+  if (Date.parse(user.plan_expires_at || "") >= Date.parse(minimumExpiry)) {
+    return;
+  }
+
+  const updated = await execute(
+    `UPDATE users SET plan_expires_at = ?
+     WHERE id = ? AND plan = 'weekly' AND COALESCE(plan_expires_at, '') = COALESCE(?, '')`,
+    [minimumExpiry, user.id, user.plan_expires_at],
+  );
+  if (updated.rowsAffected) {
+    user.plan_expires_at = minimumExpiry;
+    return;
+  }
+  const latest = await findUserById(user.id);
+  if (latest) {
+    user.plan_expires_at = latest.plan_expires_at;
+  }
+}
+
 // Attaches req.user (or null) to every request, and notes the member's visit.
 export async function loadUser(req, res, next) {
   const session = memberSession(req);
@@ -158,6 +200,7 @@ export async function loadUser(req, res, next) {
   req.blockedUser = Boolean(user?.blocked_at || blockedDevice);
   req.user = user && !req.blockedUser && user.session_version === session.version ? user : null;
   if (req.user) {
+    await restoreWeeklyExpiry(req.user);
     await markSeen(req.user);
   }
   next();

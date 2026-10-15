@@ -284,12 +284,16 @@ describe("user management", () => {
     const admin = await adminCookie();
     const { execute, one } = await import("../src/db.js");
     const { FULL_ACCESS_EMAIL } = await import("../src/auth.js");
-    const expiry = new Date(Date.now() + 7 * 86400000).toISOString();
+    const approvedAt = new Date().toISOString();
+    const expiry = new Date(Date.parse(approvedAt) + 7 * 86400000).toISOString();
     await execute("UPDATE users SET plan = 'weekly', plan_expires_at = ?, vip_access_until = ? WHERE id = ?", [expiry, expiry, user.id]);
-    await execute("INSERT INTO purchases (user_id,plan,date,source) VALUES (?,'weekly','2026-10-11','test')", [user.id]);
+    await execute(
+      "INSERT INTO purchases (user_id,plan,date,source,created_at) VALUES (?,'weekly',?,'test',?)",
+      [user.id, approvedAt.slice(0, 10), approvedAt],
+    );
     await execute(`INSERT INTO manual_payments
-      (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status)
-      VALUES (?,'weekly',10000,'GHS','momo','MTN','0240000000','test','confirmed')`, [user.id]);
+      (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,updated_at)
+      VALUES (?,'weekly',10000,'GHS','momo','MTN','0240000000','test','confirmed',?)`, [user.id, approvedAt]);
     const userBefore = await one("SELECT plan,plan_expires_at,vip_access_until FROM users WHERE id = ?", [user.id]);
     const receiptBefore = await one("SELECT * FROM manual_payments WHERE user_id = ?", [user.id]);
     const block = () => api(`/api/admin/users/${user.id}/block`, { method: "POST", cookie: admin, body: { blocked: true } });
@@ -448,16 +452,49 @@ describe("weekly rollover", () => {
     }
     const renewed = await pay(cookie, "weekly");
     assert.equal(Date.parse(renewed.planExpiresAt), expiry + 7 * DAY);
-    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), user.id]);
+    const oldApproval = new Date(Date.now() - 8 * DAY).toISOString();
+    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [
+      new Date(Date.parse(oldApproval) + 7 * DAY).toISOString(), user.id,
+    ]);
+    await execute("UPDATE payments SET paid_at = ? WHERE user_id = ? AND plan = 'weekly'", [oldApproval, user.id]);
+    await execute("UPDATE purchases SET date = ?, created_at = ? WHERE user_id = ? AND plan = 'weekly'", [
+      oldApproval.slice(0, 10), oldApproval, user.id,
+    ]);
     const dailyOnly = (await api("/api/me", { cookie })).data.user;
     assert.equal(dailyOnly.plans.some((entry) => entry.plan === "weekly"), false);
     assert.equal(dailyOnly.plans.length, 3);
     const restarted = await pay(cookie, "weekly");
     assert.deepEqual(restarted.plans.map((entry) => entry.plan), ["weekly"], "a new Weekly plan replaces daily access");
-    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [new Date(Date.now() - 1000).toISOString(), user.id]);
+    const expiredApproval = new Date(Date.now() - 8 * DAY).toISOString();
+    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [
+      new Date(Date.parse(expiredApproval) + 7 * DAY).toISOString(), user.id,
+    ]);
+    await execute("UPDATE payments SET paid_at = ? WHERE user_id = ? AND plan = 'weekly'", [expiredApproval, user.id]);
+    await execute("UPDATE purchases SET date = ?, created_at = ? WHERE user_id = ? AND plan = 'weekly'", [
+      expiredApproval.slice(0, 10), expiredApproval, user.id,
+    ]);
     await execute("UPDATE users SET vip_access_until = NULL, vvip_access_until = NULL, boom_access_until = NULL WHERE id = ?", [user.id]);
     assert.equal((await api("/api/me", { cookie })).data.user.plan, "free");
     assert.equal((await pay(cookie, "vip")).plan, "vip");
+  });
+
+  test("restores a shortened Weekly expiry to seven days after the latest approval", async () => {
+    const { cookie, user } = await newUser();
+    const reference = await startCheckout(cookie, "paystack", "weekly");
+    providerRecords.set(reference, { status: "success", amount: PLANS.weekly.amount, currency: "GHS" });
+    await api(`/api/payments/${reference}`, { cookie });
+
+    const { execute, one } = await import("../src/db.js");
+    const payment = await one("SELECT paid_at FROM payments WHERE reference = ?", [reference]);
+    const expectedExpiry = new Date(Date.parse(payment.paid_at) + 7 * DAY).toISOString();
+    await execute("UPDATE users SET plan_expires_at = ? WHERE id = ?", [
+      new Date(Date.parse(payment.paid_at) + 2 * DAY).toISOString(), user.id,
+    ]);
+
+    const refreshed = await api("/api/me", { cookie });
+    assert.equal(refreshed.data.user.plan, "weekly");
+    assert.ok(Date.parse(refreshed.data.user.planExpiresAt) >= Date.parse(expectedExpiry));
+    assert.ok(Date.parse(refreshed.data.user.planExpiresAt) - Date.parse(expectedExpiry) < 5000);
   });
 
   test("admin daily activation does not extend weekly access near expiry", async () => {
@@ -1666,12 +1703,16 @@ describe("manual plan payment", () => {
     });
     const buyer = await newUser();
     const yesterday = new Date(Date.now() - 86400000).toISOString();
+    const previousApproval = planId === "weekly"
+      ? new Date(Date.parse(yesterday) - 7 * 86400000).toISOString()
+      : yesterday;
     await execute("UPDATE users SET plan = ?, slot_plan = ?, plan_expires_at = ? WHERE id = ?",
       [planId === "boom" ? "vip" : planId, planId, yesterday, buyer.user.id]);
     await execute(
-      `INSERT INTO manual_payments (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,created_at)
-       VALUES (?,?,?,'GHS','momo','MTN','0240000000',?,'confirmed',?)`,
-      [buyer.user.id, planId, PLANS[planId].amount, receipt, yesterday],
+      `INSERT INTO manual_payments
+       (user_id,plan,amount,currency,method_id,network,account_number,receipt_data,status,created_at,updated_at)
+       VALUES (?,?,?,'GHS','momo','MTN','0240000000',?,'confirmed',?,?)`,
+      [buyer.user.id, planId, PLANS[planId].amount, receipt, previousApproval, previousApproval],
     );
     const added = await api("/api/admin/matches", {
       method: "POST", cookie: admin,
