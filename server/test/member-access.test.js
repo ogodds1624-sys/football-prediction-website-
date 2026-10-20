@@ -12,6 +12,66 @@ const clickSource = source.slice(
 );
 const coversSource = source.slice(source.indexOf("function coversTier("), source.indexOf("function planForButton("));
 
+test("table arrangement handles zero through five visible sections for visitors and members", () => {
+  const tiers = ["free", "vip", "boom", "vvip", "weekly"];
+  for (const signedIn of [false, true]) {
+    for (let count = 0; count <= tiers.length; count += 1) {
+      const nodes = [];
+      const node = (id, hidden = false) => ({
+        id, hidden,
+        after(next) {
+          const index = nodes.indexOf(next);
+          if (index !== -1) {
+            nodes.splice(index, 1);
+          }
+          nodes.splice(nodes.indexOf(this) + 1, 0, next);
+        },
+      });
+      const leadDivider = node("lead");
+      const tableSections = Object.fromEntries(tiers.map((tier, index) => [tier, node(tier, index >= count)]));
+      const tableDividers = Array.from({ length: 4 }, (_, index) => node(`divider-${index}`));
+      nodes.push(leadDivider, ...Object.values(tableSections), ...tableDividers);
+      const context = vm.createContext({ tableSections, tableDividers, leadDivider });
+      vm.runInContext(source.slice(source.indexOf("function arrangeTables("), source.indexOf("function showPlanTables(")), context);
+      assert.doesNotThrow(() => context.arrangeTables(signedIn), `visible=${count}, signedIn=${signedIn}`);
+      assert.equal(tableDividers.filter((divider) => !divider.hidden).length, Math.max(0, count - 1));
+      const order = signedIn ? ["vip", "boom", "vvip", "weekly", "free"] : tiers;
+      assert.deepEqual(nodes.filter((entry) => !entry.hidden && tiers.includes(entry.id)).map((entry) => entry.id),
+        order.filter((tier) => !tableSections[tier].hidden));
+      assert.equal(new Set(nodes).size, 10);
+    }
+  }
+});
+
+test("a successful account refresh before predictions load does not show a connection error", async () => {
+  for (const user of [null, { id: 1, name: "Test", plan: "weekly", country: "ghana" }]) {
+    const page = memberPage();
+    page.setUser(user);
+    const nodes = new Map();
+    const node = () => ({
+      hidden: true, after() {}, classList: { toggle() {} }, dataset: {},
+      previousElementSibling: { hidden: false, after() {} },
+    });
+    for (const id of ["free", "vip", "boom", "vvip", "weekly", "user-avatar", "user-name", "user-plan"]) {
+      nodes.set(`#${id}`, node());
+    }
+    nodes.set(".day-switcher", node());
+    page.context.document.querySelector = (selector) => nodes.get(selector);
+    page.context.document.querySelectorAll = () => [];
+    page.context.signInButton = node();
+    page.context.footerSignIn = node();
+    page.context.userLabel = node();
+    page.context.renderPredictions = () => {};
+    page.context.showWelcome = () => {};
+    page.context.initials = () => "T";
+    vm.runInContext(source.slice(source.indexOf("const tableSections ="), source.indexOf('// "Kwame Mensah"')), page.context);
+    assert.equal(await page.context.loadCurrentUser(), true);
+    assert.equal(page.errors.length, 0);
+    assert.equal(page.notices.length, 0);
+    assert.equal(page.context.signInButton.textContent, user ? "Sign out" : "Sign in");
+  }
+});
+
 test("section WON badges require every game won and clear on day changes or loading errors", async () => {
   const tiers = ["free", "vip", "boom", "vvip", "weekly"];
   const statuses = Object.fromEntries(tiers.map((tier) => [tier, { hidden: true }]));

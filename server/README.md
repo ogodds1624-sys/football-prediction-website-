@@ -120,6 +120,9 @@ refreshes signed-in access every ten seconds, when returning to the tab, and
 before opening checkout. Approved members see their owned table's booking code
 instead of another Buy Plan prompt; a failed refresh does not downgrade their
 displayed plan or open checkout.
+The homepage also handles account responses arriving before predictions load,
+and days with no visible prediction sections, without a layout exception or a
+false account-connection warning.
 Paid members' predictions and booking codes also refresh with the access check,
 even when the plan label has not changed. This replaces stale locked responses
 after renewals and retries a temporary prediction-loading failure.

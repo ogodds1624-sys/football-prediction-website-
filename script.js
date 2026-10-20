@@ -56,7 +56,7 @@ function arrangeTables(signedIn) {
     previous.after(tableSections[id]);
     previous = tableSections[id];
   });
-  for (let index = visibleOrder.length - 1; index < tableDividers.length; index += 1) {
+  for (let index = Math.max(0, visibleOrder.length - 1); index < tableDividers.length; index += 1) {
     const divider = tableDividers[index];
     divider.hidden = true;
     previous.after(divider);
