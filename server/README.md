@@ -1,5 +1,8 @@
 # Football Predictions – payments server
 
+Footer social icons are display-only and do not navigate when tapped.
+The support chat, automated replies and footer support prompts remain active.
+
 Accounts plus VIP/VVIP payments through **Paystack** and **Flutterwave**.
 **WEEKLY ROLLOVER** is a separate paid prediction table with seven-day access.
 Its initial Ghana price is GHS 100; base and country-specific prices and slot
